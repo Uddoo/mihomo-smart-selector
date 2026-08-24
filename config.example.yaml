@@ -5,6 +5,7 @@ http:
   listen: 127.0.0.1:8788
   api_token: ""
   # api_token_env: MSS_API_TOKEN
+  # allow_unauthenticated_lan: false
   allowed_cidrs: []
 
 mihomo:

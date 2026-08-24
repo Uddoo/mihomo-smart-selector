@@ -310,6 +310,10 @@ func (s *Server) authorize(next http.Handler) http.Handler {
 			writeError(writer, http.StatusForbidden, "source address is not permitted")
 			return
 		}
+		if s.config.AllowUnauthenticatedLAN {
+			next.ServeHTTP(writer, request)
+			return
+		}
 		const prefix = "Bearer "
 		token := strings.TrimPrefix(request.Header.Get("Authorization"), prefix)
 		if token == request.Header.Get("Authorization") ||

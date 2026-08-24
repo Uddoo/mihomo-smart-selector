@@ -1,10 +1,10 @@
 # Router target configuration. Keep this file mode 0600 after installation.
 # The init script supplies MIHOMO_SECRET from /etc/openclash/dukou.yaml.
 http:
-  # LAN access is protected by both this allow-list and a token supplied by
-  # procd from /etc/mihomo-smart-selector/access-token.
+  # No-password mode: every device in the trusted CIDR can use the UI.
+  # Set this to false to restore the token requirement.
   listen: 0.0.0.0:8788
-  api_token_env: MSS_API_TOKEN
+  allow_unauthenticated_lan: true
   allowed_cidrs: ["192.168.50.0/24"]
 mihomo:
   controller: http://127.0.0.1:9090

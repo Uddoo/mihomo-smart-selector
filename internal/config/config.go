@@ -24,10 +24,11 @@ type Config struct {
 }
 
 type HTTPConfig struct {
-	Listen       string   `yaml:"listen"`
-	APIToken     string   `yaml:"api_token"`
-	APITokenEnv  string   `yaml:"api_token_env"`
-	AllowedCIDRs []string `yaml:"allowed_cidrs"`
+	Listen                  string   `yaml:"listen"`
+	APIToken                string   `yaml:"api_token"`
+	APITokenEnv             string   `yaml:"api_token_env"`
+	AllowUnauthenticatedLAN bool     `yaml:"allow_unauthenticated_lan"`
+	AllowedCIDRs            []string `yaml:"allowed_cidrs"`
 }
 
 type MihomoConfig struct {
@@ -132,7 +133,7 @@ func (c Config) Validate() error {
 	if ip, parseErr := netip.ParseAddr(host); parseErr == nil {
 		loopback = ip.IsLoopback()
 	}
-	if !loopback && strings.TrimSpace(c.HTTP.APIToken) == "" {
+	if !loopback && !c.HTTP.AllowUnauthenticatedLAN && strings.TrimSpace(c.HTTP.APIToken) == "" {
 		return fmt.Errorf("http.api_token is required when http.listen is not loopback")
 	}
 	if !loopback && len(c.HTTP.AllowedCIDRs) == 0 {

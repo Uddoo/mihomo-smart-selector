@@ -84,3 +84,32 @@ func TestExposedServerRequiresCIDRAndBearerToken(t *testing.T) {
 		t.Fatalf("loopback with token = %d", response.Code)
 	}
 }
+
+func TestExposedServerAllowsOnlyConfiguredLANWhenPasswordIsDisabled(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.HTTP = config.HTTPConfig{Listen: "0.0.0.0:8788", AllowUnauthenticatedLAN: true, AllowedCIDRs: []string{"192.0.2.0/24"}}
+	store, err := history.Open(filepath.Join(t.TempDir(), "selector.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	manager := scan.NewManager(cfg, testController{}, store)
+	server, err := New(cfg.HTTP, manager, testController{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	allowed := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+	allowed.RemoteAddr = "192.0.2.8:1234"
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, allowed)
+	if response.Code != http.StatusOK {
+		t.Fatalf("allowed LAN status = %d", response.Code)
+	}
+	blocked := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+	blocked.RemoteAddr = "198.51.100.8:1234"
+	response = httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, blocked)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("non-LAN status = %d", response.Code)
+	}
+}
