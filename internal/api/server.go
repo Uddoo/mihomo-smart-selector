@@ -72,10 +72,14 @@ func (s *Server) route(writer http.ResponseWriter, request *http.Request) {
 		s.providers(writer, request)
 	case request.URL.Path == "/api/v1/regions" && request.Method == http.MethodGet:
 		writeJSON(writer, http.StatusOK, s.manager.Regions())
+	case request.URL.Path == "/api/v1/nodes" && request.Method == http.MethodGet:
+		s.nodes(writer, request)
 	case request.URL.Path == "/api/v1/history" && request.Method == http.MethodGet:
 		s.history(writer, request)
 	case request.URL.Path == "/api/v1/scans" && request.Method == http.MethodPost:
 		s.createScan(writer, request)
+	case request.URL.Path == "/api/v1/scans/preflight" && request.Method == http.MethodPost:
+		s.preflightScan(writer, request)
 	case strings.HasPrefix(request.URL.Path, "/api/v1/scans/"):
 		s.scanRoute(writer, request)
 	case strings.HasPrefix(request.URL.Path, "/api/"):
@@ -116,6 +120,15 @@ func (s *Server) providers(writer http.ResponseWriter, request *http.Request) {
 	writeJSON(writer, http.StatusOK, providers)
 }
 
+func (s *Server) nodes(writer http.ResponseWriter, request *http.Request) {
+	nodes, err := s.manager.Nodes(request.Context())
+	if err != nil {
+		writeError(writer, http.StatusBadGateway, "could not list Mihomo nodes")
+		return
+	}
+	writeJSON(writer, http.StatusOK, nodes)
+}
+
 func (s *Server) history(writer http.ResponseWriter, request *http.Request) {
 	limit := 20
 	if value := request.URL.Query().Get("limit"); value != "" {
@@ -145,6 +158,19 @@ func (s *Server) createScan(writer http.ResponseWriter, request *http.Request) {
 	writeJSON(writer, http.StatusAccepted, scan)
 }
 
+func (s *Server) preflightScan(writer http.ResponseWriter, request *http.Request) {
+	var payload model.ScanRequest
+	if !decodeJSON(writer, request, &payload) {
+		return
+	}
+	preview, err := s.manager.Preflight(request.Context(), payload)
+	if err != nil {
+		writeError(writer, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(writer, http.StatusOK, preview)
+}
+
 func (s *Server) scanRoute(writer http.ResponseWriter, request *http.Request) {
 	rest := strings.TrimPrefix(request.URL.Path, "/api/v1/scans/")
 	parts := strings.Split(rest, "/")
@@ -158,6 +184,10 @@ func (s *Server) scanRoute(writer http.ResponseWriter, request *http.Request) {
 	}
 	if len(parts) == 2 && parts[1] == "select" && request.Method == http.MethodPost {
 		s.selectNode(writer, request, parts[0])
+		return
+	}
+	if len(parts) == 2 && parts[1] == "stop" && request.Method == http.MethodPost {
+		s.stopScan(writer, request, parts[0])
 		return
 	}
 	writeError(writer, http.StatusNotFound, "scan route not found")
@@ -185,6 +215,21 @@ func (s *Server) selectNode(writer http.ResponseWriter, request *http.Request, i
 		return
 	}
 	writeJSON(writer, http.StatusOK, event)
+}
+
+func (s *Server) stopScan(writer http.ResponseWriter, request *http.Request, id string) {
+	var payload struct {
+		AfterCurrentBatch bool `json:"after_current_batch"`
+	}
+	if !decodeJSON(writer, request, &payload) {
+		return
+	}
+	progress, err := s.manager.Stop(id, payload.AfterCurrentBatch)
+	if err != nil {
+		writeError(writer, http.StatusConflict, err.Error())
+		return
+	}
+	writeJSON(writer, http.StatusAccepted, map[string]any{"progress": progress})
 }
 
 func (s *Server) events(writer http.ResponseWriter, request *http.Request, id string) {

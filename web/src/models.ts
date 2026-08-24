@@ -14,6 +14,7 @@ export interface Group {
 
 export interface Provider {
   name: string
+  proxies?: Array<{ name: string; type?: string; 'provider-name'?: string }>
 }
 
 export interface Region {
@@ -46,7 +47,7 @@ export interface NodeResult {
 
 export interface Scan {
   id: string
-  status: 'running' | 'complete' | 'failed'
+  status: 'running' | 'complete' | 'failed' | 'cancelled'
   request: {
     target_group: string
     regions: string[]
@@ -67,6 +68,27 @@ export interface ScanProgress {
   total_batches: number
   batch_completed: number
   batch_total: number
+  succeeded: number
+  failed: number
+  elapsed_seconds: number
+  estimated_remaining_seconds: number
+  stop_after_current_batch: boolean
+}
+
+export interface ScanPreview {
+  candidate_count: number
+  batch_size: number
+  batch_count: number
+  samples_per_node: number
+  probe_requests: number
+}
+
+export interface NodeSummary {
+  name: string
+  provider?: string
+  protocol?: string
+  inferred_region?: string
+  region_source: string
 }
 
 export interface SwitchEvent {

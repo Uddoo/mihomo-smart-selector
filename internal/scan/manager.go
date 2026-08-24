@@ -21,6 +21,8 @@ import (
 	"github.com/yw-li/mihomo-smart-selector/internal/regions"
 )
 
+var errScanStopped = fmt.Errorf("scan stopped by operator")
+
 type Event struct {
 	Kind     string              `json:"kind"`
 	Message  string              `json:"message"`
@@ -41,40 +43,73 @@ type Manager struct {
 	classifier *regions.Classifier
 	store      *history.Store
 
-	mu          sync.Mutex
-	active      map[string]*model.Scan
-	subscribers map[string]map[chan Event]struct{}
+	mu             sync.Mutex
+	active         map[string]*model.Scan
+	cancels        map[string]context.CancelFunc
+	stopAfterBatch map[string]bool
+	subscribers    map[string]map[chan Event]struct{}
 }
 
 func NewManager(cfg config.Config, client mihomo.Client, store *history.Store) *Manager {
 	return &Manager{
 		cfg: cfg, client: client, store: store, classifier: regions.New(cfg),
-		active: map[string]*model.Scan{}, subscribers: map[string]map[chan Event]struct{}{},
+		active: map[string]*model.Scan{}, cancels: map[string]context.CancelFunc{}, stopAfterBatch: map[string]bool{}, subscribers: map[string]map[chan Event]struct{}{},
 	}
 }
 
 func (m *Manager) Start(request model.ScanRequest) (model.Scan, error) {
-	request.TargetGroup = strings.TrimSpace(request.TargetGroup)
-	if request.TargetGroup == "" {
-		return model.Scan{}, fmt.Errorf("target_group is required")
+	var err error
+	request, err = normaliseRequest(request)
+	if err != nil {
+		return model.Scan{}, err
 	}
-	if request.Mode == "" {
-		request.Mode = "stable"
-	}
-	if request.Mode != "stable" && request.Mode != "quick" {
-		return model.Scan{}, fmt.Errorf("mode must be stable or quick")
-	}
-	request.Regions = normaliseCodes(request.Regions)
-	request.Providers = normaliseStrings(request.Providers)
 	now := time.Now().UTC()
 	scan := model.Scan{ID: newID(), Status: model.ScanRunning, Request: request, StartedAt: now}
 	if err := m.store.CreateScan(context.Background(), scan); err != nil {
 		return model.Scan{}, err
 	}
-	m.setActive(scan)
+	ctx, cancel := context.WithCancel(context.Background())
+	m.setActiveWithCancel(scan, cancel)
 	m.publish(scan.ID, Event{Kind: "started", Message: "scan queued", At: now})
-	go m.run(scan)
+	go m.run(ctx, scan)
 	return scan, nil
+}
+
+func (m *Manager) Preflight(ctx context.Context, request model.ScanRequest) (model.ScanPreview, error) {
+	request, err := normaliseRequest(request)
+	if err != nil {
+		return model.ScanPreview{}, err
+	}
+	candidates, err := m.discoverCandidates(ctx, request)
+	if err != nil {
+		return model.ScanPreview{}, err
+	}
+	if len(candidates) > m.cfg.Scanner.MaxTotalCandidates {
+		return model.ScanPreview{}, fmt.Errorf("%d candidates exceed scanner.max_total_candidates (%d); narrow regions or providers", len(candidates), m.cfg.Scanner.MaxTotalCandidates)
+	}
+	samples := m.cfg.Scanner.Samples
+	if request.Mode == "quick" {
+		samples = 1
+	}
+	return model.ScanPreview{CandidateCount: len(candidates), BatchSize: m.cfg.Scanner.BatchSize, BatchCount: (len(candidates) + m.cfg.Scanner.BatchSize - 1) / m.cfg.Scanner.BatchSize, SamplesPerNode: samples, ProbeRequests: len(candidates) * len(m.cfg.Scanner.Probes) * samples}, nil
+}
+
+func (m *Manager) Stop(scanID string, afterCurrentBatch bool) (model.ScanProgress, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	active, exists := m.active[scanID]
+	if !exists || active.Status != model.ScanRunning {
+		return model.ScanProgress{}, fmt.Errorf("scan %q is not running", scanID)
+	}
+	if afterCurrentBatch {
+		m.stopAfterBatch[scanID] = true
+		active.Progress.StopAfterCurrentBatch = true
+		return active.Progress, nil
+	}
+	if cancel := m.cancels[scanID]; cancel != nil {
+		cancel()
+	}
+	return active.Progress, nil
 }
 
 func (m *Manager) Get(ctx context.Context, id string) (model.Scan, error) {
@@ -114,6 +149,39 @@ func (m *Manager) Providers(ctx context.Context) ([]mihomo.Provider, error) {
 
 func (m *Manager) Regions() []config.Region {
 	return append([]config.Region(nil), m.cfg.Regions...)
+}
+
+func (m *Manager) Nodes(ctx context.Context) ([]model.NodeSummary, error) {
+	proxies, err := m.client.ListProxies(ctx)
+	if err != nil {
+		return nil, err
+	}
+	providers, err := m.client.ListProviders(ctx)
+	if err != nil {
+		return nil, err
+	}
+	nodes := make([]model.NodeSummary, 0)
+	seen := map[string]bool{}
+	for _, provider := range providers {
+		for _, proxy := range provider.Proxies {
+			if proxy.Name == "" || seen[proxy.Name] || isPolicyGroup(proxy.Type) {
+				continue
+			}
+			seen[proxy.Name] = true
+			match := m.classifier.Classify(proxy.Name)
+			nodes = append(nodes, model.NodeSummary{Name: proxy.Name, Provider: provider.Name, Protocol: proxy.Type, InferredRegion: match.Code, RegionSource: match.Source})
+		}
+	}
+	for name, proxy := range proxies {
+		if name == "" || seen[name] || isPolicyGroup(proxy.Type) {
+			continue
+		}
+		seen[name] = true
+		match := m.classifier.Classify(name)
+		nodes = append(nodes, model.NodeSummary{Name: name, Provider: proxy.ProviderName, Protocol: proxy.Type, InferredRegion: match.Code, RegionSource: match.Source})
+	}
+	sort.Slice(nodes, func(left, right int) bool { return nodes[left].Name < nodes[right].Name })
+	return nodes, nil
 }
 
 func (m *Manager) History(ctx context.Context, limit int) ([]model.SwitchEvent, error) {
@@ -197,11 +265,20 @@ func (m *Manager) Subscribe(scanID string) (<-chan Event, func()) {
 	}
 }
 
-func (m *Manager) run(scan model.Scan) {
-	results, err := m.scan(context.Background(), scan)
+func (m *Manager) run(ctx context.Context, scan model.Scan) {
+	results, err := m.scan(ctx, scan)
 	completed := time.Now().UTC()
 	scan.Progress = m.progressSnapshot(scan.ID)
-	if err != nil {
+	if err == errScanStopped || err == context.Canceled {
+		scan.Status = model.ScanCancelled
+		scan.Error = "scan stopped before final ranking"
+		for index := range results {
+			// Partial results have no final score ordering, but they still need a
+			// stable unique storage key when the cancelled scan is persisted.
+			results[index].Rank = index + 1
+		}
+		scan.Results = results
+	} else if err != nil {
 		scan.Status = model.ScanFailed
 		scan.Error = err.Error()
 	} else {
@@ -223,36 +300,13 @@ func (m *Manager) run(scan model.Scan) {
 }
 
 func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult, error) {
+	candidates, err := m.discoverCandidates(ctx, scan.Request)
+	if err != nil {
+		return nil, err
+	}
 	proxies, err := m.client.ListProxies(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("discover proxies: %w", err)
-	}
-	group, exists := proxies[scan.Request.TargetGroup]
-	if !exists || !strings.EqualFold(group.Type, "Selector") {
-		return nil, fmt.Errorf("target group %q is not a Mihomo Selector", scan.Request.TargetGroup)
-	}
-	providerByNode := map[string]string{}
-	providers, providerErr := m.client.ListProviders(ctx)
-	if providerErr == nil {
-		for _, provider := range providers {
-			for _, proxy := range provider.Proxies {
-				providerByNode[proxy.Name] = provider.Name
-				// Some controller builds list provider-owned leaf nodes only under
-				// /providers/proxies, while selector.all still references them by
-				// name. Merge that metadata so those legitimate members remain
-				// scannable; selector membership is revalidated before selection.
-				if _, exists := proxies[proxy.Name]; !exists {
-					proxy.ProviderName = provider.Name
-					proxies[proxy.Name] = proxy
-				}
-			}
-		}
-	} else if len(scan.Request.Providers) > 0 {
-		return nil, fmt.Errorf("discover providers for selected provider filter: %w", providerErr)
-	}
-	candidates := m.filterCandidates(group, proxies, providerByNode, scan.Request)
-	if len(candidates) == 0 {
-		return nil, fmt.Errorf("no selector members matched the requested filters")
+		return nil, fmt.Errorf("discover proxies for egress verification: %w", err)
 	}
 	if len(candidates) > m.cfg.Scanner.MaxTotalCandidates {
 		return nil, fmt.Errorf("%d candidates exceed scanner.max_total_candidates (%d); narrow regions or providers", len(candidates), m.cfg.Scanner.MaxTotalCandidates)
@@ -263,15 +317,23 @@ func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult
 	allResults := make([]model.NodeResult, 0, len(candidates))
 	for batchIndex, start := 1, 0; start < len(candidates); batchIndex, start = batchIndex+1, start+m.cfg.Scanner.BatchSize {
 		end := min(start+m.cfg.Scanner.BatchSize, len(candidates))
-		progress := model.ScanProgress{
-			Completed: m.progressCompleted(scan.ID), Total: len(candidates),
-			CurrentBatch: batchIndex, TotalBatches: totalBatches,
-			BatchTotal: end - start,
-		}
+		progress := m.progressSnapshot(scan.ID)
+		progress.Total = len(candidates)
+		progress.CurrentBatch = batchIndex
+		progress.TotalBatches = totalBatches
+		progress.BatchCompleted = 0
+		progress.BatchTotal = end - start
 		m.setProgress(scan.ID, progress)
 		m.publish(scan.ID, Event{Kind: "batch-started", Message: fmt.Sprintf("batch %d of %d started", batchIndex, totalBatches), At: time.Now().UTC(), Progress: &progress})
 		allResults = append(allResults, m.probeBatch(ctx, scan, candidates[start:end])...)
+		if ctx.Err() != nil {
+			return allResults, ctx.Err()
+		}
+		if m.stopRequested(scan.ID) {
+			return allResults, errScanStopped
+		}
 	}
+
 	if m.cfg.EgressVerification.Enabled {
 		m.verifyEgress(ctx, proxies, allResults, scan.ID)
 		for index := range allResults {
@@ -293,6 +355,57 @@ func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult
 	return allResults, nil
 }
 
+func (m *Manager) discoverCandidates(ctx context.Context, request model.ScanRequest) ([]candidate, error) {
+	proxies, err := m.client.ListProxies(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("discover proxies: %w", err)
+	}
+	group, exists := proxies[request.TargetGroup]
+	if !exists || !strings.EqualFold(group.Type, "Selector") {
+		return nil, fmt.Errorf("target group %q is not a Mihomo Selector", request.TargetGroup)
+	}
+	providerByNode := map[string]string{}
+	providers, providerErr := m.client.ListProviders(ctx)
+	if providerErr == nil {
+		for _, provider := range providers {
+			for _, proxy := range provider.Proxies {
+				providerByNode[proxy.Name] = provider.Name
+				// Some controller builds list provider-owned leaf nodes only under
+				// /providers/proxies, while selector.all still references them by
+				// name. Merge that metadata so those legitimate members remain
+				// scannable; selector membership is revalidated before selection.
+				if _, exists := proxies[proxy.Name]; !exists {
+					proxy.ProviderName = provider.Name
+					proxies[proxy.Name] = proxy
+				}
+			}
+		}
+	} else if len(request.Providers) > 0 {
+		return nil, fmt.Errorf("discover providers for selected provider filter: %w", providerErr)
+	}
+	candidates := m.filterCandidates(group, proxies, providerByNode, request)
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("no selector members matched the requested filters")
+	}
+	return candidates, nil
+}
+
+func normaliseRequest(request model.ScanRequest) (model.ScanRequest, error) {
+	request.TargetGroup = strings.TrimSpace(request.TargetGroup)
+	if request.TargetGroup == "" {
+		return model.ScanRequest{}, fmt.Errorf("target_group is required")
+	}
+	if request.Mode == "" {
+		request.Mode = "stable"
+	}
+	if request.Mode != "stable" && request.Mode != "quick" {
+		return model.ScanRequest{}, fmt.Errorf("mode must be stable or quick")
+	}
+	request.Regions = normaliseCodes(request.Regions)
+	request.Providers = normaliseStrings(request.Providers)
+	return request, nil
+}
+
 func (m *Manager) probeBatch(parent context.Context, scan model.Scan, candidates []candidate) []model.NodeResult {
 	jobs := make(chan candidate)
 	results := make(chan model.NodeResult, len(candidates))
@@ -308,7 +421,12 @@ func (m *Manager) probeBatch(parent context.Context, scan model.Scan, candidates
 	}
 	go func() {
 		for _, item := range candidates {
-			jobs <- item
+			select {
+			case <-parent.Done():
+				close(jobs)
+				return
+			case jobs <- item:
+			}
 		}
 		close(jobs)
 		workers.Wait()
@@ -467,6 +585,16 @@ func (m *Manager) removeActive(scanID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.active, scanID)
+	delete(m.cancels, scanID)
+	delete(m.stopAfterBatch, scanID)
+}
+
+func (m *Manager) setActiveWithCancel(scan model.Scan, cancel context.CancelFunc) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	snapshot := cloneScan(scan)
+	m.active[scan.ID] = &snapshot
+	m.cancels[scan.ID] = cancel
 }
 
 func (m *Manager) setProgress(scanID string, progress model.ScanProgress) {
@@ -497,9 +625,25 @@ func (m *Manager) recordCandidate(scanID string, result model.NodeResult) model.
 		active.Results = append(active.Results, result)
 		active.Progress.Completed++
 		active.Progress.BatchCompleted++
+		if result.SuccessRate > 0 {
+			active.Progress.Succeeded++
+		} else {
+			active.Progress.Failed++
+		}
+		active.Progress.ElapsedSeconds = int(time.Since(active.StartedAt).Seconds())
+		if active.Progress.Completed > 0 {
+			remaining := active.Progress.Total - active.Progress.Completed
+			active.Progress.EstimatedRemainingSeconds = active.Progress.ElapsedSeconds * remaining / active.Progress.Completed
+		}
 		return active.Progress
 	}
 	return model.ScanProgress{}
+}
+
+func (m *Manager) stopRequested(scanID string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.stopAfterBatch[scanID]
 }
 
 func cloneScan(input model.Scan) model.Scan {

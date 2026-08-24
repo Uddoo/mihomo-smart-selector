@@ -5,10 +5,11 @@ import "time"
 type ScanStatus string
 
 const (
-	ScanPending  ScanStatus = "pending"
-	ScanRunning  ScanStatus = "running"
-	ScanComplete ScanStatus = "complete"
-	ScanFailed   ScanStatus = "failed"
+	ScanPending   ScanStatus = "pending"
+	ScanRunning   ScanStatus = "running"
+	ScanComplete  ScanStatus = "complete"
+	ScanCancelled ScanStatus = "cancelled"
+	ScanFailed    ScanStatus = "failed"
 )
 
 type ScanRequest struct {
@@ -18,13 +19,26 @@ type ScanRequest struct {
 	Mode        string   `json:"mode"`
 }
 
+type ScanPreview struct {
+	CandidateCount int `json:"candidate_count"`
+	BatchSize      int `json:"batch_size"`
+	BatchCount     int `json:"batch_count"`
+	SamplesPerNode int `json:"samples_per_node"`
+	ProbeRequests  int `json:"probe_requests"`
+}
+
 type ScanProgress struct {
-	Completed      int `json:"completed"`
-	Total          int `json:"total"`
-	CurrentBatch   int `json:"current_batch"`
-	TotalBatches   int `json:"total_batches"`
-	BatchCompleted int `json:"batch_completed"`
-	BatchTotal     int `json:"batch_total"`
+	Completed                 int  `json:"completed"`
+	Total                     int  `json:"total"`
+	CurrentBatch              int  `json:"current_batch"`
+	TotalBatches              int  `json:"total_batches"`
+	BatchCompleted            int  `json:"batch_completed"`
+	BatchTotal                int  `json:"batch_total"`
+	Succeeded                 int  `json:"succeeded"`
+	Failed                    int  `json:"failed"`
+	ElapsedSeconds            int  `json:"elapsed_seconds"`
+	EstimatedRemainingSeconds int  `json:"estimated_remaining_seconds"`
+	StopAfterCurrentBatch     bool `json:"stop_after_current_batch"`
 }
 
 type ProbeSample struct {
@@ -47,6 +61,14 @@ type NodeResult struct {
 	P95MS          int           `json:"p95_ms,omitempty"`
 	JitterMS       float64       `json:"jitter_ms,omitempty"`
 	Score          float64       `json:"score"`
+}
+
+type NodeSummary struct {
+	Name           string `json:"name"`
+	Provider       string `json:"provider,omitempty"`
+	Protocol       string `json:"protocol,omitempty"`
+	InferredRegion string `json:"inferred_region,omitempty"`
+	RegionSource   string `json:"region_source"`
 }
 
 type Scan struct {
