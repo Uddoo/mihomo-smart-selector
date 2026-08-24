@@ -26,6 +26,16 @@ let eventSource: EventSource | undefined
 const currentGroup = computed(() => groups.value.find((group) => group.name === targetGroup.value))
 const results = computed(() => currentScan.value?.results ?? [])
 const bestResult = computed(() => results.value.find((result) => result.rank === 1))
+const scanProgress = computed(() => currentScan.value?.progress)
+const progressPercent = computed(() => {
+  const progress = scanProgress.value
+  return progress && progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0
+})
+const scanProgressLabel = computed(() => {
+  const progress = scanProgress.value
+  if (!progress || progress.total === 0) return 'Preparing candidates…'
+  return `Tested ${progress.completed} / ${progress.total} · batch ${progress.current_batch} / ${progress.total_batches}`
+})
 const controllerLabel = computed(() => {
   if (!health.value) return 'Checking controller'
   return health.value.mihomo_connected ? 'Controller connected' : 'Controller unavailable'
@@ -115,7 +125,7 @@ async function startScan() {
 
 function subscribe(scanID: string) {
   eventSource = new EventSource('/api/v1/scans/' + encodeURIComponent(scanID) + '/events')
-  for (const eventName of ['candidate-complete', 'egress-verified', 'completed', 'error', 'selected']) {
+  for (const eventName of ['batch-started', 'candidate-complete', 'egress-verified', 'completed', 'error', 'selected']) {
     eventSource.addEventListener(eventName, () => void refreshScan())
   }
   eventSource.onerror = () => {
@@ -272,6 +282,11 @@ function formatTime(value: string) {
           <span class="scan-status" :class="{ running: scanning }">{{ scanning ? 'Scan in progress' : 'Ready' }}</span>
         </div>
 
+        <div v-if="scanning" class="scan-progress" role="status" aria-live="polite">
+          <div class="scan-progress-copy"><span>{{ scanProgressLabel }}</span><strong>{{ progressPercent }}%</strong></div>
+          <div class="progress-track"><span :style="{ width: progressPercent + '%' }"></span></div>
+        </div>
+
         <div class="control-grid">
           <label class="field">
             <span>Target selector</span>
@@ -317,7 +332,7 @@ function formatTime(value: string) {
           <div class="panel-heading table-heading">
             <div>
               <h2 id="results-title">Scan results</h2>
-              <p v-if="currentScan">{{ currentScan.request.target_group }} · {{ results.length }} candidates</p>
+              <p v-if="currentScan">{{ currentScan.request.target_group }} · {{ scanning ? scanProgressLabel : results.length + ' candidates ranked' }}</p>
               <p v-else>Run a scan to rank the selected group’s members.</p>
             </div>
             <button v-if="bestResult && currentScan?.status === 'complete'" class="secondary-button" type="button" :disabled="Boolean(selectingNode)" @click="selectResult()">
@@ -334,7 +349,7 @@ function formatTime(value: string) {
               </thead>
               <tbody v-if="results.length">
                 <tr v-for="result in results" :key="result.name" :class="{ selected: result.name === currentGroup?.now }">
-                  <td>{{ result.rank }}</td>
+                  <td>{{ result.rank || '—' }}</td>
                   <td class="node-name"><span class="row-state" :class="{ warning: isMismatch(result), failed: result.success_rate < 0.95 }"></span>{{ result.name }}</td>
                   <td>{{ result.provider || '—' }}</td>
                   <td>{{ regionLabel(result) }}</td>

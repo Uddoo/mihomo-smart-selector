@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 )
 
 type proxy struct {
@@ -21,13 +22,15 @@ type proxy struct {
 }
 
 type controller struct {
-	mu      sync.RWMutex
-	proxies map[string]proxy
-	delays  map[string]int
+	mu         sync.RWMutex
+	proxies    map[string]proxy
+	delays     map[string]int
+	delayPause time.Duration
 }
 
 func main() {
 	listen := flag.String("listen", "127.0.0.1:9090", "mock controller listen address")
+	delayMS := flag.Int("delay-ms", 0, "delay every healthcheck response for visual QA")
 	flag.Parse()
 	instance := &controller{
 		proxies: map[string]proxy{
@@ -38,7 +41,8 @@ func main() {
 			"US-LA-01":    {Name: "US-LA-01", Type: "VLESS", ProviderName: "Pacific Link"},
 			"KR-Seoul-01": {Name: "KR-Seoul-01", Type: "Shadowsocks", ProviderName: "Pacific Link"},
 		},
-		delays: map[string]int{"JP-Tokyo-01": 151, "JP-Tokyo-03": 109, "JP-Osaka-02": 188, "US-LA-01": 164, "KR-Seoul-01": 132},
+		delays:     map[string]int{"JP-Tokyo-01": 151, "JP-Tokyo-03": 109, "JP-Osaka-02": 188, "US-LA-01": 164, "KR-Seoul-01": 132},
+		delayPause: time.Duration(*delayMS) * time.Millisecond,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/version", instance.version)
@@ -94,6 +98,9 @@ func (c *controller) providerRoute(writer http.ResponseWriter, request *http.Req
 }
 
 func (c *controller) delay(writer http.ResponseWriter, _ *http.Request, name string) {
+	if c.delayPause > 0 {
+		time.Sleep(c.delayPause)
+	}
 	c.mu.RLock()
 	delay, found := c.delays[name]
 	c.mu.RUnlock()

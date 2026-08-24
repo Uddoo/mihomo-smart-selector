@@ -18,6 +18,15 @@ type ScanRequest struct {
 	Mode        string   `json:"mode"`
 }
 
+type ScanProgress struct {
+	Completed      int `json:"completed"`
+	Total          int `json:"total"`
+	CurrentBatch   int `json:"current_batch"`
+	TotalBatches   int `json:"total_batches"`
+	BatchCompleted int `json:"batch_completed"`
+	BatchTotal     int `json:"batch_total"`
+}
+
 type ProbeSample struct {
 	Probe   string `json:"probe"`
 	DelayMS int    `json:"delay_ms,omitempty"`
@@ -44,6 +53,7 @@ type Scan struct {
 	ID          string       `json:"id"`
 	Status      ScanStatus   `json:"status"`
 	Request     ScanRequest  `json:"request"`
+	Progress    ScanProgress `json:"progress"`
 	StartedAt   time.Time    `json:"started_at"`
 	CompletedAt *time.Time   `json:"completed_at,omitempty"`
 	Error       string       `json:"error,omitempty"`

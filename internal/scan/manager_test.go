@@ -47,6 +47,7 @@ func TestManagerScansFiltersRanksAndSelectsMember(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Regions = []config.Region{{Code: "JP", Name: "Japan", Aliases: []string{"JP"}}}
 	cfg.Storage.Path = t.TempDir() + "/selector.db"
+	cfg.Scanner.BatchSize = 1
 	cfg.Scanner.Samples = 1
 	cfg.Scanner.Probes = []config.Probe{{Name: "trace", URL: "https://chatgpt.com/cdn-cgi/trace", ExpectedStatus: "200"}}
 	store, err := history.Open(cfg.Storage.Path)

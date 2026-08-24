@@ -11,6 +11,7 @@ func TestClassifierPrefersManualOverrideAndAvoidsShortAliasSubstring(t *testing.
 		Regions: []config.Region{
 			{Code: "JP", Name: "Japan", Aliases: []string{"JP", "Tokyo", "日本"}},
 			{Code: "US", Name: "United States", Aliases: []string{"US", "USA", "Los Angeles"}},
+			{Code: "KR", Name: "Korea", Aliases: []string{"KR", "Korea", "韩国"}},
 		},
 		RegionOverrides: map[string]string{"IPLC-HY2-A-03": "JP"},
 	})
@@ -22,5 +23,20 @@ func TestClassifierPrefersManualOverrideAndAvoidsShortAliasSubstring(t *testing.
 	}
 	if got := classifier.Classify("sushi-fast-01"); got.Code != "" {
 		t.Fatalf("must not detect US inside ordinary text: %#v", got)
+	}
+	for _, sample := range []struct {
+		name string
+		code string
+	}{
+		{name: "JP4-HY2", code: "JP"},
+		{name: "JP1-HY2", code: "JP"},
+		{name: "JP-4", code: "JP"},
+		{name: "KR1", code: "KR"},
+		{name: "KR-1", code: "KR"},
+	} {
+		got := classifier.Classify(sample.name)
+		if got.Code != sample.code {
+			t.Fatalf("country-code sequence %q = %#v, want %s", sample.name, got, sample.code)
+		}
 	}
 }

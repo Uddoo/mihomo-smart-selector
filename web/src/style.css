@@ -50,6 +50,11 @@ h2 { font-size: 14px; line-height: 1.3; letter-spacing: -.015em; margin-bottom: 
 .panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .scan-status { color: #8b9bae; font-size: 11px; border: 1px solid #2b3b4d; padding: 5px 8px; border-radius: 4px; }
 .scan-status.running { color: #91bfff; border-color: #315b96; background: #112949; }
+.scan-progress { margin-top: 15px; padding: 10px 12px; border: 1px solid #24466c; border-radius: 4px; background: #0c1b2d; }
+.scan-progress-copy { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #a9bed8; font-size: 11px; }
+.scan-progress-copy strong { color: #e2edf9; font-variant-numeric: tabular-nums; }
+.progress-track { height: 5px; overflow: hidden; margin-top: 8px; border-radius: 99px; background: #1b2c3f; }
+.progress-track span { display: block; height: 100%; border-radius: inherit; background: #2d7de5; transition: width .22s ease; }
 .control-grid { display: grid; grid-template-columns: minmax(190px, 1.25fr) minmax(180px, 1fr) minmax(160px, 1fr) 145px; gap: 13px; margin-top: 19px; align-items: end; }
 .field { min-width: 0; display: grid; gap: 7px; color: #acb9ca; font-size: 11px; font-weight: 600; letter-spacing: .01em; }
 .field select { width: 100%; height: 39px; color: #e5edf8; background: #0b1420; border: 1px solid #2a3a4e; border-radius: 4px; padding: 0 10px; outline: none; }

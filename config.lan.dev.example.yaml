@@ -12,9 +12,11 @@ storage:
   path: data/lan-dev-selector.db
 scanner:
   concurrency: 4
-  max_candidates: 60
+  # Small by design so local visual QA exercises multi-batch progress.
+  batch_size: 2
+  max_total_candidates: 500
   samples: 1
-  timeout_ms: 1000
+  timeout_ms: 3000
   min_success_rate: 0.95
   median_target_ms: 300
   p95_target_ms: 800
@@ -33,4 +35,3 @@ egress_verification:
   enabled: false
 auto_switch:
   enabled: false
-

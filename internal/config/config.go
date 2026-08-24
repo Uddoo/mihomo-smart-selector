@@ -41,15 +41,16 @@ type StorageConfig struct {
 }
 
 type ScannerConfig struct {
-	Concurrency    int     `yaml:"concurrency"`
-	MaxCandidates  int     `yaml:"max_candidates"`
-	Samples        int     `yaml:"samples"`
-	TimeoutMS      int     `yaml:"timeout_ms"`
-	MinSuccessRate float64 `yaml:"min_success_rate"`
-	MedianTargetMS int     `yaml:"median_target_ms"`
-	P95TargetMS    int     `yaml:"p95_target_ms"`
-	JitterTargetMS int     `yaml:"jitter_target_ms"`
-	Probes         []Probe `yaml:"probes"`
+	Concurrency        int     `yaml:"concurrency"`
+	BatchSize          int     `yaml:"batch_size"`
+	MaxTotalCandidates int     `yaml:"max_total_candidates"`
+	Samples            int     `yaml:"samples"`
+	TimeoutMS          int     `yaml:"timeout_ms"`
+	MinSuccessRate     float64 `yaml:"min_success_rate"`
+	MedianTargetMS     int     `yaml:"median_target_ms"`
+	P95TargetMS        int     `yaml:"p95_target_ms"`
+	JitterTargetMS     int     `yaml:"jitter_target_ms"`
+	Probes             []Probe `yaml:"probes"`
 }
 
 type Probe struct {
@@ -89,7 +90,7 @@ func Defaults() Config {
 		},
 		Storage: StorageConfig{Path: "data/selector.db"},
 		Scanner: ScannerConfig{
-			Concurrency: 4, MaxCandidates: 60, Samples: 3, TimeoutMS: 5000, MinSuccessRate: 0.95,
+			Concurrency: 4, BatchSize: 60, MaxTotalCandidates: 500, Samples: 3, TimeoutMS: 5000, MinSuccessRate: 0.95,
 			MedianTargetMS: 300, P95TargetMS: 800, JitterTargetMS: 200,
 			Probes: []Probe{
 				{Name: "chatgpt-trace", URL: "https://chatgpt.com/cdn-cgi/trace", ExpectedStatus: "200"},
@@ -158,8 +159,11 @@ func (c Config) Validate() error {
 	if c.Scanner.Concurrency < 1 || c.Scanner.Concurrency > 16 {
 		return fmt.Errorf("scanner.concurrency must be in 1..16")
 	}
-	if c.Scanner.MaxCandidates < 1 || c.Scanner.MaxCandidates > 200 {
-		return fmt.Errorf("scanner.max_candidates must be in 1..200")
+	if c.Scanner.BatchSize < 1 || c.Scanner.BatchSize > 100 {
+		return fmt.Errorf("scanner.batch_size must be in 1..100")
+	}
+	if c.Scanner.MaxTotalCandidates < 1 || c.Scanner.MaxTotalCandidates > 1000 {
+		return fmt.Errorf("scanner.max_total_candidates must be in 1..1000")
 	}
 	if c.Scanner.Samples < 1 || c.Scanner.Samples > 10 {
 		return fmt.Errorf("scanner.samples must be in 1..10")

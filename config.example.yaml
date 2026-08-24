@@ -19,8 +19,10 @@ storage:
 
 scanner:
   concurrency: 4
-  # Refuse a broad scan rather than burdening the router/network unexpectedly.
-  max_candidates: 60
+  # A broad request is split into sequential batches; each keeps probe load
+  # bounded while the UI reports completed/total candidates and batch number.
+  batch_size: 60
+  max_total_candidates: 500
   samples: 3
   timeout_ms: 5000
   min_success_rate: 0.95
@@ -51,7 +53,7 @@ regions:
   - code: KR
     name: Korea
     emoji: "🇰🇷"
-    aliases: ["🇰🇷", "韩国", "韓國", "KR", "KOR", "Korea", "Seoul", "首尔", "首爾"]
+    aliases: ["🇰🇷", "韩国", "韓國", "KR", "KOR", "Korea", "South Korea", "Korean", "Seoul", "Busan", "首尔", "首爾", "釜山"]
 
 # Manual rules take precedence over aliases. Example:
 # region_overrides:

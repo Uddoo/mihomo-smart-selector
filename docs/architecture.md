@@ -119,10 +119,13 @@ score / rank / persist immutable scan record
 Only leaf proxies are candidates: nested `Selector`, `URLTest`, `Fallback`,
 `LoadBalance`, `Smart`, and relay policy groups are excluded. This guarantees
 that a displayed result is a direct member that the requested selector can
-legally choose. A configured `max_candidates` limit (60 by default) fails a
-too-broad request before it generates traffic; narrow regions or providers
-instead. Quick mode performs one sample per endpoint, while stable mode uses
-the configured sample count.
+legally choose. A broad request is split into sequential batches of 60 by
+default, while each batch keeps the controller probe concurrency bounded. Scan
+polling and SSE expose completed/total candidates and current/total batch for
+the UI progress bar. A separate `max_total_candidates` limit (500 by default)
+still fails an unexpectedly huge request before it generates traffic. Quick
+mode performs one sample per endpoint, while stable mode uses the configured
+sample count.
 
 Some OpenClash Smart controller builds expose provider-owned leaves only through
 `/providers/proxies`, even though a Selector lists their names in `all`. The

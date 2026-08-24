@@ -53,10 +53,20 @@ export interface Scan {
     providers: string[]
     mode: 'stable' | 'quick'
   }
+  progress: ScanProgress
   started_at: string
   completed_at?: string
   error?: string
   results: NodeResult[]
+}
+
+export interface ScanProgress {
+  completed: number
+  total: number
+  current_batch: number
+  total_batches: number
+  batch_completed: number
+  batch_total: number
 }
 
 export interface SwitchEvent {
@@ -68,4 +78,3 @@ export interface SwitchEvent {
   reason: string
   created_at: string
 }
-

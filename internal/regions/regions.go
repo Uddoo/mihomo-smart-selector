@@ -70,10 +70,21 @@ func aliasMatch(name, alias string) bool {
 		return false
 	}
 	if hasOnlyASCIIWordChars(alias) {
+		if isTwoLetterCountryCode(alias) {
+			// ISO-like codes are commonly immediately followed by a sequence
+			// number and protocol suffix (JP4-HY2, KR1, US2TCP). Accept that
+			// format without allowing the code inside a larger word such as SJP.
+			pattern := `(?i)(^|[^A-Z0-9])` + regexp.QuoteMeta(alias) + `([0-9][A-Z0-9_-]*|[^A-Z0-9]|$)`
+			return regexp.MustCompile(pattern).FindStringIndex(name) != nil
+		}
 		pattern := `(?i)(^|[^A-Z0-9])` + regexp.QuoteMeta(alias) + `($|[^A-Z0-9])`
 		return regexp.MustCompile(pattern).FindStringIndex(name) != nil
 	}
 	return strings.Contains(strings.ToLower(name), strings.ToLower(alias))
+}
+
+func isTwoLetterCountryCode(value string) bool {
+	return len(value) == 2 && value[0] >= 'A' && value[0] <= 'Z' && value[1] >= 'A' && value[1] <= 'Z'
 }
 
 func hasOnlyASCIIWordChars(value string) bool {

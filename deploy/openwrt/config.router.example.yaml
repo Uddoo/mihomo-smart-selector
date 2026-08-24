@@ -14,7 +14,8 @@ storage:
   path: /opt/mihomo-smart-selector/data/selector.db
 scanner:
   concurrency: 4
-  max_candidates: 60
+  batch_size: 60
+  max_total_candidates: 500
   samples: 3
   timeout_ms: 5000
   min_success_rate: 0.95
@@ -40,7 +41,7 @@ regions:
   - code: KR
     name: Korea
     emoji: "🇰🇷"
-    aliases: ["🇰🇷", "韩国", "韓國", "KR", "KOR", "Korea", "Seoul", "首尔", "首爾"]
+    aliases: ["🇰🇷", "韩国", "韓國", "KR", "KOR", "Korea", "South Korea", "Korean", "Seoul", "Busan", "首尔", "首爾", "釜山"]
 region_overrides: {}
 egress_verification:
   enabled: false

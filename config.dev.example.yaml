@@ -9,7 +9,8 @@ storage:
   path: data/dev-selector.db
 scanner:
   concurrency: 4
-  max_candidates: 60
+  batch_size: 60
+  max_total_candidates: 500
   samples: 3
   timeout_ms: 1000
   min_success_rate: 0.95

@@ -22,10 +22,11 @@ import (
 )
 
 type Event struct {
-	Kind    string            `json:"kind"`
-	Message string            `json:"message"`
-	At      time.Time         `json:"at"`
-	Result  *model.NodeResult `json:"result,omitempty"`
+	Kind     string              `json:"kind"`
+	Message  string              `json:"message"`
+	At       time.Time           `json:"at"`
+	Result   *model.NodeResult   `json:"result,omitempty"`
+	Progress *model.ScanProgress `json:"progress,omitempty"`
 }
 
 type candidate struct {
@@ -41,13 +42,14 @@ type Manager struct {
 	store      *history.Store
 
 	mu          sync.Mutex
+	active      map[string]*model.Scan
 	subscribers map[string]map[chan Event]struct{}
 }
 
 func NewManager(cfg config.Config, client mihomo.Client, store *history.Store) *Manager {
 	return &Manager{
 		cfg: cfg, client: client, store: store, classifier: regions.New(cfg),
-		subscribers: map[string]map[chan Event]struct{}{},
+		active: map[string]*model.Scan{}, subscribers: map[string]map[chan Event]struct{}{},
 	}
 }
 
@@ -69,12 +71,20 @@ func (m *Manager) Start(request model.ScanRequest) (model.Scan, error) {
 	if err := m.store.CreateScan(context.Background(), scan); err != nil {
 		return model.Scan{}, err
 	}
+	m.setActive(scan)
 	m.publish(scan.ID, Event{Kind: "started", Message: "scan queued", At: now})
 	go m.run(scan)
 	return scan, nil
 }
 
 func (m *Manager) Get(ctx context.Context, id string) (model.Scan, error) {
+	m.mu.Lock()
+	if active, exists := m.active[id]; exists {
+		snapshot := cloneScan(*active)
+		m.mu.Unlock()
+		return snapshot, nil
+	}
+	m.mu.Unlock()
 	return m.store.GetScan(ctx, id)
 }
 
@@ -190,6 +200,7 @@ func (m *Manager) Subscribe(scanID string) (<-chan Event, func()) {
 func (m *Manager) run(scan model.Scan) {
 	results, err := m.scan(context.Background(), scan)
 	completed := time.Now().UTC()
+	scan.Progress = m.progressSnapshot(scan.ID)
 	if err != nil {
 		scan.Status = model.ScanFailed
 		scan.Error = err.Error()
@@ -199,9 +210,11 @@ func (m *Manager) run(scan model.Scan) {
 	}
 	scan.CompletedAt = &completed
 	if persistErr := m.store.CompleteScan(context.Background(), scan); persistErr != nil {
+		m.setActive(scan)
 		m.publish(scan.ID, Event{Kind: "error", Message: "scan completed but could not persist results", At: completed})
 		return
 	}
+	m.removeActive(scan.ID)
 	kind, message := "completed", "scan completed"
 	if err != nil {
 		kind, message = "error", "scan failed: "+err.Error()
@@ -241,36 +254,23 @@ func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult
 	if len(candidates) == 0 {
 		return nil, fmt.Errorf("no selector members matched the requested filters")
 	}
-	if len(candidates) > m.cfg.Scanner.MaxCandidates {
-		return nil, fmt.Errorf("%d candidates exceed scanner.max_candidates (%d); narrow regions or providers", len(candidates), m.cfg.Scanner.MaxCandidates)
+	if len(candidates) > m.cfg.Scanner.MaxTotalCandidates {
+		return nil, fmt.Errorf("%d candidates exceed scanner.max_total_candidates (%d); narrow regions or providers", len(candidates), m.cfg.Scanner.MaxTotalCandidates)
 	}
 
-	jobs := make(chan candidate)
-	results := make(chan model.NodeResult, len(candidates))
-	var workers sync.WaitGroup
-	for worker := 0; worker < m.cfg.Scanner.Concurrency; worker++ {
-		workers.Add(1)
-		go func() {
-			defer workers.Done()
-			for item := range jobs {
-				results <- m.probeCandidate(ctx, item, scan.Request.Mode)
-			}
-		}()
-	}
-	go func() {
-		for _, item := range candidates {
-			jobs <- item
-		}
-		close(jobs)
-		workers.Wait()
-		close(results)
-	}()
-
+	totalBatches := (len(candidates) + m.cfg.Scanner.BatchSize - 1) / m.cfg.Scanner.BatchSize
+	m.setProgress(scan.ID, model.ScanProgress{Total: len(candidates), TotalBatches: totalBatches})
 	allResults := make([]model.NodeResult, 0, len(candidates))
-	for result := range results {
-		copy := result
-		m.publish(scan.ID, Event{Kind: "candidate-complete", Message: "candidate tested: " + result.Name, At: time.Now().UTC(), Result: &copy})
-		allResults = append(allResults, result)
+	for batchIndex, start := 1, 0; start < len(candidates); batchIndex, start = batchIndex+1, start+m.cfg.Scanner.BatchSize {
+		end := min(start+m.cfg.Scanner.BatchSize, len(candidates))
+		progress := model.ScanProgress{
+			Completed: m.progressCompleted(scan.ID), Total: len(candidates),
+			CurrentBatch: batchIndex, TotalBatches: totalBatches,
+			BatchTotal: end - start,
+		}
+		m.setProgress(scan.ID, progress)
+		m.publish(scan.ID, Event{Kind: "batch-started", Message: fmt.Sprintf("batch %d of %d started", batchIndex, totalBatches), At: time.Now().UTC(), Progress: &progress})
+		allResults = append(allResults, m.probeBatch(ctx, scan, candidates[start:end])...)
 	}
 	if m.cfg.EgressVerification.Enabled {
 		m.verifyEgress(ctx, proxies, allResults, scan.ID)
@@ -291,6 +291,38 @@ func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult
 		allResults[index].Rank = index + 1
 	}
 	return allResults, nil
+}
+
+func (m *Manager) probeBatch(parent context.Context, scan model.Scan, candidates []candidate) []model.NodeResult {
+	jobs := make(chan candidate)
+	results := make(chan model.NodeResult, len(candidates))
+	var workers sync.WaitGroup
+	for worker := 0; worker < m.cfg.Scanner.Concurrency; worker++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for item := range jobs {
+				results <- m.probeCandidate(parent, item, scan.Request.Mode)
+			}
+		}()
+	}
+	go func() {
+		for _, item := range candidates {
+			jobs <- item
+		}
+		close(jobs)
+		workers.Wait()
+		close(results)
+	}()
+
+	batchResults := make([]model.NodeResult, 0, len(candidates))
+	for result := range results {
+		progress := m.recordCandidate(scan.ID, result)
+		copy := result
+		m.publish(scan.ID, Event{Kind: "candidate-complete", Message: "candidate tested: " + result.Name, At: time.Now().UTC(), Result: &copy, Progress: &progress})
+		batchResults = append(batchResults, result)
+	}
+	return batchResults
 }
 
 func (m *Manager) filterCandidates(group mihomo.Proxy, proxies map[string]mihomo.Proxy, providerByNode map[string]string, request model.ScanRequest) []candidate {
@@ -422,6 +454,64 @@ func (m *Manager) publish(scanID string, event Event) {
 		default:
 		}
 	}
+}
+
+func (m *Manager) setActive(scan model.Scan) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	snapshot := cloneScan(scan)
+	m.active[scan.ID] = &snapshot
+}
+
+func (m *Manager) removeActive(scanID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.active, scanID)
+}
+
+func (m *Manager) setProgress(scanID string, progress model.ScanProgress) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if active, exists := m.active[scanID]; exists {
+		active.Progress = progress
+	}
+}
+
+func (m *Manager) progressCompleted(scanID string) int {
+	return m.progressSnapshot(scanID).Completed
+}
+
+func (m *Manager) progressSnapshot(scanID string) model.ScanProgress {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if active, exists := m.active[scanID]; exists {
+		return active.Progress
+	}
+	return model.ScanProgress{}
+}
+
+func (m *Manager) recordCandidate(scanID string, result model.NodeResult) model.ScanProgress {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if active, exists := m.active[scanID]; exists {
+		active.Results = append(active.Results, result)
+		active.Progress.Completed++
+		active.Progress.BatchCompleted++
+		return active.Progress
+	}
+	return model.ScanProgress{}
+}
+
+func cloneScan(input model.Scan) model.Scan {
+	output := input
+	output.Request.Regions = append([]string(nil), input.Request.Regions...)
+	output.Request.Providers = append([]string(nil), input.Request.Providers...)
+	output.Results = make([]model.NodeResult, len(input.Results))
+	for index, result := range input.Results {
+		output.Results[index] = result
+		output.Results[index].Samples = append([]model.ProbeSample(nil), result.Samples...)
+	}
+	return output
 }
 
 func normaliseCodes(values []string) []string {
