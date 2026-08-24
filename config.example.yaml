@@ -1,0 +1,77 @@
+# Copy to config.yaml and keep the copy out of source control.
+http:
+  # A loopback-only listener is the safe default. Do not use 0.0.0.0 without an
+  # explicit API token and an allow-list of trusted LAN/Tailscale CIDRs.
+  listen: 127.0.0.1:8788
+  api_token: ""
+  # api_token_env: MSS_API_TOKEN
+  allowed_cidrs: []
+
+mihomo:
+  # Keep the Mihomo controller local to the router/service host.
+  controller: http://127.0.0.1:9090
+  # The secret is read from this environment variable, never from this file.
+  secret_env: MIHOMO_SECRET
+  request_timeout_seconds: 8
+
+storage:
+  path: data/selector.db
+
+scanner:
+  concurrency: 4
+  # Refuse a broad scan rather than burdening the router/network unexpectedly.
+  max_candidates: 60
+  samples: 3
+  timeout_ms: 5000
+  min_success_rate: 0.95
+  median_target_ms: 300
+  p95_target_ms: 800
+  jitter_target_ms: 200
+  probes:
+    - name: chatgpt-trace
+      url: https://chatgpt.com/cdn-cgi/trace
+      expected_status: "200"
+    - name: openai-api-reachability
+      url: https://api.openai.com/v1/models
+      # Deliberately unauthenticated: an HTTP 401 demonstrates TCP/TLS/HTTP
+      # reachability without storing an OpenAI API key.
+      expected_status: "401"
+
+# The name-classifier is only a candidate filter. It never claims actual egress
+# country. Actual egress verification is separate and optional below.
+regions:
+  - code: JP
+    name: Japan
+    emoji: "🇯🇵"
+    aliases: ["🇯🇵", "日本", "JP", "JPN", "Japan", "Tokyo", "东京", "東京", "Osaka", "大阪"]
+  - code: US
+    name: United States
+    emoji: "🇺🇸"
+    aliases: ["🇺🇸", "美国", "美國", "US", "USA", "United States", "Los Angeles", "Seattle", "New York"]
+  - code: KR
+    name: Korea
+    emoji: "🇰🇷"
+    aliases: ["🇰🇷", "韩国", "韓國", "KR", "KOR", "Korea", "Seoul", "首尔", "首爾"]
+
+# Manual rules take precedence over aliases. Example:
+# region_overrides:
+#   "IPLC-HY2-A-03": JP
+region_overrides: {}
+
+# Enabling this makes the scanner mutate only this dedicated, hidden selector.
+# It must never be the user's service selector. The scanner serializes calls
+# because a selector has one active member at a time.
+egress_verification:
+  enabled: false
+  selector_group: __SMART_PROBE__
+  proxy_url: http://127.0.0.1:17890
+  trace_url: https://chatgpt.com/cdn-cgi/trace
+
+auto_switch:
+  # Reserved for the scheduler phase; manual selection remains the default.
+  enabled: false
+  min_score: 75
+  improvement_threshold_percent: 15
+  better_rounds: 3
+  cooldown_minutes: 20
+  failure_threshold: 2

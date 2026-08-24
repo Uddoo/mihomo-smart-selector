@@ -1,0 +1,53 @@
+# Router target configuration. Keep this file mode 0600 after installation.
+# The init script supplies MIHOMO_SECRET from /etc/openclash/dukou.yaml.
+http:
+  # LAN access is protected by both this allow-list and a token supplied by
+  # procd from /etc/mihomo-smart-selector/access-token.
+  listen: 0.0.0.0:8788
+  api_token_env: MSS_API_TOKEN
+  allowed_cidrs: ["192.168.50.0/24"]
+mihomo:
+  controller: http://127.0.0.1:9090
+  secret_env: MIHOMO_SECRET
+  request_timeout_seconds: 8
+storage:
+  path: /opt/mihomo-smart-selector/data/selector.db
+scanner:
+  concurrency: 4
+  max_candidates: 60
+  samples: 3
+  timeout_ms: 5000
+  min_success_rate: 0.95
+  median_target_ms: 300
+  p95_target_ms: 800
+  jitter_target_ms: 200
+  probes:
+    - name: chatgpt-trace
+      url: https://chatgpt.com/cdn-cgi/trace
+      expected_status: "200"
+    - name: openai-api-reachability
+      url: https://api.openai.com/v1/models
+      expected_status: "401"
+regions:
+  - code: JP
+    name: Japan
+    emoji: "🇯🇵"
+    aliases: ["🇯🇵", "日本", "JP", "JPN", "Japan", "Tokyo", "东京", "東京", "Osaka", "大阪"]
+  - code: US
+    name: United States
+    emoji: "🇺🇸"
+    aliases: ["🇺🇸", "美国", "美國", "US", "USA", "United States", "Los Angeles", "Seattle", "New York"]
+  - code: KR
+    name: Korea
+    emoji: "🇰🇷"
+    aliases: ["🇰🇷", "韩国", "韓國", "KR", "KOR", "Korea", "Seoul", "首尔", "首爾"]
+region_overrides: {}
+egress_verification:
+  enabled: false
+auto_switch:
+  enabled: false
+  min_score: 75
+  improvement_threshold_percent: 15
+  better_rounds: 3
+  cooldown_minutes: 20
+  failure_threshold: 2

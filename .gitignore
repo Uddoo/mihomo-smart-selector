@@ -1,0 +1,10 @@
+.tools/
+.run/
+bin/
+dist/
+data/
+config.yaml
+config.dev.yaml
+config.lan.dev.yaml
+web/dist/
+web/node_modules/
