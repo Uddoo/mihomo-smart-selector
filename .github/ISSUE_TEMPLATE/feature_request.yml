@@ -1,0 +1,53 @@
+name: Feature request
+description: Propose a focused improvement inside the project boundary
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Explain the operator problem first. The project ranks members of a user-selected Mihomo Selector and changes it only after an explicit decision; proposals outside that boundary may be declined.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Operator problem
+      description: What is difficult, unsafe, or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe observable behavior, not only an implementation preference.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include configuration-only or operational alternatives.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Security and failure behavior
+      description: Explain effects on credentials, CIDRs, probe traffic, Selector writes, rollback, and fail-closed behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Acceptance evidence
+      description: What tests, runtime observations, or compatibility evidence would prove the change?
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched existing issues and the roadmap boundary in docs/architecture.md.
+          required: true
+        - label: I did not include credentials or private network details.
+          required: true

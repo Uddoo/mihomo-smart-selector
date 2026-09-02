@@ -1,0 +1,86 @@
+name: Bug report
+description: Report a reproducible defect with redacted evidence
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not submit Controller secrets, API tokens, provider URLs, node credentials, private service addresses, or complete proxy configurations. Follow SECURITY.md for suspected vulnerabilities.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Release tag, commit SHA, or container/image digest if applicable.
+      placeholder: e45a6b50737f5cfcda2a64f2e606c0c0da7fd0f4
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment method
+      options:
+        - Local source build
+        - OpenWrt / iStoreOS procd template
+        - Other reviewed deployment
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform and architecture
+      placeholder: OpenWrt 24.x, linux/arm64
+    validations:
+      required: true
+  - type: input
+    id: controller
+    attributes:
+      label: Mihomo and OpenClash versions
+      placeholder: Mihomo x.y.z; OpenClash x.y.z
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the observable defect and its impact without including secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Start with...
+        2. Submit...
+        3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Minimal redacted configuration
+      description: Remove secrets, tokens, provider URLs, node credentials, public IPs, and private service hostnames.
+      render: yaml
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted logs or screenshots
+      description: Include only the smallest relevant excerpt and state what was removed.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched existing issues for the same defect.
+          required: true
+        - label: I removed secrets, credentials, provider URLs, and private identifiers.
+          required: true
+        - label: This is not a private vulnerability report.
+          required: true
