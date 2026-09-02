@@ -20,6 +20,7 @@ start_service() {
         printf '%s\n' "$token" > "$ACCESS_TOKEN_FILE"
         unset token
     fi
+    chmod 0600 "$ACCESS_TOKEN_FILE" || return 1
 
     # Keep the Controller secret in OpenClash-managed storage. It is read only
     # into this process environment and is neither copied to selector config
@@ -38,7 +39,7 @@ start_service() {
     procd_close_instance
 
     unset secret
-	unset api_token
+    unset api_token
 }
 
 stop_service() {

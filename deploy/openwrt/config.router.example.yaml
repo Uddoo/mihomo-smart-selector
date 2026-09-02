@@ -1,11 +1,15 @@
-# Router target configuration. Keep this file mode 0600 after installation.
-# The init script supplies MIHOMO_SECRET from /etc/openclash/dukou.yaml.
+# OpenWrt/iStoreOS example. Review every address before installation and keep
+# the installed copy mode 0600. The bundled OpenClash init script reads
+# MIHOMO_SECRET from /etc/openclash/dukou.yaml and supplies MSS_API_TOKEN from
+# /etc/mihomo-smart-selector/access-token.
 http:
-  # No-password mode: every device in the trusted CIDR can use the UI.
-  # Set this to false to restore the token requirement.
+  # Replace this example CIDR with the narrow LAN or Tailnet range that should
+  # be allowed to use the API. Non-loopback access requires both this allow-list
+  # and the generated Bearer token by default.
   listen: 0.0.0.0:8788
-  allow_unauthenticated_lan: true
-  allowed_cidrs: ["192.168.50.0/24"]
+  api_token_env: MSS_API_TOKEN
+  allow_unauthenticated_lan: false
+  allowed_cidrs: ["192.168.1.0/24"]
 mihomo:
   controller: http://127.0.0.1:9090
   secret_env: MIHOMO_SECRET

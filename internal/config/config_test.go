@@ -74,7 +74,7 @@ func TestLoadUsesHTTPTokenEnvironmentVariableForExposedListener(t *testing.T) {
 http:
   listen: 0.0.0.0:8788
   api_token_env: MSS_TEST_HTTP_TOKEN
-  allowed_cidrs: [192.168.50.0/24]
+  allowed_cidrs: [192.0.2.0/24]
 mihomo:
   controller: http://127.0.0.1:9090
   secret_env: MIHOMO_SECRET
@@ -97,6 +97,41 @@ regions:
 	}
 	if got.HTTP.APIToken != "local-test-token" {
 		t.Fatalf("resolved API token = %q", got.HTTP.APIToken)
+	}
+}
+
+func TestTrackedExampleConfigsLoadWithDocumentedEnvironment(t *testing.T) {
+	t.Setenv("MSS_API_TOKEN", "router-example-token")
+	t.Setenv("MSS_UI_TEST_TOKEN", "lan-example-token")
+
+	projectRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	examples := []string{
+		"config.example.yaml",
+		"config.dev.example.yaml",
+		"config.lan.dev.example.yaml",
+		filepath.Join("deploy", "openwrt", "config.router.example.yaml"),
+	}
+	for _, relativePath := range examples {
+		t.Run(filepath.ToSlash(relativePath), func(t *testing.T) {
+			if _, err := Load(filepath.Join(projectRoot, relativePath)); err != nil {
+				t.Fatalf("load tracked example %s: %v", relativePath, err)
+			}
+		})
+	}
+}
+
+func TestRouterExampleFailsClosedWithoutAPIToken(t *testing.T) {
+	t.Setenv("MSS_API_TOKEN", "")
+	projectRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(projectRoot, "deploy", "openwrt", "config.router.example.yaml")
+	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "api_token") {
+		t.Fatalf("expected router example to require MSS_API_TOKEN, got %v", err)
 	}
 }
 

@@ -1,0 +1,16 @@
+title = "Mihomo Smart Selector secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Local toolchains, installed dependencies, runtime data, and build outputs"
+paths = [
+  '''^\.git([\\/]|$)''',
+  '''^\.tools([\\/]|$)''',
+  '''^web[\\/]node_modules([\\/]|$)''',
+  '''^\.run([\\/]|$)''',
+  '''^bin([\\/]|$)''',
+  '''^dist([\\/]|$)''',
+  '''^data([\\/]|$)''',
+]
