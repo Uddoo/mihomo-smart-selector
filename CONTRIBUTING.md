@@ -67,6 +67,13 @@ pnpm --dir web build
 ./tools/check-web-assets.ps1
 ```
 
+Dependabot cannot regenerate committed Vite output. A Web dependency pull
+request may therefore fail the embedded-asset check even when its source-level
+types pass. A maintainer must check out that pull request, run the production
+build, review the generated diff, and commit the matching
+`internal/api/static` assets. Do not weaken the synchronization check to make an
+automated dependency pull request green.
+
 ## Required verification
 
 Before opening a pull request, run:

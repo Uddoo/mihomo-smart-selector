@@ -28,6 +28,12 @@ updates:
     groups:
       web-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # vue-tsc 3.x currently imports TypeScript internals that TypeScript 7 no
+      # longer exports. Remove this gate only after the compatibility check in
+      # tools/verify.ps1 succeeds with the new major.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
