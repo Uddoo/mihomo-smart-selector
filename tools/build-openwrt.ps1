@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
-$portableGo = Join-Path $projectRoot '.tools\go\bin\go.exe'
+$portableGo = Join-Path $projectRoot '.tools/go/bin/go.exe'
 $go = if (Test-Path -LiteralPath $portableGo) {
     $portableGo
 } elseif (Get-Command go -ErrorAction SilentlyContinue) {
@@ -43,4 +43,3 @@ try {
     $env:GOOS = $previousOs
     $env:GOARCH = $previousArch
 }
-
