@@ -16,7 +16,7 @@ select a selector member. The project does **not** modify subscriptions,
 decrypt provider files, train OpenClash Smart/LightGBM data, or make claims
 about a provider's real location solely from a name.
 
-The current locally-developed milestone is `v0.1`:
+The current pre-1.0 milestone is `v0.1`:
 
 | Included now | Explicitly deferred |
 | --- | --- |
@@ -32,9 +32,11 @@ permitted to change traffic unattended.
 1. **Browser never calls Mihomo.** Only the Go process sends the controller
    `Authorization: Bearer` header.
 2. **Controller remains local.** `external-controller` stays bound to loopback.
-3. **Web server is loopback-only by default.** Any non-loopback deployment must
-   require an API token and a trusted-CIDR allow-list; an unauthenticated
-   `0.0.0.0` listener is forbidden.
+3. **Web server is loopback-only by default.** A non-loopback deployment uses
+   both an API token and a narrow trusted-CIDR allow-list by default. The
+   separately configured unauthenticated-LAN mode removes the token boundary
+   for every client in that CIDR and is a high-risk, explicit opt-in; it is not
+   used by the public router example.
 4. **Secrets are environment-only.** The application config contains the name
    of an environment variable, never the secret itself. Subscription URLs and
    node credentials are neither persisted nor logged.
@@ -48,12 +50,13 @@ permitted to change traffic unattended.
 7. **Failure fails closed.** Inability to reach Mihomo, an invalid selector,
    zero healthy candidates, or an invalid CIDR produces no switch.
 
-For the verified `192.168.50.0/24` router deployment, the UI is available on
-LAN port `8788` only with two safeguards: an allow-list for that CIDR and a
-high-entropy token held in a mode-0600 router file. The static SPA shell is
-public on that LAN so its login form can load; every `/api/` request, including
-read-only data, requires the Bearer token. The browser retains the token only
-in its own session storage.
+For LAN or Tailnet deployment, the operator must replace the example CIDR with
+the narrow range that contains the intended clients. A high-entropy token is
+held in a mode-0600 router file. The static SPA shell is public inside the
+allowed network so its login form can load; every `/api/` request, including
+read-only data, requires the Bearer token unless the operator deliberately
+enabled unauthenticated-LAN mode. The browser retains the token only in its own
+session storage.
 
 ## 3. Runtime architecture
 
@@ -203,13 +206,16 @@ purchases, playback requests or other state-changing traffic.
 | `GET /api/v1/groups` | selectable Mihomo groups/current member | none |
 | `GET /api/v1/providers` | available proxy providers | none |
 | `GET /api/v1/regions` | configured classifier rules, no secrets | none |
+| `GET /api/v1/nodes` | eligible leaf-node catalogue and name-inferred region | none |
+| `GET /api/v1/history` | past scan/switch evidence | none |
+| `POST /api/v1/scans/preflight` | validate filters and estimate candidates/probes | none |
 | `POST /api/v1/scans` | submit group, regions, providers, mode | creates an inactive scan record only |
 | `GET /api/v1/scans/{id}` | status and results | none |
 | `GET /api/v1/scans/{id}/events` | live scan events (SSE) | none |
+| `POST /api/v1/scans/{id}/stop` | cancel now or after the current batch | stops work; never switches a selector |
 | `POST /api/v1/scans/{id}/select` | select ranked candidate | changes the specified selector after validation |
-| `GET /api/v1/history` | past scan/switch evidence | none |
 
-`POST /scans` body example:
+`POST /api/v1/scans` body example:
 
 ```json
 {
@@ -298,9 +304,10 @@ selector carrying normal LAN traffic.
 
 Install the binary, config (mode `0600`), and data directory outside OpenClash
 managed paths. A minimal `procd` service starts only after the network and
-Mihomo are available; it restarts on crash but never resets Mihomo. Start on
-loopback, verify the health endpoint, execute a manual scan, choose a node,
-then verify the controller's `now` member.
+Mihomo are available; it restarts on crash but never resets Mihomo. Verify the
+health endpoint locally on the router before opening the UI from an allowed
+client. Then execute a manual scan, choose a node, and verify the Controller's
+`now` member.
 
 Rollback is always: stop and disable the selector service → restore the backed
 up override/config if one was added → restart OpenClash only when necessary →
@@ -309,7 +316,9 @@ provider changes are part of deployment.
 
 ## 8. Target-address gate
 
-The confirmed deployment target is the private LAN router `192.168.50.2`.
-The service is restricted to the configured LAN CIDR and must not be published
-through a WAN port forward. The legacy `192.158.50.2` value is not a private
-RFC 1918 address and must never be substituted for the confirmed router.
+Never copy an address from an example into a deployment without confirming the
+target router and SSH host key. The service address must be a private LAN or
+Tailnet address reachable only from the intended clients. Restrict the API to
+the configured trusted CIDR and do not publish the service through a WAN port
+forward. A public or mistyped address is a deployment failure, not a value the
+installer should attempt automatically.

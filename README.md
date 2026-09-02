@@ -30,16 +30,23 @@ authenticated, LAN-restricted access path has been configured.
 
 ## Local development
 
-The repository includes no global-toolchain assumption. The development Go
-toolchain is intentionally ignored under `.tools/`.
+Prerequisites:
+
+- Go 1.27.x, as declared by `go.mod`;
+- Node.js 22.12 or newer; and
+- pnpm 11.19.x.
+
+A project-local Go toolchain may be placed under `.tools/go`, but that directory
+is intentionally ignored and is not present in a fresh clone. The standard
+commands below use the toolchains available on `PATH`.
 
 ```powershell
-$go = "$PWD/.tools/go/bin/go.exe"
-& $go mod download
+go mod download
 pnpm --dir web install --frozen-lockfile
 pnpm --dir web build
-& $go test ./...
-& $go build -o bin/mihomo-smart-selector.exe ./cmd/mihomo-smart-selector
+go vet ./...
+go test ./...
+go build -o bin/mihomo-smart-selector.exe ./cmd/mihomo-smart-selector
 Copy-Item config.example.yaml config.yaml
 $env:MIHOMO_SECRET = '<controller secret>'
 ./bin/mihomo-smart-selector.exe -config config.yaml
@@ -57,10 +64,25 @@ listener have been installed and verified. See
 
 ## Router deployment
 
-Deployment is intentionally a separate, verified step. It requires the
-router's confirmed **private/Tailscale** address, SSH access, CPU architecture,
-Mihomo version, available flash space, and a review of the active OpenClash
-configuration. See [the architecture and deployment design](docs/architecture.md).
+Deployment is intentionally a separate, verified step. Determine the target's
+private LAN or Tailnet address, SSH host key, CPU architecture, Mihomo version,
+available flash space, trusted client CIDR, and active OpenClash configuration
+before copying files. The examples are templates, not pre-approved values for a
+particular router. See the [OpenWrt/iStoreOS deployment guide](deploy/openwrt/README.md)
+and [architecture and deployment design](docs/architecture.md).
 
-Do not place a controller secret, provider URL, or a built binary in source
-control.
+The public router example requires a generated Bearer token and a trusted-CIDR
+allow-list. The optional unauthenticated-LAN mode is high risk and is never the
+default example. Do not add a WAN port forward.
+
+## Security
+
+Do not place a Controller secret, API token, provider URL, node credential,
+private service address, complete proxy configuration, or built binary in
+source control. Report suspected vulnerabilities according to
+[the security policy](SECURITY.md), without putting sensitive evidence in a
+public issue.
+
+## License
+
+Mihomo Smart Selector is available under the [MIT License](LICENSE).
