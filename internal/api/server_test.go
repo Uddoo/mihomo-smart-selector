@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/yw-li/mihomo-smart-selector/internal/config"
-	"github.com/yw-li/mihomo-smart-selector/internal/history"
-	"github.com/yw-li/mihomo-smart-selector/internal/mihomo"
-	"github.com/yw-li/mihomo-smart-selector/internal/scan"
+	"github.com/Uddoo/mihomo-smart-selector/internal/config"
+	"github.com/Uddoo/mihomo-smart-selector/internal/history"
+	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
+	"github.com/Uddoo/mihomo-smart-selector/internal/scan"
 )
 
 type testController struct{}

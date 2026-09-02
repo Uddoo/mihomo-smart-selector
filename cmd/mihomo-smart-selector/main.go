@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/yw-li/mihomo-smart-selector/internal/api"
-	"github.com/yw-li/mihomo-smart-selector/internal/config"
-	"github.com/yw-li/mihomo-smart-selector/internal/history"
-	"github.com/yw-li/mihomo-smart-selector/internal/mihomo"
-	"github.com/yw-li/mihomo-smart-selector/internal/scan"
+	"github.com/Uddoo/mihomo-smart-selector/internal/api"
+	"github.com/Uddoo/mihomo-smart-selector/internal/config"
+	"github.com/Uddoo/mihomo-smart-selector/internal/history"
+	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
+	"github.com/Uddoo/mihomo-smart-selector/internal/scan"
 )
 
 func main() {

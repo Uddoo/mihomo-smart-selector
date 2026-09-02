@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yw-li/mihomo-smart-selector/internal/model"
+	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 )
 
 func TestStoreRoundTripsScanAndSwitch(t *testing.T) {

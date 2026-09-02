@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/yw-li/mihomo-smart-selector/internal/config"
+	"github.com/Uddoo/mihomo-smart-selector/internal/config"
 )
 
 type Match struct {

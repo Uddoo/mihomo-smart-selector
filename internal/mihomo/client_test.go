@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/yw-li/mihomo-smart-selector/internal/config"
+	"github.com/Uddoo/mihomo-smart-selector/internal/config"
 )
 
 func TestClientEscapesNameAndUsesBearerSecret(t *testing.T) {

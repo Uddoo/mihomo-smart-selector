@@ -3,7 +3,7 @@ package regions
 import (
 	"testing"
 
-	"github.com/yw-li/mihomo-smart-selector/internal/config"
+	"github.com/Uddoo/mihomo-smart-selector/internal/config"
 )
 
 func TestClassifierPrefersManualOverrideAndAvoidsShortAliasSubstring(t *testing.T) {

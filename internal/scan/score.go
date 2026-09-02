@@ -4,8 +4,8 @@ import (
 	"math"
 	"sort"
 
-	"github.com/yw-li/mihomo-smart-selector/internal/config"
-	"github.com/yw-li/mihomo-smart-selector/internal/model"
+	"github.com/Uddoo/mihomo-smart-selector/internal/config"
+	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 )
 
 func calculateMetrics(result *model.NodeResult, cfg config.ScannerConfig) {

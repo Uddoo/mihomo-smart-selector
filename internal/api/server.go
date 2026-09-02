@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yw-li/mihomo-smart-selector/internal/config"
-	"github.com/yw-li/mihomo-smart-selector/internal/mihomo"
-	"github.com/yw-li/mihomo-smart-selector/internal/model"
-	"github.com/yw-li/mihomo-smart-selector/internal/scan"
+	"github.com/Uddoo/mihomo-smart-selector/internal/config"
+	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
+	"github.com/Uddoo/mihomo-smart-selector/internal/model"
+	"github.com/Uddoo/mihomo-smart-selector/internal/scan"
 )
 
 //go:embed static/*

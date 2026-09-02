@@ -1,4 +1,4 @@
-module github.com/yw-li/mihomo-smart-selector
+module github.com/Uddoo/mihomo-smart-selector
 
 go 1.27.0
 
