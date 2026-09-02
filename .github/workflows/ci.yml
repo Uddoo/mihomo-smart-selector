@@ -37,7 +37,7 @@ jobs:
         with:
           version: 11.19.0
           runtime: node@22.12.0
-          package-json-file: web/package.json
+          working-directory: web
           install: false
           cache: true
           cache-dependency-path: web/pnpm-lock.yaml
