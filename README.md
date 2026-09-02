@@ -1,11 +1,20 @@
 # Mihomo Smart Selector
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
+[![CI](https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 `Mihomo Smart Selector` is a small, self-hosted service for choosing a stable
 Mihomo selector member for a particular internet service. It is designed for
 OpenClash/iStoreOS, but it does not replace OpenClash and does not expose the
 Mihomo controller secret to a browser.
 
-The first implemented release provides:
+> **Pre-release:** no stable package or public release has been published yet.
+> Configuration and API compatibility may change before `v1.0.0`. The current
+> dashboard UI is Simplified Chinese; English UI localization is not complete.
+
+The current pre-release build provides:
 
 - a Vue 3 dashboard embedded into one Go binary;
 - discovery of selector groups, providers, and eligible members through the
@@ -27,6 +36,16 @@ The first implemented release provides:
 
 The service binds to `127.0.0.1:8788` by default. Keep that default until an
 authenticated, LAN-restricted access path has been configured.
+
+## Screenshots
+
+The screenshots use the repository's development-only mock Controller; node
+names, timings, and Selector changes are fixtures rather than real provider
+data.
+
+![Service-aware scan workbench](docs/assets/screenshots/scan-workbench.png)
+
+![Explainable final node ranking](docs/assets/screenshots/scan-results.png)
 
 ## Local development
 
@@ -99,6 +118,14 @@ private service address, complete proxy configuration, or built binary in
 source control. Report suspected vulnerabilities according to
 [the security policy](SECURITY.md), without putting sensitive evidence in a
 public issue.
+
+## Contributing
+
+Before opening a pull request, read [CONTRIBUTING.md](CONTRIBUTING.md) and run
+the complete verification and process-level smoke contracts. Public issues and
+logs must be redacted according to [SECURITY.md](SECURITY.md). Project changes
+are tracked in [CHANGELOG.md](CHANGELOG.md), and community participation is
+covered by the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
