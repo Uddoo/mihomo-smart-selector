@@ -4,7 +4,9 @@ This package targets the verified NanoPi R5S LTS (`linux/arm64`) environment.
 It is intentionally conservative:
 
 - the UI binds to `0.0.0.0:8788` only for the verified `192.168.50.0/24` LAN;
-- every `/api/` route requires both that CIDR and a high-entropy Bearer token;
+- in the approved no-password LAN mode, every `/api/` route still requires
+  that CIDR, while a token remains available as a recovery option if the mode
+  is turned off;
 - the existing Mihomo Controller remains untouched at `127.0.0.1:9090`;
 - the Controller secret is read at startup from the existing
   `/etc/openclash/dukou.yaml`, but is never copied into this repository,
@@ -58,18 +60,11 @@ The first runtime test stays local to the router:
 curl -fsS http://127.0.0.1:8788/api/v1/health
 ```
 
-The init script creates `/etc/mihomo-smart-selector/access-token` on its first
-successful start (mode `0600`). Do not paste that token into chat or save it in
-the browser. From a trusted workstation, read it directly into your own local
-terminal:
-
-```powershell
-ssh root@192.168.50.2 'cat /etc/mihomo-smart-selector/access-token'
-```
-
-Open `http://192.168.50.2:8788` from that LAN, enter the token in the initial
-access screen, choose `🤖 ChatGPT`, filter `Japan`, run a scan, and use the
-explicit selection action. Verify the target group member with the authenticated
+Open `http://192.168.50.2:8788` from that trusted LAN. No token is requested
+while `allow_unauthenticated_lan: true` and the source remains inside
+`192.168.50.0/24`; do not add a WAN forward. Choose a target group, review the
+visible Probe Profile and its verification scope, run a filtered scan, and use
+the explicit selection action. Verify the target group member with the local
 Controller API before treating the result as accepted.
 
 ## Rollback

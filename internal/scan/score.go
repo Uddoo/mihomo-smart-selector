@@ -22,6 +22,7 @@ func calculateMetrics(result *model.NodeResult, cfg config.ScannerConfig) {
 	}
 	if len(delays) == 0 {
 		result.Score = 0
+		result.ScoreBreakdown = model.ScoreBreakdown{}
 		return
 	}
 	sort.Ints(delays)
@@ -39,15 +40,19 @@ func calculateMetrics(result *model.NodeResult, cfg config.ScannerConfig) {
 		result.JitterMS = jitterSum / float64(jitterCount)
 	}
 
-	success := 40 * result.SuccessRate
+	reliability := 40 * result.SuccessRate
 	p95 := scaledComponent(result.P95MS, cfg.P95TargetMS, 20)
-	median := scaledComponent(result.P50MS, cfg.MedianTargetMS, 15)
+	p50 := scaledComponent(result.P50MS, cfg.MedianTargetMS, 15)
 	jitter := scaledComponent(int(math.Round(result.JitterMS)), cfg.JitterTargetMS, 10)
-	egress := 0.0
+	region := 0.0
 	if result.VerifiedRegion != "" && result.VerifiedRegion == result.InferredRegion {
-		egress = 5
+		region = 5
 	}
-	result.Score = round1(success + p95 + median + jitter + egress)
+	result.ScoreBreakdown = model.ScoreBreakdown{
+		Reliability: round1(reliability), P50: round1(p50), P95: round1(p95),
+		Jitter: round1(jitter), Region: round1(region), Total: round1(reliability + p50 + p95 + jitter + region),
+	}
+	result.Score = result.ScoreBreakdown.Total
 }
 
 func scaledComponent(measurement, target, maximum int) float64 {

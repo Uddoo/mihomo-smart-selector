@@ -97,6 +97,8 @@ are [Mihomo Controller API](https://wiki.metacubex.one/en/api/) and
 
 ```text
 target selector
+  │ normalized selector label → service Probe Profile
+  │ profile label/semantics are persisted with the scan
   │ GET /proxies (selector.all, selector.now)
   ├──────────► reject unknown/non-member target
   ▼
@@ -105,11 +107,13 @@ members enriched with provider-name
   │ filter selected provider(s) + region(s)
   ▼
 for every remaining member, bounded concurrent tests
-  │ each configured endpoint × N samples
-  │ expected HTTP code evaluated by Mihomo
+  │ profile reachability endpoint × N samples
+  │ provider leaves: reachable/timing only
+  │ direct leaves: Mihomo evaluates expected HTTP code
   ▼
 metrics: success %, p50, p95, mean adjacent jitter
   │ optional egress location (separate, serialized)
+  │ optional strict status/body check through dedicated probe selector
   ▼
 score / rank / persist immutable scan record
   │
@@ -127,6 +131,31 @@ still fails an unexpectedly huge request before it generates traffic. Quick
 mode performs one sample per endpoint, while stable mode uses the configured
 sample count.
 
+### 4.1 Service probe profiles and verification boundaries
+
+`scanner.probe_profiles` maps normalized Selector names to a read-only,
+no-credential service profile. Decorations such as `🤖`, `📹`, spaces and `+`
+are ignored during matching, so `🤖 ChatGPT` resolves to the `chatgpt` profile.
+An unmatched group uses `scanner.default_probe_profile`. The scan API returns
+the built-in public target addresses, expected status codes, and whether each
+target is a reachability or strict check. Custom/private profile addresses (for
+example an Emby hostname) remain masked to unauthenticated LAN browsers.
+
+Each result reports five distinct facts rather than promoting a single HTTP
+response into a stronger claim:
+
+| Field | Meaning | Does not prove |
+| --- | --- | --- |
+| Reachability | bounded profile request reached the service surface | account login, subscription or stream playback |
+| Strict verification | expected status and optional response text through the isolated probe route | general application behaviour beyond that assertion |
+| Restriction | a configured restricted HTTP status was observed | a complete provider catalogue or every region's policy |
+| Region verification | actual trace exit compared with explicitly configured expected regions | service licence entitlement |
+| Transport scope | what the profile measured, normally HTTP latency only | TCP/UDP/QUIC game or video-stream quality |
+
+The built-in Emby profile deliberately refuses to start a scan until an operator
+sets a private endpoint using `scanner.probe_profile_overrides.emby`. This
+changes that one profile without replacing the remaining built-ins.
+
 Some OpenClash Smart controller builds expose provider-owned leaves only through
 `/providers/proxies`, even though a Selector lists their names in `all`. The
 scanner therefore merges that provider metadata before classification, while
@@ -136,15 +165,20 @@ check.
 For those provider-owned nodes, scanning uses the documented provider
 `healthcheck` route rather than `/proxies/{name}/delay`; that endpoint accepts
 the probe URL and timeout but not an expected response-status filter. Its score
-therefore represents service reachability and timing. The optional dedicated
-egress route remains the source of location verification.
+therefore represents service reachability and timing. A profile requiring a
+strict `401`, HTTP body or restricted-status assertion must instead use the
+separate `scanner.strict_verification` route. That route is disabled by default
+and selects candidates only in the explicitly configured, dedicated probe
+Selector; it never changes the business Selector under evaluation. The optional
+dedicated egress route remains the source of location verification.
 
 The public API's `delay` result is a latency measurement, not an HTTP body.
 Therefore the regular scan can verify expected HTTP response codes but cannot
 determine the real exit country. Region aliases are labelled **name-inferred**.
 Only the optional trace route may label an exit as **verified**.
 
-The v0.1 score is intentionally explainable:
+The performance score is intentionally explainable and is returned both as a
+total and as independent components:
 
 | Component | Maximum | Meaning |
 | --- | ---: | --- |
@@ -153,11 +187,13 @@ The v0.1 score is intentionally explainable:
 | Median latency | 15 | linearly decreases from the configurable median target |
 | Jitter | 10 | linearly decreases from the configurable jitter target |
 | Egress confidence | 5 | verified matching exit only; 0 when unchecked/unknown/mismatched |
-| **Total** | **100** | rounded to one decimal; metrics remain visible |
+| **Total** | **90** | rounded to one decimal; service/region restriction state remains separate |
 
 This is a ranking tool, not an assertion that a node will always be suitable for
 interactive ChatGPT use. A successful `401` from `api.openai.com/v1/models`
-is only a reachability signal; it is not an authenticated service call.
+is only an unauthenticated API boundary check; it is not an authenticated
+service call. Strict checks never carry account tokens or send messages,
+purchases, playback requests or other state-changing traffic.
 
 ## 5. API contract
 
@@ -217,7 +253,7 @@ Before touching the target router, collect and preserve:
 This project must not assume the router is ARM64. Build with the architecture
 reported by the preflight, normally a CGO-free Go build for `linux/<arch>`.
 
-### 7.2 Optional probe listener
+### 7.2 Optional probe listener for strict checks
 
 Only after the first manual scan/switch is accepted, install this reviewed
 addition through OpenClash's supported custom override mechanism, adapted to
@@ -242,6 +278,22 @@ The exact active config must be backed up and syntax-checked first. Do not add
 this listener if port `17890` is occupied, if the target Mihomo version lacks
 listener support, or if the config already defines the same names.
 
+When it has been verified as an isolated listener, configure the application
+explicitly and keep the candidate limit bounded:
+
+```yaml
+scanner:
+  strict_verification:
+    enabled: true
+    selector_group: "__SMART_PROBE__"
+    proxy_url: http://127.0.0.1:17890
+    max_candidates: 60
+```
+
+The service disables keep-alive reuse while changing that selector and restores
+its prior member when the strict phase finishes. Do not point this setting at a
+selector carrying normal LAN traffic.
+
 ### 7.3 Service and rollback
 
 Install the binary, config (mode `0600`), and data directory outside OpenClash
@@ -257,8 +309,7 @@ provider changes are part of deployment.
 
 ## 8. Target-address gate
 
-The supplied deployment target, `192.158.50.2`, lies outside RFC 1918 private
-address space. It must not be treated as the router by default. A prior local
-environment note referred to `192.168.50.2`; this design records that only as
-an unverified discrepancy, not as authority to use it. Deployment is blocked
-until the intended private/Tailscale hostname or IP is confirmed by the user.
+The confirmed deployment target is the private LAN router `192.168.50.2`.
+The service is restricted to the configured LAN CIDR and must not be published
+through a WAN port forward. The legacy `192.158.50.2` value is not a private
+RFC 1918 address and must never be substituted for the confirmed router.

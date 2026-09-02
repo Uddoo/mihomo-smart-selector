@@ -11,12 +11,19 @@ The first implemented release provides:
 - discovery of selector groups, providers, and eligible members through the
   local Mihomo Controller API;
 - configurable region classification and node overrides;
-- multi-sample, multi-endpoint scans with median, P95, jitter, success rate,
-  and a transparent 100-point score;
+- service-aware Probe Profiles that map each selector to a no-credential,
+  read-only endpoint instead of one global URL;
+- multi-sample scans with median, P95, jitter, success rate, and a transparent
+  90-point performance score with an independent score breakdown;
+- separate reachability, strict HTTP/body verification, restriction,
+  region-verification and transport-scope states, so a 200 response is never
+  presented as proof of login, streaming or regional unlock;
 - SQLite-backed scan and switch history;
 - a deliberate, manual **Select best node** action; and
 - an optional, serialized actual-egress check through an explicitly configured
-  local Mihomo listener.
+  local Mihomo listener; and
+- an opt-in strict-verification route that uses an isolated Mihomo selector and
+  local proxy listener, never the business selector being scored.
 
 The service binds to `127.0.0.1:8788` by default. Keep that default until an
 authenticated, LAN-restricted access path has been configured.
@@ -42,6 +49,12 @@ Open `http://127.0.0.1:8788` only after the local mock or Mihomo controller is
 running. The server will return a clear degraded-health response while Mihomo
 is unreachable.
 
+`scanner.probe_profile_overrides` is the safe way to configure a private
+service such as Emby without replacing built-in profiles. Strict checks remain
+disabled until a dedicated `__SMART_PROBE__`-style selector and loopback proxy
+listener have been installed and verified. See
+[the architecture and deployment design](docs/architecture.md).
+
 ## Router deployment
 
 Deployment is intentionally a separate, verified step. It requires the
@@ -51,4 +64,3 @@ configuration. See [the architecture and deployment design](docs/architecture.md
 
 Do not place a controller secret, provider URL, or a built binary in source
 control.
-

@@ -30,4 +30,7 @@ func TestCalculateMetricsFavorsStableSuccessfulNode(t *testing.T) {
 	if stable.Score <= unstable.Score {
 		t.Fatalf("stable score %v must exceed unstable score %v", stable.Score, unstable.Score)
 	}
+	if stable.Score != stable.ScoreBreakdown.Total || stable.ScoreBreakdown.Reliability <= 0 || stable.ScoreBreakdown.Region != 5 {
+		t.Fatalf("stable score breakdown = %#v", stable.ScoreBreakdown)
+	}
 }

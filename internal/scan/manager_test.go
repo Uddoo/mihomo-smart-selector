@@ -3,6 +3,8 @@ package scan
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
@@ -91,5 +93,94 @@ func TestManagerScansFiltersRanksAndSelectsMember(t *testing.T) {
 	}
 	if event.Selected != "JP-03" || fake.selected != "JP-03" {
 		t.Fatalf("selection event = %#v, selected=%q", event, fake.selected)
+	}
+}
+
+func TestStrictChecksDistinguishExpectedResponseFromRestrictedService(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Scanner.TimeoutMS = 1000
+	store, err := history.Open(t.TempDir() + "/selector.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	manager := NewManager(cfg, &fakeMihomo{}, store)
+
+	passedServer := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusUnauthorized)
+		_, _ = writer.Write([]byte("authorized boundary"))
+	}))
+	defer passedServer.Close()
+	passed := manager.runStrictCheck(context.Background(), passedServer.Client(), config.StrictProbe{Name: "api", URL: passedServer.URL, ExpectedStatus: "401", BodyContains: "boundary"})
+	if passed.Status != "passed" || passed.ObservedStatus != http.StatusUnauthorized || passed.BodyMatched == nil || !*passed.BodyMatched {
+		t.Fatalf("passed strict check = %#v", passed)
+	}
+
+	restrictedServer := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusForbidden)
+	}))
+	defer restrictedServer.Close()
+	restricted := manager.runStrictCheck(context.Background(), restrictedServer.Client(), config.StrictProbe{Name: "media", URL: restrictedServer.URL, ExpectedStatus: "200", RestrictedStatusCodes: []int{http.StatusForbidden}})
+	if restricted.Status != "restricted" || restricted.ObservedStatus != http.StatusForbidden {
+		t.Fatalf("restricted strict check = %#v", restricted)
+	}
+
+	result := model.NodeResult{StrictChecks: []model.StrictCheck{restricted}}
+	applyStrictOutcome(&result)
+	if result.StrictVerificationStatus != "restricted" || result.RestrictionStatus != "restricted" {
+		t.Fatalf("strict outcome = %#v", result)
+	}
+}
+
+func TestAssessResultKeepsServiceRegionAndTransportIndependent(t *testing.T) {
+	result := model.NodeResult{SuccessRate: 1, VerifiedRegion: "US"}
+	profile := config.ProbeProfile{
+		ExpectedRegions: []string{"JP"}, TransportScope: "HTTP latency only",
+		StrictProbes: []config.StrictProbe{{Name: "boundary", URL: "https://example.com", ExpectedStatus: "401"}},
+	}
+	assessResult(&result, profile, false)
+	if result.ReachabilityStatus != "available" || result.RegionVerificationStatus != "mismatch" || result.StrictVerificationStatus != "not_configured" || result.TransportStatus != "HTTP latency only" {
+		t.Fatalf("independent assessment = %#v", result)
+	}
+}
+
+func TestPreflightKeepsProfileVisibleWhenSelectorHasNoDirectLeaves(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Storage.Path = t.TempDir() + "/selector.db"
+	store, err := history.Open(cfg.Storage.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	manager := NewManager(cfg, &fakeMihomo{proxies: map[string]mihomo.Proxy{
+		"GitHub":        {Name: "GitHub", Type: "Selector", All: []string{"nested-policy"}},
+		"nested-policy": {Name: "nested-policy", Type: "URLTest"},
+	}}, store)
+	preview, err := manager.Preflight(context.Background(), model.ScanRequest{TargetGroup: "GitHub", Mode: "quick"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Ready || preview.Profile.ID != "github" || preview.Reason == "" {
+		t.Fatalf("preflight = %#v", preview)
+	}
+}
+
+func TestProfileSummaryShowsBuiltInTargetsButMasksPrivateTargets(t *testing.T) {
+	cfg := config.Defaults()
+	manager := NewManager(cfg, &fakeMihomo{}, nil)
+	builtIn, err := cfg.ResolveProbeProfile("GLOBAL")
+	if err != nil {
+		t.Fatal(err)
+	}
+	public := manager.profileSummary(builtIn)
+	if len(public.Targets) != 1 || !public.Targets[0].AddressVisible || public.Targets[0].Address != "https://www.gstatic.com/generate_204" || public.Targets[0].Kind != "reachability" {
+		t.Fatalf("public target summary = %#v", public.Targets)
+	}
+
+	private := manager.profileSummary(config.ProbeProfile{
+		ID: "emby", Label: "Private Emby", Probes: []config.Probe{{Name: "emby-info", URL: "https://media.example.test/emby/System/Info/Public", ExpectedStatus: "200"}},
+	})
+	if len(private.Targets) != 1 || private.Targets[0].AddressVisible || private.Targets[0].Address != "" {
+		t.Fatalf("private target summary = %#v", private.Targets)
 	}
 }

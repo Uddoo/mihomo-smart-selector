@@ -70,6 +70,32 @@ CREATE INDEX IF NOT EXISTS idx_switch_events_created_at ON switch_events(created
 	if err != nil {
 		return fmt.Errorf("migrate SQLite database: %w", err)
 	}
+	return s.ensureColumn(ctx, "scans", "profile_json", "TEXT NOT NULL DEFAULT '{}'")
+}
+
+func (s *Store) ensureColumn(ctx context.Context, table, column, definition string) error {
+	rows, err := s.db.QueryContext(ctx, `PRAGMA table_info(`+table+`)`)
+	if err != nil {
+		return fmt.Errorf("inspect %s columns: %w", table, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var index, notNull, primaryKey int
+		var name, dataType string
+		var defaultValue any
+		if err := rows.Scan(&index, &name, &dataType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return fmt.Errorf("read %s columns: %w", table, err)
+		}
+		if name == column {
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate %s columns: %w", table, err)
+	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE `+table+` ADD COLUMN `+column+` `+definition); err != nil {
+		return fmt.Errorf("add %s.%s: %w", table, column, err)
+	}
 	return nil
 }
 
@@ -78,9 +104,13 @@ func (s *Store) CreateScan(ctx context.Context, scan model.Scan) error {
 	if err != nil {
 		return fmt.Errorf("encode scan request: %w", err)
 	}
+	profile, err := json.Marshal(scan.Profile)
+	if err != nil {
+		return fmt.Errorf("encode scan profile: %w", err)
+	}
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO scans(id, status, request_json, started_at) VALUES (?, ?, ?, ?)`,
-		scan.ID, scan.Status, request, timestamp(scan.StartedAt),
+		`INSERT INTO scans(id, status, request_json, profile_json, started_at) VALUES (?, ?, ?, ?, ?)`,
+		scan.ID, scan.Status, request, profile, timestamp(scan.StartedAt),
 	)
 	if err != nil {
 		return fmt.Errorf("create scan: %w", err)
@@ -129,10 +159,10 @@ func (s *Store) CompleteScan(ctx context.Context, scan model.Scan) error {
 func (s *Store) GetScan(ctx context.Context, id string) (model.Scan, error) {
 	var scan model.Scan
 	var status string
-	var requestJSON, startedAt, completedAt, errorText sql.NullString
+	var requestJSON, profileJSON, startedAt, completedAt, errorText sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT status, request_json, started_at, completed_at, error FROM scans WHERE id = ?`, id,
-	).Scan(&status, &requestJSON, &startedAt, &completedAt, &errorText)
+		`SELECT status, request_json, profile_json, started_at, completed_at, error FROM scans WHERE id = ?`, id,
+	).Scan(&status, &requestJSON, &profileJSON, &startedAt, &completedAt, &errorText)
 	if err == sql.ErrNoRows {
 		return model.Scan{}, fmt.Errorf("scan %q not found", id)
 	}
@@ -144,6 +174,11 @@ func (s *Store) GetScan(ctx context.Context, id string) (model.Scan, error) {
 	scan.Error = errorText.String
 	if err := json.Unmarshal([]byte(requestJSON.String), &scan.Request); err != nil {
 		return model.Scan{}, fmt.Errorf("decode scan request: %w", err)
+	}
+	if profileJSON.Valid && profileJSON.String != "" {
+		if err := json.Unmarshal([]byte(profileJSON.String), &scan.Profile); err != nil {
+			return model.Scan{}, fmt.Errorf("decode scan profile: %w", err)
+		}
 	}
 	parsedStart, err := parseTimestamp(startedAt.String)
 	if err != nil {

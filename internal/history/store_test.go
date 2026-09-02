@@ -20,6 +20,7 @@ func TestStoreRoundTripsScanAndSwitch(t *testing.T) {
 	scan := model.Scan{
 		ID: "scan-1", Status: model.ScanRunning, StartedAt: started,
 		Request: model.ScanRequest{TargetGroup: "ChatGPT", Regions: []string{"JP"}, Mode: "stable"},
+		Profile: model.ProbeProfileSummary{ID: "chatgpt", Label: "ChatGPT service", ProbeCount: 1, TransportScope: "HTTP latency only"},
 	}
 	if err := store.CreateScan(context.Background(), scan); err != nil {
 		t.Fatal(err)
@@ -35,7 +36,7 @@ func TestStoreRoundTripsScanAndSwitch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Status != model.ScanComplete || len(got.Results) != 1 || got.Results[0].Name != "JP-03" {
+	if got.Status != model.ScanComplete || len(got.Results) != 1 || got.Results[0].Name != "JP-03" || got.Profile.ID != "chatgpt" {
 		t.Fatalf("round trip scan = %#v", got)
 	}
 	event, err := store.RecordSwitch(context.Background(), model.SwitchEvent{

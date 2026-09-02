@@ -22,6 +22,10 @@ scanner:
   median_target_ms: 300
   p95_target_ms: 800
   jitter_target_ms: 200
+  # Built-in profiles map OpenClash selector labels such as "🤖 ChatGPT",
+  # "📹 YouTube" and "🚀 GitHub" to service-specific, no-credential probes.
+  # `probes` remains only as a compatibility fallback for a custom deployment
+  # that deliberately supplies no probe_profiles.
   probes:
     - name: chatgpt-trace
       url: https://chatgpt.com/cdn-cgi/trace
@@ -29,6 +33,22 @@ scanner:
     - name: openai-api-reachability
       url: https://api.openai.com/v1/models
       expected_status: "401"
+  # Configure a private service without replacing the other built-in profiles.
+  # probe_profile_overrides:
+  #   emby:
+  #     requires_configuration: false
+  #     probes:
+  #       - name: emby-public-info
+  #         url: https://media.example.com/emby/System/Info/Public
+  #         expected_status: "200"
+  # Strict checks (expected 401, response body, restricted statuses) remain
+  # off until this router has an isolated selector and a local HTTP proxy that
+  # routes only probe traffic. Never point selector_group at a business route.
+  strict_verification:
+    enabled: false
+    # selector_group: "MSS Probe Only"
+    # proxy_url: http://127.0.0.1:7890
+    # max_candidates: 60
 regions:
   - code: JP
     name: Japan

@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,7 +23,10 @@ import (
 	"github.com/yw-li/mihomo-smart-selector/internal/regions"
 )
 
-var errScanStopped = fmt.Errorf("scan stopped by operator")
+var (
+	errScanStopped  = fmt.Errorf("scan stopped by operator")
+	errNoCandidates = fmt.Errorf("no eligible leaf candidates")
+)
 
 type Event struct {
 	Kind     string              `json:"kind"`
@@ -63,8 +68,12 @@ func (m *Manager) Start(request model.ScanRequest) (model.Scan, error) {
 	if err != nil {
 		return model.Scan{}, err
 	}
+	profile, err := m.profileFor(request.TargetGroup)
+	if err != nil {
+		return model.Scan{}, err
+	}
 	now := time.Now().UTC()
-	scan := model.Scan{ID: newID(), Status: model.ScanRunning, Request: request, StartedAt: now}
+	scan := model.Scan{ID: newID(), Status: model.ScanRunning, Request: request, Profile: m.profileSummary(profile), StartedAt: now}
 	if err := m.store.CreateScan(context.Background(), scan); err != nil {
 		return model.Scan{}, err
 	}
@@ -80,8 +89,24 @@ func (m *Manager) Preflight(ctx context.Context, request model.ScanRequest) (mod
 	if err != nil {
 		return model.ScanPreview{}, err
 	}
+	profile, err := m.cfg.ResolveProbeProfile(request.TargetGroup)
+	if err != nil {
+		return model.ScanPreview{}, err
+	}
+	if profile.RequiresConfiguration {
+		return model.ScanPreview{Profile: m.profileSummary(profile)}, nil
+	}
+	if len(profile.Probes) == 0 {
+		return model.ScanPreview{}, fmt.Errorf("probe profile %q has no reachable probes", profile.Label)
+	}
 	candidates, err := m.discoverCandidates(ctx, request)
 	if err != nil {
+		if errors.Is(err, errNoCandidates) {
+			return model.ScanPreview{
+				Profile: m.profileSummary(profile), Ready: false,
+				Reason: "此选择器当前未直接包含可选择的叶子节点；为避免越过嵌套策略组，扫描已保持禁用。",
+			}, nil
+		}
 		return model.ScanPreview{}, err
 	}
 	if len(candidates) > m.cfg.Scanner.MaxTotalCandidates {
@@ -91,7 +116,12 @@ func (m *Manager) Preflight(ctx context.Context, request model.ScanRequest) (mod
 	if request.Mode == "quick" {
 		samples = 1
 	}
-	return model.ScanPreview{CandidateCount: len(candidates), BatchSize: m.cfg.Scanner.BatchSize, BatchCount: (len(candidates) + m.cfg.Scanner.BatchSize - 1) / m.cfg.Scanner.BatchSize, SamplesPerNode: samples, ProbeRequests: len(candidates) * len(m.cfg.Scanner.Probes) * samples}, nil
+	return model.ScanPreview{
+		CandidateCount: len(candidates), BatchSize: m.cfg.Scanner.BatchSize,
+		BatchCount:     (len(candidates) + m.cfg.Scanner.BatchSize - 1) / m.cfg.Scanner.BatchSize,
+		SamplesPerNode: samples, ProbeRequests: len(candidates) * len(profile.Probes) * samples,
+		Profile: m.profileSummary(profile), Ready: true,
+	}, nil
 }
 
 func (m *Manager) Stop(scanID string, afterCurrentBatch bool) (model.ScanProgress, error) {
@@ -149,6 +179,48 @@ func (m *Manager) Providers(ctx context.Context) ([]mihomo.Provider, error) {
 
 func (m *Manager) Regions() []config.Region {
 	return append([]config.Region(nil), m.cfg.Regions...)
+}
+
+func (m *Manager) profileFor(groupName string) (config.ProbeProfile, error) {
+	profile, err := m.cfg.ResolveProbeProfile(groupName)
+	if err != nil {
+		return config.ProbeProfile{}, err
+	}
+	if profile.RequiresConfiguration {
+		return config.ProbeProfile{}, fmt.Errorf("probe profile %q needs configuration: %s", profile.Label, profile.SetupHint)
+	}
+	if len(profile.Probes) == 0 {
+		return config.ProbeProfile{}, fmt.Errorf("probe profile %q has no reachable probes", profile.Label)
+	}
+	return profile, nil
+}
+
+func (m *Manager) profileSummary(profile config.ProbeProfile) model.ProbeProfileSummary {
+	targets := make([]model.ProbeTargetSummary, 0, len(profile.Probes)+len(profile.StrictProbes))
+	for _, probe := range profile.Probes {
+		targets = append(targets, model.ProbeTargetSummary{
+			Name: probe.Name, ExpectedStatus: probe.ExpectedStatus, Kind: "reachability", AddressVisible: profile.ExposeTargetAddresses,
+		})
+		if profile.ExposeTargetAddresses {
+			targets[len(targets)-1].Address = probe.URL
+		}
+	}
+	for _, probe := range profile.StrictProbes {
+		targets = append(targets, model.ProbeTargetSummary{
+			Name: probe.Name, ExpectedStatus: probe.ExpectedStatus, Kind: "strict", AddressVisible: profile.ExposeTargetAddresses,
+		})
+		if profile.ExposeTargetAddresses {
+			targets[len(targets)-1].Address = probe.URL
+		}
+	}
+	return model.ProbeProfileSummary{
+		ID: profile.ID, Label: profile.Label, Description: profile.Description,
+		ProbeCount: len(profile.Probes), StrictProbeCount: len(profile.StrictProbes),
+		StrictVerificationAvailable: len(profile.StrictProbes) > 0 && m.cfg.Scanner.StrictVerification.Enabled,
+		RequiresConfiguration:       profile.RequiresConfiguration, SetupHint: profile.SetupHint,
+		ExpectedRegions: append([]string(nil), profile.ExpectedRegions...), TransportScope: profile.TransportScope,
+		Targets: targets,
+	}
 }
 
 func (m *Manager) Nodes(ctx context.Context) ([]model.NodeSummary, error) {
@@ -300,6 +372,10 @@ func (m *Manager) run(ctx context.Context, scan model.Scan) {
 }
 
 func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult, error) {
+	profile, err := m.profileFor(scan.Request.TargetGroup)
+	if err != nil {
+		return nil, err
+	}
 	candidates, err := m.discoverCandidates(ctx, scan.Request)
 	if err != nil {
 		return nil, err
@@ -325,7 +401,7 @@ func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult
 		progress.BatchTotal = end - start
 		m.setProgress(scan.ID, progress)
 		m.publish(scan.ID, Event{Kind: "batch-started", Message: fmt.Sprintf("batch %d of %d started", batchIndex, totalBatches), At: time.Now().UTC(), Progress: &progress})
-		allResults = append(allResults, m.probeBatch(ctx, scan, candidates[start:end])...)
+		allResults = append(allResults, m.probeBatch(ctx, scan, profile, candidates[start:end])...)
 		if ctx.Err() != nil {
 			return allResults, ctx.Err()
 		}
@@ -339,6 +415,10 @@ func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult
 		for index := range allResults {
 			calculateMetrics(&allResults[index], m.cfg.Scanner)
 		}
+	}
+	m.verifyStrict(ctx, proxies, profile, allResults, scan.ID)
+	for index := range allResults {
+		assessResult(&allResults[index], profile, m.cfg.Scanner.StrictVerification.Enabled)
 	}
 	sort.SliceStable(allResults, func(left, right int) bool {
 		if allResults[left].Score != allResults[right].Score {
@@ -385,7 +465,7 @@ func (m *Manager) discoverCandidates(ctx context.Context, request model.ScanRequ
 	}
 	candidates := m.filterCandidates(group, proxies, providerByNode, request)
 	if len(candidates) == 0 {
-		return nil, fmt.Errorf("no selector members matched the requested filters")
+		return nil, fmt.Errorf("%w matched the requested filters", errNoCandidates)
 	}
 	return candidates, nil
 }
@@ -406,7 +486,7 @@ func normaliseRequest(request model.ScanRequest) (model.ScanRequest, error) {
 	return request, nil
 }
 
-func (m *Manager) probeBatch(parent context.Context, scan model.Scan, candidates []candidate) []model.NodeResult {
+func (m *Manager) probeBatch(parent context.Context, scan model.Scan, profile config.ProbeProfile, candidates []candidate) []model.NodeResult {
 	jobs := make(chan candidate)
 	results := make(chan model.NodeResult, len(candidates))
 	var workers sync.WaitGroup
@@ -415,7 +495,7 @@ func (m *Manager) probeBatch(parent context.Context, scan model.Scan, candidates
 		go func() {
 			defer workers.Done()
 			for item := range jobs {
-				results <- m.probeCandidate(parent, item, scan.Request.Mode)
+				results <- m.probeCandidate(parent, item, profile, scan.Request.Mode)
 			}
 		}()
 	}
@@ -474,7 +554,7 @@ func (m *Manager) filterCandidates(group mihomo.Proxy, proxies map[string]mihomo
 	return items
 }
 
-func (m *Manager) probeCandidate(parent context.Context, item candidate, mode string) model.NodeResult {
+func (m *Manager) probeCandidate(parent context.Context, item candidate, profile config.ProbeProfile, mode string) model.NodeResult {
 	result := model.NodeResult{
 		Name: item.Name, Provider: item.Provider, InferredRegion: item.Region.Code, RegionSource: item.Region.Source,
 	}
@@ -482,7 +562,7 @@ func (m *Manager) probeCandidate(parent context.Context, item candidate, mode st
 	if mode == "quick" {
 		samples = 1
 	}
-	for _, probe := range m.cfg.Scanner.Probes {
+	for _, probe := range profile.Probes {
 		for sample := 0; sample < samples; sample++ {
 			ctx, cancel := context.WithTimeout(parent, time.Duration(m.cfg.Scanner.TimeoutMS+500)*time.Millisecond)
 			delay, err := m.client.Delay(ctx, item.Name, item.Provider, probe, m.cfg.Scanner.TimeoutMS)
@@ -496,6 +576,7 @@ func (m *Manager) probeCandidate(parent context.Context, item candidate, mode st
 		}
 	}
 	calculateMetrics(&result, m.cfg.Scanner)
+	assessResult(&result, profile, m.cfg.Scanner.StrictVerification.Enabled)
 	return result
 }
 
@@ -560,6 +641,180 @@ func (m *Manager) verifyEgress(ctx context.Context, proxies map[string]mihomo.Pr
 	}
 	if probeSelector.Now != "" {
 		_ = m.client.Select(ctx, probeSelector.Name, probeSelector.Now)
+	}
+}
+
+// verifyStrict performs status-code and optional body checks through a
+// dedicated, user-configured selector. The target business selector is never
+// changed. Disabling this feature is the default because a router must first
+// provide an isolated probe selector and local proxy listener.
+func (m *Manager) verifyStrict(ctx context.Context, proxies map[string]mihomo.Proxy, profile config.ProbeProfile, results []model.NodeResult, scanID string) {
+	if len(profile.StrictProbes) == 0 {
+		return
+	}
+	verification := m.cfg.Scanner.StrictVerification
+	if !verification.Enabled {
+		for index := range results {
+			results[index].StrictVerificationStatus = "not_configured"
+			results[index].RestrictionStatus = "not_checked"
+		}
+		return
+	}
+	if len(results) > verification.MaxCandidates {
+		for index := range results {
+			results[index].StrictVerificationStatus = "not_run_limit"
+			results[index].RestrictionStatus = "not_checked"
+		}
+		return
+	}
+	probeSelector, exists := proxies[verification.SelectorGroup]
+	if !exists || !strings.EqualFold(probeSelector.Type, "Selector") {
+		for index := range results {
+			results[index].StrictVerificationStatus = "probe_selector_unavailable"
+			results[index].RestrictionStatus = "not_checked"
+		}
+		return
+	}
+	proxyURL, err := url.Parse(verification.ProxyURL)
+	if err != nil {
+		for index := range results {
+			results[index].StrictVerificationStatus = "probe_proxy_invalid"
+			results[index].RestrictionStatus = "not_checked"
+		}
+		return
+	}
+	transport := &http.Transport{
+		Proxy:             http.ProxyURL(proxyURL),
+		DisableKeepAlives: true,
+		DialContext:       (&net.Dialer{Timeout: time.Duration(m.cfg.Scanner.TimeoutMS) * time.Millisecond}).DialContext,
+	}
+	client := &http.Client{Timeout: time.Duration(m.cfg.Scanner.TimeoutMS+1000) * time.Millisecond, Transport: transport}
+	defer transport.CloseIdleConnections()
+	if probeSelector.Now != "" {
+		defer m.restoreProbeSelector(probeSelector.Name, probeSelector.Now)
+	}
+	for index := range results {
+		result := &results[index]
+		if !contains(probeSelector.All, result.Name) {
+			result.StrictVerificationStatus = "candidate_not_in_probe_selector"
+			result.RestrictionStatus = "not_checked"
+			continue
+		}
+		if err := m.client.Select(ctx, probeSelector.Name, result.Name); err != nil {
+			result.StrictVerificationStatus = "probe_selector_switch_failed"
+			result.RestrictionStatus = "not_checked"
+			continue
+		}
+		for _, probe := range profile.StrictProbes {
+			result.StrictChecks = append(result.StrictChecks, m.runStrictCheck(ctx, client, probe))
+		}
+		applyStrictOutcome(result)
+		copy := *result
+		m.publish(scanID, Event{Kind: "strict-verified", Message: "strict service verification completed: " + result.Name, At: time.Now().UTC(), Result: &copy})
+	}
+}
+
+func (m *Manager) runStrictCheck(parent context.Context, client *http.Client, probe config.StrictProbe) model.StrictCheck {
+	check := model.StrictCheck{Probe: probe.Name, ExpectedStatus: probe.ExpectedStatus, Status: "failed"}
+	ctx, cancel := context.WithTimeout(parent, time.Duration(m.cfg.Scanner.TimeoutMS+500)*time.Millisecond)
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, probe.URL, nil)
+	if err != nil {
+		check.Error = "could not create strict probe request"
+		return check
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		check.Error = "strict probe request failed"
+		return check
+	}
+	body, readErr := io.ReadAll(io.LimitReader(response.Body, 64<<10))
+	response.Body.Close()
+	check.ObservedStatus = response.StatusCode
+	if readErr != nil {
+		check.Error = "could not read strict probe response"
+		return check
+	}
+	expected, _ := strconv.Atoi(probe.ExpectedStatus)
+	if containsStatus(probe.RestrictedStatusCodes, response.StatusCode) {
+		check.Status = "restricted"
+		return check
+	}
+	if response.StatusCode != expected {
+		check.Error = fmt.Sprintf("expected HTTP %d, received %d", expected, response.StatusCode)
+		return check
+	}
+	if probe.BodyContains != "" {
+		matched := strings.Contains(string(body), probe.BodyContains)
+		check.BodyMatched = &matched
+		if !matched {
+			check.Error = "expected response content was not present"
+			return check
+		}
+	}
+	check.Status = "passed"
+	return check
+}
+
+func (m *Manager) restoreProbeSelector(groupName, previous string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_ = m.client.Select(ctx, groupName, previous)
+}
+
+func applyStrictOutcome(result *model.NodeResult) {
+	if len(result.StrictChecks) == 0 {
+		return
+	}
+	passed := true
+	for _, check := range result.StrictChecks {
+		if check.Status == "restricted" {
+			result.StrictVerificationStatus = "restricted"
+			result.RestrictionStatus = "restricted"
+			return
+		}
+		if check.Status != "passed" {
+			passed = false
+		}
+	}
+	if passed {
+		result.StrictVerificationStatus = "passed"
+		result.RestrictionStatus = "not_restricted"
+		return
+	}
+	result.StrictVerificationStatus = "failed"
+	result.RestrictionStatus = "unknown"
+}
+
+func assessResult(result *model.NodeResult, profile config.ProbeProfile, strictEnabled bool) {
+	switch {
+	case result.SuccessRate >= 1:
+		result.ReachabilityStatus = "available"
+	case result.SuccessRate > 0:
+		result.ReachabilityStatus = "partial"
+	default:
+		result.ReachabilityStatus = "unavailable"
+	}
+	if len(profile.StrictProbes) == 0 {
+		result.StrictVerificationStatus = "not_requested"
+		result.RestrictionStatus = "not_checked"
+	} else if !strictEnabled && result.StrictVerificationStatus == "" {
+		result.StrictVerificationStatus = "not_configured"
+		result.RestrictionStatus = "not_checked"
+	}
+	if len(profile.ExpectedRegions) == 0 {
+		result.RegionVerificationStatus = "not_configured"
+	} else if result.VerifiedRegion == "" {
+		result.RegionVerificationStatus = "unverified"
+	} else if containsFold(profile.ExpectedRegions, result.VerifiedRegion) {
+		result.RegionVerificationStatus = "matched"
+	} else {
+		result.RegionVerificationStatus = "mismatch"
+	}
+	if profile.TransportScope == "" {
+		result.TransportStatus = "latency_only"
+	} else {
+		result.TransportStatus = profile.TransportScope
 	}
 }
 
@@ -689,6 +944,24 @@ func normaliseStrings(values []string) []string {
 }
 
 func contains(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
+}
+
+func containsFold(values []string, wanted string) bool {
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(wanted)) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsStatus(values []int, wanted int) bool {
 	for _, value := range values {
 		if value == wanted {
 			return true

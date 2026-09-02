@@ -99,3 +99,54 @@ regions:
 		t.Fatalf("resolved API token = %q", got.HTTP.APIToken)
 	}
 }
+
+func TestResolveProbeProfileNormalizesOpenClashSelectorDecorations(t *testing.T) {
+	cfg := Defaults()
+	profile, err := cfg.ResolveProbeProfile("🤖 ChatGPT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profile.ID != "chatgpt" || len(profile.Probes) != 1 || len(profile.StrictProbes) != 1 {
+		t.Fatalf("profile = %#v", profile)
+	}
+	emby, err := cfg.ResolveProbeProfile("🎥 Emby")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !emby.RequiresConfiguration || emby.SetupHint == "" {
+		t.Fatalf("Emby profile must require an explicitly configured private endpoint: %#v", emby)
+	}
+}
+
+func TestValidateRejectsEnabledStrictVerificationWithoutIsolatedRoute(t *testing.T) {
+	cfg := Defaults()
+	cfg.Scanner.StrictVerification.Enabled = true
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "selector_group") {
+		t.Fatalf("expected strict verification route validation error, got %v", err)
+	}
+}
+
+func TestProbeProfileOverrideConfiguresPrivateEmbyWithoutReplacingDefaults(t *testing.T) {
+	cfg := Defaults()
+	disabled := false
+	cfg.Scanner.ProbeProfileOverrides = map[string]ProbeProfileOverride{
+		"emby": {
+			Probes:                []Probe{{Name: "emby-public-info", URL: "https://media.example.test/emby/System/Info/Public", ExpectedStatus: "200"}},
+			RequiresConfiguration: &disabled,
+			SetupHint:             "",
+		},
+	}
+	if err := cfg.applyProbeProfileOverrides(); err != nil {
+		t.Fatal(err)
+	}
+	emby, err := cfg.ResolveProbeProfile("🎥 Emby")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if emby.RequiresConfiguration || len(emby.Probes) != 1 || emby.Probes[0].URL != "https://media.example.test/emby/System/Info/Public" {
+		t.Fatalf("Emby override = %#v", emby)
+	}
+	if _, err := cfg.ResolveProbeProfile("🤖 ChatGPT"); err != nil {
+		t.Fatalf("other built-in profiles must remain available: %v", err)
+	}
+}
