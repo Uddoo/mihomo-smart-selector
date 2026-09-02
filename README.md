@@ -56,6 +56,23 @@ Open `http://127.0.0.1:8788` only after the local mock or Mihomo controller is
 running. The server will return a clear degraded-health response while Mihomo
 is unreachable.
 
+The repository-level verification entry points are:
+
+```powershell
+./tools/verify.ps1
+./tools/smoke-test.ps1
+```
+
+`verify.ps1` checks formatting, module consistency, Go tests and vet, the
+frozen frontend install, TypeScript, the reproducibility of embedded web
+assets, shell syntax, dependency vulnerabilities, and both Git-history and
+working-tree secret scans. Use `-SkipSecurity` only for a faster local inner
+loop; CI runs the complete contract with the Go race detector. The smoke test
+builds both processes in a temporary directory, starts `mihomo-mock` and the
+real service on ephemeral loopback ports, exercises discovery, preflight,
+scan, ranking, selection, Controller state, and SQLite history, then removes
+the temporary processes and files.
+
 `scanner.probe_profile_overrides` is the safe way to configure a private
 service such as Emby without replacing built-in profiles. Strict checks remain
 disabled until a dedicated `__SMART_PROBE__`-style selector and loopback proxy

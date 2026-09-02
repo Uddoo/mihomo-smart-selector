@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify and smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out the complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2
+        with:
+          version: 11.19.0
+          runtime: node@22.12.0
+          working-directory: web
+          install: false
+          cache: true
+
+      - name: Run the repository verification contract
+        shell: pwsh
+        env:
+          CGO_ENABLED: 1
+        run: ./tools/verify.ps1 -Race
+
+      - name: Run the process-level smoke test
+        shell: pwsh
+        run: ./tools/smoke-test.ps1
+
+  build:
+    name: Build linux/${{ matrix.goarch }}
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        goarch: [amd64, arm64]
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Build the OpenWrt binary
+        shell: pwsh
+        run: ./tools/build-openwrt.ps1 -GoArch '${{ matrix.goarch }}' -OutputPath 'dist/linux-${{ matrix.goarch }}'
+
+      - name: Verify module and VCS metadata
+        shell: pwsh
+        run: |
+          $binary = 'dist/linux-${{ matrix.goarch }}/mihomo-smart-selector'
+          $metadata = @(go version -m $binary)
+          if (@($metadata | Where-Object { $_ -match '^\s*mod\s+github\.com/Uddoo/mihomo-smart-selector\s' }).Count -ne 1) {
+            throw 'Built binary does not contain the canonical module path.'
+          }
+          if (@($metadata | Where-Object { $_ -match 'vcs\.modified=true|\+dirty' }).Count -ne 0) {
+            throw 'Built binary reports a dirty source tree.'
+          }
+          Get-FileHash -LiteralPath $binary -Algorithm SHA256
