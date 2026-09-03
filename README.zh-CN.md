@@ -41,6 +41,127 @@ loopback 默认值。
 
 ![可解释的最终节点排名](docs/assets/screenshots/scan-results.png)
 
+## 5 分钟快速上手
+
+### 1. 从源码运行
+
+```powershell
+git clone https://github.com/Uddoo/mihomo-smart-selector.git
+Set-Location mihomo-smart-selector
+Copy-Item config.example.yaml config.yaml
+$env:MIHOMO_SECRET = '<controller secret>'
+go mod download
+pnpm --dir web install --frozen-lockfile
+go vet ./...
+go test ./...
+go build -o bin/mihomo-smart-selector.exe ./cmd/mihomo-smart-selector
+./bin/mihomo-smart-selector.exe -config config.yaml
+```
+
+进程启动后打开 `http://127.0.0.1:8788` 使用控制台。
+
+```bash
+git clone https://github.com/Uddoo/mihomo-smart-selector.git
+cd mihomo-smart-selector
+cp config.example.yaml config.yaml
+export MIHOMO_SECRET='<controller secret>'
+go mod download
+pnpm --dir web install --frozen-lockfile
+go build -o bin/mihomo-smart-selector ./cmd/mihomo-smart-selector
+./bin/mihomo-smart-selector -config config.yaml
+```
+
+### 2. OpenWrt/iStoreOS 部署验证
+
+部署步骤和已审计模板见：
+
+- [OpenWrt/iStoreOS 部署指南](deploy/openwrt/README.md)
+- [架构与部署设计](docs/architecture.md)
+
+当前仓库尚未对外发布稳定版本包。
+
+## 配置快速参考
+
+复制 `config.example.yaml` 为 `config.yaml` 后按实际环境修改，且不要将敏感信息写进文件。
+
+重点配置项示例：
+
+```yaml
+http:
+  # 默认只监听 loopback，除非你明确需要并配置 token + CIDR 白名单
+  listen: 127.0.0.1:8788
+  api_token: ""
+  api_token_env: MSS_API_TOKEN
+  allowed_cidrs: []
+
+mihomo:
+  # 对应本机/路由器上的 Mihomo Controller
+  controller: http://127.0.0.1:9090
+  # 秘钥从环境变量读取，不要写死
+  secret_env: MIHOMO_SECRET
+  request_timeout_seconds: 8
+
+storage:
+  path: data/selector.db
+
+scanner:
+  # 按路由器能力调整
+  concurrency: 4
+  batch_size: 60
+  max_total_candidates: 500
+  samples: 3
+  timeout_ms: 5000
+  min_success_rate: 0.95
+  median_target_ms: 300
+  p95_target_ms: 800
+  jitter_target_ms: 200
+  probe_profile_overrides:
+    emby.example.com:
+      url: https://emby.example.com
+      expected_status: "200"
+
+egress_verification:
+  enabled: false
+  selector_group: __SMART_PROBE__
+  proxy_url: http://127.0.0.1:17890
+  trace_url: https://chatgpt.com/cdn-cgi/trace
+```
+
+- 将 `http.listen` 改为非 loopback 时，必须配置有效 `api_token`。
+- `http.listen` 非 loopback 时，必须配置 `allowed_cidrs`。
+- 私有服务的可达性请用 `scanner.probe_profile_overrides`，不要改写所有内置
+  Profile。
+- `probe_profile_overrides` 为可选配置，在默认配置中不出现。
+- 严格验证和出口验证仅在确认独立 Probe Selector 与 loopback 代理 listener
+  后再开启。
+
+如果你还需要 `auto_switch`、严格验证、或更多扫描参数（如 `median_target_ms`、
+`p95_target_ms`、`jitter_target_ms`），请优先对照
+[`config.example.yaml`](config.example.yaml) 的完整字段。
+
+## 常见问题
+
+### 为什么连接不到 Controller？
+
+请先确认 `mihomo.controller` 与 `mihomo.secret_env` 指向的是正在运行的
+Controller，且该 Controller 与本服务可互通。
+
+### 为什么页面显示“无可切换节点”？
+
+常见原因是 `Selector` 未在当前 Controller 中注册、配置文件中的过滤条件过
+严、或对应服务探测 URL 不可达。先在 UI 与配置中确认对应 Selector 与
+Probe Profile。
+
+### 本机访问 127.0.0.1:8788 但前端无法显示？
+
+先确认前端静态资源已重新构建（`pnpm --dir web build`）并且在启动时未报
+静态文件嵌入校验错误。
+
+### 如何避免暴露 Controller secret？
+
+请使用 `api_token` 与 `allowed_cidrs` 组合，并通过环境变量传递 `MIHOMO_SECRET`；
+避免在日志和 issue 里贴明文配置、Provider URL、订阅地址或私有服务地址。
+
 ## 本地开发
 
 环境要求：

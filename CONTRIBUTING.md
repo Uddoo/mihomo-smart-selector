@@ -93,6 +93,19 @@ Controller, preflight a scan, rank candidates, select a member, observe the
 Controller change, and persist SQLite history. A unit test alone is not a
 replacement for this process boundary.
 
+## Issue and pull-request flow
+
+- For non-trivial behavior changes, open an issue first and describe:
+  - the operator scenario;
+  - expected behavior before and after;
+  - compatibility or deployment boundary impact.
+- In pull requests, use the `.github` templates and include concrete verification
+  results (including skipped checks, if any).
+- If you change UI and backend together, include a screenshot, screenshot hash, or
+  API evidence in the PR description.
+- Always keep the verification and config steps in PR comments to make review
+  repeatable by the maintainer.
+
 ## Commits and pull requests
 
 Use focused conventional-style subjects, for example:

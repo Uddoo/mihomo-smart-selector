@@ -47,6 +47,134 @@ data.
 
 ![Explainable final node ranking](docs/assets/screenshots/scan-results.png)
 
+## Quick start (5 minutes)
+
+### 1. Build from source
+
+```powershell
+git clone https://github.com/Uddoo/mihomo-smart-selector.git
+Set-Location mihomo-smart-selector
+Copy-Item config.example.yaml config.yaml
+$env:MIHOMO_SECRET = '<controller secret>'
+go mod download
+pnpm --dir web install --frozen-lockfile
+go vet ./...
+go test ./...
+go build -o bin/mihomo-smart-selector.exe ./cmd/mihomo-smart-selector
+./bin/mihomo-smart-selector.exe -config config.yaml
+```
+
+Open `http://127.0.0.1:8788` after the process starts and shows the service.
+
+```bash
+git clone https://github.com/Uddoo/mihomo-smart-selector.git
+cd mihomo-smart-selector
+cp config.example.yaml config.yaml
+export MIHOMO_SECRET='<controller secret>'
+go mod download
+pnpm --dir web install --frozen-lockfile
+go build -o bin/mihomo-smart-selector ./cmd/mihomo-smart-selector
+./bin/mihomo-smart-selector -config config.yaml
+```
+
+### 2. Optional: OpenWrt/iStoreOS release validation
+
+Deployment guide steps and reviewed templates are in:
+
+- [OpenWrt/iStoreOS deployment guide](deploy/openwrt/README.md)
+- [architecture and deployment design](docs/architecture.md)
+
+At the moment, no stable published release artifacts are available.
+
+## Configuration quick reference
+
+Copy `config.example.yaml` to `config.yaml` and keep secrets out of the file.
+
+Minimum fields to know:
+
+```yaml
+http:
+  # Keep on loopback until you intentionally expose with token + allow-list
+  listen: 127.0.0.1:8788
+  api_token: "" # prefer API token in config
+  api_token_env: MSS_API_TOKEN # or read token from env
+  allowed_cidrs: []
+
+mihomo:
+  # Controller URL used for discovery and safe selector writes
+  controller: http://127.0.0.1:9090
+  # Secret is read from env only
+  secret_env: MIHOMO_SECRET
+  request_timeout_seconds: 8
+
+storage:
+  path: data/selector.db
+
+scanner:
+  # Tune these to your device and usage window
+  concurrency: 4
+  batch_size: 60
+  max_total_candidates: 500
+  samples: 3
+  timeout_ms: 5000
+  min_success_rate: 0.95
+  median_target_ms: 300
+  p95_target_ms: 800
+  jitter_target_ms: 200
+  probe_profile_overrides:
+    emby.example.com:
+      url: https://emby.example.com
+      expected_status: "200"
+
+egress_verification:
+  enabled: false
+  selector_group: __SMART_PROBE__
+  proxy_url: http://127.0.0.1:17890
+  trace_url: https://chatgpt.com/cdn-cgi/trace
+```
+
+- If you change `http.listen` away from loopback, set a strong `api_token`.
+- If you set `http.listen` outside loopback, also set `allowed_cidrs`.
+- Use `scanner.probe_profile_overrides` for private services instead of changing
+  built-in public profiles.
+- `probe_profile_overrides` is optional and omitted in the default file.
+- Keep strict and egress verification disabled until you explicitly provision a
+  dedicated selector and loopback proxy listener.
+
+For additional tunables such as `auto_switch`, `auto_switch.*`, and strict
+verification profiles, use the full [`config.example.yaml`](config.example.yaml).
+
+## Frequently asked questions
+
+### Why can’t the service connect to the Controller?
+
+Check that `mihomo.controller` points to the running Mihomo Controller, that the
+service can reach it, and that the secret environment variable is set (`MIHOMO_SECRET`
+by default).
+
+### Why is the scan page empty?
+
+The selector list can be empty when no Selector is eligible, the configured scope
+is too strict, or required upstream probe endpoints are blocked in your network.
+Review the logs, the selected Selector, and probe profile settings.
+
+### The web page shows assets or build errors.
+
+Re-run `pnpm --dir web install --frozen-lockfile` and `pnpm --dir web build`,
+then restart the service so the embedded frontend digest is regenerated.
+
+### What changes do I need for LAN access?
+
+When exposing beyond loopback, set `http.api_token`, `http.allowed_cidrs`, and a
+strict token policy. Prefer keeping `MIHOMO_SECRET` and Controller secrets out of
+publicly shared config files.
+
+### How do I report a security concern?
+
+Follow [SECURITY.md](SECURITY.md), and use a private report path for any
+issue that includes secrets, provider URLs, node credentials, or sensitive node
+topology.
+
 ## Local development
 
 Prerequisites:
