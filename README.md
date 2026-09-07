@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/branding/logo.png" width="180" height="180" alt="Mihomo Smart Selector logo: a pointer selecting a green network node" />
+</p>
+
 # Mihomo Smart Selector
 
 [English](README.md) | [简体中文](README.zh-CN.md)
@@ -57,6 +61,98 @@ scan workbench, node catalog, selection history, and preferences.
 ### Preferences
 
 ![Appearance preferences and scan safety information](docs/assets/screenshots/preferences.png)
+
+## Architecture
+
+The Vue dashboard is served from the Go binary. The browser calls the selector
+service; only the Go backend holds the Mihomo Controller secret.
+
+```mermaid
+flowchart TB
+    browser["Browser · Vue 3 dashboard"]
+
+    subgraph selector["Go service"]
+        api["Embedded web assets + HTTP API<br/>Access control · REST · SSE"]
+        manager["Scan manager<br/>Preflight · batches · progress · selection"]
+        rules["Probe Profiles + region classifier<br/>Service matching · overrides · filters"]
+        metrics["Metrics + ranking<br/>Success rate · P50 · P95 · jitter"]
+        client["Mihomo client<br/>Controller secret stays on the server"]
+        store[("SQLite<br/>Scan results + switch history")]
+
+        api --> manager
+        manager --> rules
+        manager --> metrics
+        manager --> client
+        manager <--> store
+    end
+
+    subgraph mihomo["Mihomo runtime"]
+        controller["Controller API<br/>Discover · probe · select"]
+        listener["Dedicated probe Selector + local listener<br/>Optional strict / egress verification"]
+        outbound["Proxy nodes / outbound connections"]
+        controller --> outbound
+        listener --> outbound
+    end
+
+    targets["Service probe endpoints / egress trace"]
+    browser <-->|"Web assets · REST / polling · SSE"| api
+    client -->|"Controller requests"| controller
+    manager -.->|"Optional isolated verification · off by default"| listener
+    outbound --> targets
+```
+
+Mihomo may be managed by OpenClash or run separately. The normal scan uses its
+delay or provider healthcheck endpoint. Optional
+strict HTTP/body and actual-egress checks use a dedicated probe Selector and
+local proxy listener; they do not switch the business Selector being evaluated.
+The current milestone has no background scheduler or autonomous switching.
+
+## How it works
+
+```mermaid
+flowchart LR
+    subgraph scanning["1 · Scan and evaluate"]
+        direction TB
+        choose["Choose service and filters<br/>Quick / stable mode"]
+        preflight["Match profile; discover and filter<br/>Leaf members only; enforce limits"]
+        probe["Probe in bounded batches<br/>Quick: 1 sample; stable: N"]
+        verify["Aggregate timings and metrics<br/>Optional isolated verification"]
+        rank["Finalize score and rank<br/>Persist results; show verification"]
+        stop["Error / cancellation<br/>No business node switch"]
+
+        choose --> preflight --> probe --> verify --> rank
+        preflight -.->|"Rejected"| stop
+        probe -.->|"Failed / stopped"| stop
+    end
+
+    subgraph selection["2 · Explicit selection"]
+        direction TB
+        decide{"User selects a node?"}
+        allowed{"Scan / membership<br/>checks pass?"}
+        switch["PUT the selected member<br/>to the business Selector"]
+        audit["On switch success,<br/>record the audit event"]
+        keep["Keep current node<br/>Report rejection if applicable"]
+
+        decide -->|"Yes"| allowed
+        decide -->|"No"| keep
+        allowed -->|"No"| keep
+        allowed -->|"Yes"| switch --> audit
+    end
+
+    scanning -->|"Completed and persisted scan only"| selection
+```
+
+The performance score has a maximum of **90 points**: success rate 40, P95 20,
+P50 15, jitter 10, and verified egress matching the name-inferred region 5.
+Final ordering uses score, then success rate, then lower P95. Strict verification,
+restrictions, and service-region checks remain separate facts, not extra score
+components or proof of login, playback, or regional unlock. Live results may be
+viewed while scanning; selection requires a completed, persisted scan.
+Before switching, the service rechecks the scan result, minimum success rate,
+and whether the node is still a member of the target Selector.
+
+See [the architecture and deployment design](docs/architecture.md) for API
+routes, configuration details, and verification boundaries.
 
 ## Quick start (5 minutes)
 

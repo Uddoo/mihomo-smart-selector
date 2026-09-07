@@ -11,6 +11,7 @@ versioned releases begin.
 
 ### Added
 
+- Project logo in both READMEs and a simplified radar-and-node browser favicon.
 - MaaEnd-inspired community configuration: bilingual issue entry points,
   troubleshooting guidance, an Other issue form, EditorConfig, issue label
   initialization/classification, and categorized GitHub release notes.

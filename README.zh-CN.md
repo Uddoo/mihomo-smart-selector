@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/branding/logo.png" width="180" height="180" alt="Mihomo Smart Selector 标识：指针选中绿色网络节点" />
+</p>
+
 # Mihomo Smart Selector
 
 [English](README.md) | [简体中文](README.zh-CN.md)
@@ -51,6 +55,93 @@ loopback 默认值。
 ### 偏好设置
 
 ![外观偏好与扫描安全说明](docs/assets/screenshots/preferences.png)
+
+## 项目架构
+
+Vue 工作台由 Go 二进制内嵌提供。浏览器只访问本项目服务，Mihomo Controller
+secret 仅由 Go 后端持有。
+
+```mermaid
+flowchart TB
+    browser["浏览器 · Vue 3 工作台"]
+
+    subgraph selector["Go 服务"]
+        api["内嵌 Web 资源 + HTTP API<br/>访问控制 · REST · SSE"]
+        manager["扫描管理器<br/>预检 · 分批 · 进度 · 节点选择"]
+        rules["Probe Profile + 地区分类器<br/>服务匹配 · 手工覆盖 · 筛选"]
+        metrics["指标计算与排名<br/>成功率 · P50 · P95 · 抖动"]
+        client["Mihomo 客户端<br/>Controller secret 保留在服务端"]
+        store[("SQLite<br/>扫描结果 + 切换历史")]
+
+        api --> manager
+        manager --> rules
+        manager --> metrics
+        manager --> client
+        manager <--> store
+    end
+
+    subgraph mihomo["Mihomo 运行时"]
+        controller["Controller API<br/>发现 · 探测 · 选择节点"]
+        listener["独立探测 Selector + 本地监听器<br/>可选的严格验证 / 出口验证"]
+        outbound["代理节点 / 出站连接"]
+        controller --> outbound
+        listener --> outbound
+    end
+
+    targets["服务探测端点 / 出口追踪端点"]
+    browser <-->|"页面资源 · REST / 轮询 · SSE"| api
+    client -->|"Controller 请求"| controller
+    manager -.->|"可选隔离验证 · 默认关闭"| listener
+    outbound --> targets
+```
+
+Mihomo 可由 OpenClash 管理或独立运行。常规扫描使用其 delay 或 Provider
+healthcheck 接口。可选的严格 HTTP
+状态码/正文验证与真实出口验证通过独立探测 Selector 和本地代理监听器执行，
+不会切换正在评估的业务 Selector。当前阶段未实现后台调度或自主切换。
+
+## 工作原理
+
+```mermaid
+flowchart LR
+    subgraph scanning["1 · 扫描与评估"]
+        direction TB
+        choose["选择服务与筛选条件<br/>快速 / 稳定模式"]
+        preflight["匹配 Profile，发现并筛选成员<br/>仅保留叶子节点，检查数量上限"]
+        probe["分批探测，限制并发<br/>快速采样 1 次；稳定采样 N 次"]
+        verify["汇总延迟与指标<br/>按配置执行可选隔离验证"]
+        rank["完成评分与排名<br/>结果落库，展示验证状态"]
+        stop["错误 / 取消<br/>不切换业务节点"]
+
+        choose --> preflight --> probe --> verify --> rank
+        preflight -.->|"未通过"| stop
+        probe -.->|"失败 / 停止"| stop
+    end
+
+    subgraph selection["2 · 显式选择"]
+        direction TB
+        decide{"用户选择节点？"}
+        allowed{"扫描记录与成员<br/>校验通过？"}
+        switch["通过 PUT 将业务 Selector<br/>切换到所选成员"]
+        audit["切换成功后<br/>记录审计事件"]
+        keep["保持当前节点<br/>如被拒绝则说明原因"]
+
+        decide -->|"是"| allowed
+        decide -->|"否"| keep
+        allowed -->|"否"| keep
+        allowed -->|"是"| switch --> audit
+    end
+
+    scanning -->|"仅限已完成并持久化的扫描"| selection
+```
+
+性能评分满分 **90 分**：成功率 40 分、P95 20 分、P50 15 分、抖动 10 分，
+真实出口与名称推断地区一致时另计 5 分。最终依次按评分、成功率和更低的 P95
+排序。严格验证、服务限制和服务地区验证分别展示，不额外计分，也不等于登录、
+播放或地区解锁证明。扫描期间可以查看实时结果，选择节点则要求扫描已完成并落库。
+切换前会重新检查扫描结果、最低成功率门槛，以及节点是否仍属于目标 Selector。
+
+完整 API、配置与验证边界见[架构与部署设计](docs/architecture.md)。
 
 ## 5 分钟快速上手
 
