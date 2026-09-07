@@ -95,6 +95,11 @@ replacement for this process boundary.
 
 ## Issue and pull-request flow
 
+- Chinese and English reports are welcome. Start with the bilingual
+  [troubleshooting guide](docs/troubleshooting.md), then choose Bug, Feature,
+  or Other in the issue forms. Use Other for a private contact request with no
+  sensitive evidence. Maintainer configuration is documented in
+  [open-source setup](docs/open-source-setup.md).
 - For non-trivial behavior changes, open an issue first and describe:
   - the operator scenario;
   - expected behavior before and after;

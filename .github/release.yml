@@ -1,0 +1,16 @@
+# Used only when a maintainer requests GitHub-generated release notes.
+# This file does not create tags, build artifacts, or publish releases.
+changelog:
+  categories:
+    - title: 不兼容变更 / Breaking changes
+      labels: [breaking-change]
+    - title: 新功能 / Features
+      labels: [enhancement]
+    - title: 问题修复 / Bug fixes
+      labels: [bug]
+    - title: 文档 / Documentation
+      labels: [documentation]
+    - title: 依赖更新 / Dependencies
+      labels: [dependencies]
+    - title: 其他变更 / Other changes
+      labels: ["*"]

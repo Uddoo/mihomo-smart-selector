@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: 排障与反馈指南 / Troubleshooting guide
+    url: https://github.com/Uddoo/mihomo-smart-selector/blob/main/docs/troubleshooting.md
+    about: 提交前检查常见问题与脱敏要求 / Check common issues and redaction requirements before reporting.
   - name: Security vulnerability
     url: https://github.com/Uddoo/mihomo-smart-selector/blob/main/SECURITY.md
     about: Read the private-reporting and redaction policy before sharing any vulnerability evidence.

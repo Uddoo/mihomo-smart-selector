@@ -249,6 +249,11 @@ public issue.
 
 ## Contributing
 
+For help or bug reports, start with the bilingual
+[troubleshooting and reporting guide](docs/troubleshooting.md).
+Maintainers can find the configuration mapping and hosted setup boundaries in
+[open-source setup](docs/open-source-setup.md).
+
 Before opening a pull request, read [CONTRIBUTING.md](CONTRIBUTING.md) and run
 the complete verification and process-level smoke contracts. Public issues and
 logs must be redacted according to [SECURITY.md](SECURITY.md). Project changes

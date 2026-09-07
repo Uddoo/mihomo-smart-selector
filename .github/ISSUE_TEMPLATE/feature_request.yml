@@ -1,44 +1,45 @@
-name: Feature request
-description: Propose a focused improvement inside the project boundary
+name: 功能建议 / Feature request
+description: 提出符合项目范围的改进 / Propose a focused improvement inside the project boundary
 title: "[Feature]: "
 labels: [enhancement]
 body:
   - type: markdown
     attributes:
       value: |
+        请说明使用场景、当前困难和期望结果，并搜索已有 Issue。不要上传凭据、订阅链接或私有网络信息。
         Explain the operator problem first. The project ranks members of a user-selected Mihomo Selector and changes it only after an explicit decision; proposals outside that boundary may be declined.
   - type: textarea
     id: problem
     attributes:
-      label: Operator problem
+      label: 使用场景与问题 / Operator problem
       description: What is difficult, unsafe, or impossible today?
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: Proposed behavior
+      label: 期望行为 / Proposed behavior
       description: Describe observable behavior, not only an implementation preference.
     validations:
       required: true
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternatives considered
+      label: 考虑过的替代方案 / Alternatives considered
       description: Include configuration-only or operational alternatives.
     validations:
       required: true
   - type: textarea
     id: safety
     attributes:
-      label: Security and failure behavior
+      label: 安全与失败处理 / Security and failure behavior
       description: Explain effects on credentials, CIDRs, probe traffic, Selector writes, rollback, and fail-closed behavior.
     validations:
       required: true
   - type: textarea
     id: evidence
     attributes:
-      label: Acceptance evidence
+      label: 验收依据 / Acceptance evidence
       description: What tests, runtime observations, or compatibility evidence would prove the change?
     validations:
       required: true

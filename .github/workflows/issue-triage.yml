@@ -1,0 +1,54 @@
+name: Issue triage
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: issue-triage
+  cancel-in-progress: false
+
+jobs:
+  classify:
+    if: github.repository == 'Uddoo/mihomo-smart-selector'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      # No checkout: issue content is data, never executable code.
+      - name: Ensure community labels and classify new issues
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $labels = @(
+            @{ name = 'bug'; color = 'd73a4a'; description = 'Reproducible defect' },
+            @{ name = 'enhancement'; color = 'a2eeef'; description = 'Feature or improvement' },
+            @{ name = 'question'; color = 'd876e3'; description = 'Usage question or contact request' },
+            @{ name = 'documentation'; color = '0075ca'; description = 'Documentation improvement' },
+            @{ name = 'dependencies'; color = '0366d6'; description = 'Dependency update' },
+            @{ name = 'breaking-change'; color = 'b60205'; description = 'Incompatible behavior or interface change' }
+          )
+          $existing = @(gh api --paginate "repos/$env:GITHUB_REPOSITORY/labels?per_page=100" --jq '.[].name')
+          foreach ($label in $labels) {
+            if ($label.name -notin $existing) {
+              gh label create $label.name --repo $env:GITHUB_REPOSITORY --color $label.color --description $label.description
+            }
+          }
+          if ($env:GITHUB_EVENT_NAME -eq 'issues') {
+            $event = Get-Content -LiteralPath $env:GITHUB_EVENT_PATH -Raw | ConvertFrom-Json
+            $category = switch -Regex ($event.issue.title) {
+              '^\[Bug\]:' { 'bug'; break }
+              '^\[Feature\]:' { 'enhancement'; break }
+              '^\[Question\]:' { 'question'; break }
+            }
+            if ($category) {
+              gh issue edit ([string]$event.issue.number) --repo $env:GITHUB_REPOSITORY --add-label $category
+            }
+          }

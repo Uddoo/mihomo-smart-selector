@@ -1,0 +1,30 @@
+name: 其他问题 / Other issue
+description: 使用疑问、文档问题或私密联系渠道请求 / Usage, documentation, or private contact request
+title: "[Question]: "
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先阅读[排障与反馈指南](https://github.com/Uddoo/mihomo-smart-selector/blob/main/docs/troubleshooting.md)。
+        Read the troubleshooting guide first. For a private contact request, provide only the request itself: no names, incident narrative, exploit details, logs, or screenshots.
+        请求私密联系渠道时，仅填写请求本身，不附姓名、事件经过、漏洞细节、日志或截图。疑似漏洞请遵循 SECURITY.md。
+  - type: textarea
+    id: question
+    attributes:
+      label: 问题或联系请求 / Question or contact request
+      description: Describe the question and what you have already tried. Do not include private network information.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本或提交 / Version or commit
+      description: Optional for documentation questions and private contact requests.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 隐私检查 / Privacy check
+      options:
+        - label: 已移除凭据和敏感信息 / I removed credentials and sensitive information.
+          required: true

@@ -11,6 +11,9 @@ versioned releases begin.
 
 ### Added
 
+- MaaEnd-inspired community configuration: bilingual issue entry points,
+  troubleshooting guidance, an Other issue form, EditorConfig, issue label
+  initialization/classification, and categorized GitHub release notes.
 - Embedded Vue 3 dashboard and Go HTTP API.
 - Mihomo Selector, Provider, and eligible leaf-node discovery.
 - Configurable region aliases and node overrides.

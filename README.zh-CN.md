@@ -230,6 +230,9 @@ allow-list。无密码 LAN 模式是高风险显式选项，不是默认值。�
 
 ## 参与贡献
 
+使用疑问或问题反馈，请先阅读[排障与反馈指南](docs/troubleshooting.md)。
+维护者可在[开源协作配置说明](docs/open-source-setup.md)查看参考项目的适配关系和托管端设置边界。
+
 提交 Pull Request 前，请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)，并运行完整
 验证和 process-level smoke 合同。公开 Issue 与日志必须按照
 [SECURITY.md](SECURITY.md)脱敏。项目变更记录在 [CHANGELOG.md](CHANGELOG.md)，

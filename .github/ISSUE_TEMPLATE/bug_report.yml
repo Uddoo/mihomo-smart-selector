@@ -1,16 +1,18 @@
-name: Bug report
-description: Report a reproducible defect with redacted evidence
+name: 问题反馈 / Bug report
+description: 提交可复现的问题及脱敏证据 / Report a reproducible defect with redacted evidence
 title: "[Bug]: "
 labels: [bug]
 body:
   - type: markdown
     attributes:
       value: |
+        提交前请阅读[排障与反馈指南](https://github.com/Uddoo/mihomo-smart-selector/blob/main/docs/troubleshooting.md)，搜索已有 Issue，并确认当前版本。
+        禁止上传完整代理配置、订阅链接、节点凭据或未脱敏日志；疑似漏洞请遵循 SECURITY.md。
         Do not submit Controller secrets, API tokens, provider URLs, node credentials, private service addresses, or complete proxy configurations. Follow SECURITY.md for suspected vulnerabilities.
   - type: input
     id: version
     attributes:
-      label: Version or commit
+      label: 版本或提交 / Version or commit
       description: Release tag, commit SHA, or container/image digest if applicable.
       placeholder: e45a6b50737f5cfcda2a64f2e606c0c0da7fd0f4
     validations:
@@ -18,7 +20,7 @@ body:
   - type: dropdown
     id: deployment
     attributes:
-      label: Deployment method
+      label: 部署方式 / Deployment method
       options:
         - Local source build
         - OpenWrt / iStoreOS procd template
@@ -28,28 +30,28 @@ body:
   - type: input
     id: platform
     attributes:
-      label: Platform and architecture
+      label: 系统与架构 / Platform and architecture
       placeholder: OpenWrt 24.x, linux/arm64
     validations:
       required: true
   - type: input
     id: controller
     attributes:
-      label: Mihomo and OpenClash versions
+      label: Mihomo 与 OpenClash 版本 / Mihomo and OpenClash versions
       placeholder: Mihomo x.y.z; OpenClash x.y.z
     validations:
       required: true
   - type: textarea
     id: description
     attributes:
-      label: What happened?
+      label: 实际行为 / What happened?
       description: Describe the observable defect and its impact without including secrets.
     validations:
       required: true
   - type: textarea
     id: reproduction
     attributes:
-      label: Reproduction steps
+      label: 复现步骤 / Reproduction steps
       placeholder: |
         1. Start with...
         2. Submit...
@@ -59,19 +61,19 @@ body:
   - type: textarea
     id: expected
     attributes:
-      label: Expected behavior
+      label: 预期行为 / Expected behavior
     validations:
       required: true
   - type: textarea
     id: config
     attributes:
-      label: Minimal redacted configuration
+      label: 最小脱敏配置 / Minimal redacted configuration
       description: Remove secrets, tokens, provider URLs, node credentials, public IPs, and private service hostnames.
       render: yaml
   - type: textarea
     id: logs
     attributes:
-      label: Redacted logs or screenshots
+      label: 脱敏日志或截图 / Redacted logs or screenshots
       description: Include only the smallest relevant excerpt and state what was removed.
   - type: checkboxes
     id: checks
