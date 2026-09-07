@@ -34,12 +34,23 @@ loopback 默认值。
 
 ## 截图
 
-以下截图使用仓库内仅供开发的 mock Controller。节点名、延迟和 Selector
-切换都是测试 fixture，不是真实 Provider 数据。
+以下为实机运行截图，展示扫描工作台、节点目录、选择历史和偏好设置。
 
-![服务感知扫描工作台](docs/assets/screenshots/scan-workbench.png)
+### 扫描工作台
 
-![可解释的最终节点排名](docs/assets/screenshots/scan-results.png)
+![扫描工作台中的节点排名与候选详情](docs/assets/screenshots/scan-workbench.png)
+
+### 节点目录
+
+![节点目录中的地区、Provider 和协议](docs/assets/screenshots/node-catalog.png)
+
+### 选择历史
+
+![手动节点切换历史](docs/assets/screenshots/selection-history.png)
+
+### 偏好设置
+
+![外观偏好与扫描安全说明](docs/assets/screenshots/preferences.png)
 
 ## 5 分钟快速上手
 

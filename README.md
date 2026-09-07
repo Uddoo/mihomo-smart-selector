@@ -39,13 +39,24 @@ authenticated, LAN-restricted access path has been configured.
 
 ## Screenshots
 
-The screenshots use the repository's development-only mock Controller; node
-names, timings, and Selector changes are fixtures rather than real provider
-data.
+The following screenshots were captured from a real deployment and show the
+scan workbench, node catalog, selection history, and preferences.
 
-![Service-aware scan workbench](docs/assets/screenshots/scan-workbench.png)
+### Scan workbench
 
-![Explainable final node ranking](docs/assets/screenshots/scan-results.png)
+![Scan workbench with node rankings and candidate details](docs/assets/screenshots/scan-workbench.png)
+
+### Node catalog
+
+![Node catalog with regions, providers, and protocols](docs/assets/screenshots/node-catalog.png)
+
+### Selection history
+
+![Manual node selection history](docs/assets/screenshots/selection-history.png)
+
+### Preferences
+
+![Appearance preferences and scan safety information](docs/assets/screenshots/preferences.png)
 
 ## Quick start (5 minutes)
 
