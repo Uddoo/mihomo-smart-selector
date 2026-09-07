@@ -13,12 +13,18 @@ mihomo:
   controller: http://127.0.0.1:9090
   # The secret is read from this environment variable, never from this file.
   secret_env: MIHOMO_SECRET
+  # Optional one-line secret file, resolved relative to this config file.
+  # When set it takes precedence over secret_env. Keep it outside Git, mode 0600.
+  # secret_file: private/mihomo-secret
   request_timeout_seconds: 8
 
 storage:
   path: data/selector.db
 
 scanner:
+  # Custom profiles are added to the built-ins. Bind any Selector to a service
+  # in the UI; group names do not need to match a built-in service name.
+  # See docs/service-adaptation.md for a complete custom profile example.
   concurrency: 4
   # A broad request is split into sequential batches; each keeps probe load
   # bounded while the UI reports completed/total candidates and batch number.

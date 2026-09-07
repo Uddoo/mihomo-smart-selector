@@ -49,6 +49,16 @@ func New(cfg config.MihomoConfig) (*HTTPClient, error) {
 		return nil, fmt.Errorf("parse controller URL: %w", err)
 	}
 	secret := os.Getenv(cfg.SecretEnv)
+	if cfg.SecretFile != "" {
+		data, err := os.ReadFile(cfg.SecretFile)
+		if err != nil {
+			return nil, fmt.Errorf("read Mihomo secret file: %w", err)
+		}
+		secret = strings.TrimRight(string(data), "\r\n")
+		if secret == "" || strings.ContainsAny(secret, "\r\n") {
+			return nil, fmt.Errorf("Mihomo secret file must contain one non-empty line")
+		}
+	}
 	return &HTTPClient{
 		baseURL: baseURL,
 		secret:  secret,

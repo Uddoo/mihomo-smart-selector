@@ -5,10 +5,38 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
 )
+
+func TestSecretFilePrecedenceAndInvalidFiles(t *testing.T) {
+	t.Setenv("MSS_TEST_SECRET", "env-secret")
+	path := filepath.Join(t.TempDir(), "secret")
+	cfg := config.MihomoConfig{Controller: "http://127.0.0.1:9090", SecretEnv: "MSS_TEST_SECRET", SecretFile: path}
+	if _, err := New(cfg); err == nil {
+		t.Fatal("missing file fell back to environment")
+	}
+	for _, input := range []string{"", "first\nsecond"} {
+		if err := os.WriteFile(path, []byte(input), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := New(cfg); err == nil {
+			t.Fatal("invalid secret file accepted")
+		}
+	}
+	if err := os.WriteFile(path, []byte("file-secret\r\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	client, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client.secret != "file-secret" {
+		t.Fatal("file did not override environment or trim newline")
+	}
+}
 
 func TestClientEscapesNameAndUsesBearerSecret(t *testing.T) {
 	t.Setenv("TEST_MIHO_SECRET", "redacted-secret")

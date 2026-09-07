@@ -10,17 +10,23 @@ The public example uses this security baseline:
 - the Mihomo Controller remains on `127.0.0.1:9090`;
 - non-loopback API access requires both a generated Bearer token and a narrow
   trusted-CIDR allow-list;
-- the Controller secret is passed through the service environment and is not
-  copied into the application YAML, database, or logs;
+- the Controller secret is read from a separately provisioned private file and
+  is not copied into the application YAML, database, or logs;
 - automatic switching and the dedicated strict-verification listener remain
   disabled; and
 - normal operation begins with manual scans and manual selection only.
 
-The bundled init script expects the OpenClash configuration containing the
-Controller secret at `/etc/openclash/dukou.yaml`. Verify that path and the
-active Controller address on the target. A different Mihomo installation needs
-a reviewed init-script adaptation; do not copy a secret into the repository or
-the application config as a shortcut.
+The application reads the one-line file configured by `mihomo.secret_file`.
+The example uses `/etc/mihomo-smart-selector/mihomo-secret`; set a different
+path if needed. Provision the actual Controller secret through a trusted local
+editor or secret-management process, with owner-only access (mode 0600).
+This file is not an OpenClash YAML file. The init script does not parse
+subscriptions or assume their filenames. Keep the secret synchronized when
+the Controller secret changes, then restart this application.
+
+For installations managed by another service manager, `mihomo.secret_env`
+remains supported. If `secret_file` is set, it takes precedence; an unreadable
+or empty file stops startup instead of silently falling back to another secret.
 
 ## Read-only preflight
 
@@ -30,8 +36,8 @@ Before building or changing the router, record:
 2. `ubus call system board`, including the actual CPU architecture;
 3. free `/overlay` space and available RAM;
 4. `mihomo -v` and the active Controller address;
-5. whether `/etc/openclash/dukou.yaml` is the active secret source, without
-   printing the secret;
+5. the configured secret-file path and whether it contains the active
+   Controller secret, without printing the secret;
 6. the narrow client CIDR that should reach the UI; and
 7. whether TCP port `8788` is already in use.
 
@@ -69,6 +75,12 @@ the service:
 - keep `allow_unauthenticated_lan: false`;
 - confirm the loopback Mihomo Controller address; and
 - review probe endpoints, concurrency, candidate limits, and storage path.
+
+Provision `mihomo.secret_file` before starting the service. Existing deployments
+using the older init script must provision this file and update their YAML
+before replacing the init script; subscription-file discovery is no longer used.
+For group/service binding and custom templates, see
+[service adaptation](../../docs/service-adaptation.md).
 
 The unauthenticated-LAN mode is an explicit high-risk override: every device in
 the allowed CIDR can scan and change an authorized Selector without a token.

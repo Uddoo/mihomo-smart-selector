@@ -7,6 +7,49 @@ import (
 	"testing"
 )
 
+func TestCustomProfilesAddToBuiltinsAndResolveRelativeSecretFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	data := `mihomo:
+  secret_file: private/controller-secret
+scanner:
+  custom_probe_profiles:
+    - id: private-api
+      label: Private API
+      transport_scope: HTTP latency only
+      probes:
+        - name: health
+          url: https://private.example/health
+          expected_status: "200"
+`
+	if err := os.WriteFile(path, []byte(data), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cfg.ProbeProfileByID("chatgpt"); err != nil {
+		t.Fatal("custom profiles replaced built-ins")
+	}
+	profile, err := cfg.ProbeProfileByID("private-api")
+	if err != nil || profile.ExposeTargetAddresses || len(profile.Probes) != 1 {
+		t.Fatalf("custom profile: %+v %v", profile, err)
+	}
+	if cfg.Mihomo.SecretFile != filepath.Join(filepath.Dir(path), "private/controller-secret") {
+		t.Fatal("relative secret path not resolved")
+	}
+	fallback, err := cfg.ResolveProbeProfile("任意组名")
+	if err != nil || fallback.ID != "internet-baseline" {
+		t.Fatal("unknown group has no baseline")
+	}
+	if err := os.WriteFile(path, []byte(strings.Replace(data, "id: private-api", "id: chatgpt", 1)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil {
+		t.Fatal("duplicate custom profile ID accepted")
+	}
+}
+
 func TestLoadResolvesStorageAndRejectsExposedListenerWithoutGuardrails(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "selector.yaml")
 	data := `

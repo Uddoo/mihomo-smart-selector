@@ -31,6 +31,9 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	// Serialize short database operations: saving a binding can coincide with
+	// scan completion, and competing SQLite writers otherwise return BUSY.
+	db.SetMaxOpenConns(1)
 	return store, nil
 }
 
@@ -66,6 +69,16 @@ CREATE TABLE IF NOT EXISTS switch_events (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_switch_events_created_at ON switch_events(created_at DESC);
+CREATE TABLE IF NOT EXISTS service_bindings (
+  controller TEXT NOT NULL,
+  group_name TEXT NOT NULL,
+  profile_id TEXT NOT NULL,
+  PRIMARY KEY (controller, group_name)
+);
+CREATE TABLE IF NOT EXISTS runtime_settings (
+ controller TEXT PRIMARY KEY,
+ payload TEXT NOT NULL
+);
 `)
 	if err != nil {
 		return fmt.Errorf("migrate SQLite database: %w", err)

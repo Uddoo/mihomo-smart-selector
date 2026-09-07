@@ -36,6 +36,7 @@ type HTTPConfig struct {
 type MihomoConfig struct {
 	Controller            string `yaml:"controller"`
 	SecretEnv             string `yaml:"secret_env"`
+	SecretFile            string `yaml:"secret_file"`
 	RequestTimeoutSeconds int    `yaml:"request_timeout_seconds"`
 }
 
@@ -56,6 +57,7 @@ type ScannerConfig struct {
 	Probes                []Probe                         `yaml:"probes"`
 	DefaultProbeProfile   string                          `yaml:"default_probe_profile"`
 	ProbeProfiles         []ProbeProfile                  `yaml:"probe_profiles"`
+	CustomProbeProfiles   []ProbeProfile                  `yaml:"custom_probe_profiles"`
 	ProbeProfileOverrides map[string]ProbeProfileOverride `yaml:"probe_profile_overrides"`
 	StrictVerification    StrictVerificationConfig        `yaml:"strict_verification"`
 }
@@ -106,10 +108,10 @@ type ProbeProfileOverride struct {
 }
 
 type StrictVerificationConfig struct {
-	Enabled       bool   `yaml:"enabled"`
-	SelectorGroup string `yaml:"selector_group"`
-	ProxyURL      string `yaml:"proxy_url"`
-	MaxCandidates int    `yaml:"max_candidates"`
+	Enabled       bool   `yaml:"enabled" json:"enabled"`
+	SelectorGroup string `yaml:"selector_group" json:"selector_group"`
+	ProxyURL      string `yaml:"proxy_url" json:"proxy_url"`
+	MaxCandidates int    `yaml:"max_candidates" json:"max_candidates"`
 }
 
 type Region struct {
@@ -120,10 +122,10 @@ type Region struct {
 }
 
 type EgressConfig struct {
-	Enabled       bool   `yaml:"enabled"`
-	SelectorGroup string `yaml:"selector_group"`
-	ProxyURL      string `yaml:"proxy_url"`
-	TraceURL      string `yaml:"trace_url"`
+	Enabled       bool   `yaml:"enabled" json:"enabled"`
+	SelectorGroup string `yaml:"selector_group" json:"selector_group"`
+	ProxyURL      string `yaml:"proxy_url" json:"proxy_url"`
+	TraceURL      string `yaml:"trace_url" json:"trace_url"`
 }
 
 type AutoSwitchConfig struct {
@@ -166,6 +168,8 @@ func Load(path string) (Config, error) {
 	if err := yaml.Unmarshal(bytes, &config); err != nil {
 		return Config{}, fmt.Errorf("parse config: %w", err)
 	}
+	// Add custom templates without replacing the built-in catalog.
+	config.Scanner.ProbeProfiles = append(config.Scanner.ProbeProfiles, config.Scanner.CustomProbeProfiles...)
 	if err := config.applyProbeProfileOverrides(); err != nil {
 		return Config{}, err
 	}
@@ -173,6 +177,9 @@ func Load(path string) (Config, error) {
 		config.HTTP.APIToken = os.Getenv(config.HTTP.APITokenEnv)
 	}
 	base := filepath.Dir(path)
+	if config.Mihomo.SecretFile != "" && !filepath.IsAbs(config.Mihomo.SecretFile) {
+		config.Mihomo.SecretFile = filepath.Join(base, config.Mihomo.SecretFile)
+	}
 	if !filepath.IsAbs(config.Storage.Path) {
 		config.Storage.Path = filepath.Join(base, config.Storage.Path)
 	}
@@ -474,6 +481,30 @@ func (c Config) ResolveProbeProfile(groupName string) (ProbeProfile, error) {
 		}
 	}
 	return ProbeProfile{}, fmt.Errorf("no probe profile is configured for selector %q", groupName)
+}
+
+// ProbeProfileByID selects a service independently of the user's group naming.
+func (c Config) ProbeProfileByID(id string) (ProbeProfile, error) {
+	if id == "legacy" && len(c.Scanner.ProbeProfiles) == 0 {
+		return c.ResolveProbeProfile("")
+	}
+	for _, profile := range c.Scanner.ProbeProfiles {
+		if strings.EqualFold(strings.TrimSpace(id), strings.TrimSpace(profile.ID)) {
+			return cloneProbeProfile(profile), nil
+		}
+	}
+	return ProbeProfile{}, fmt.Errorf("unknown service profile %q; select an available service", id)
+}
+
+func (c Config) SuggestedProfile(groupName string) string {
+	for _, profile := range c.Scanner.ProbeProfiles {
+		for _, name := range profile.GroupNames {
+			if normaliseGroupName(name) == normaliseGroupName(groupName) {
+				return profile.ID
+			}
+		}
+	}
+	return ""
 }
 
 func normaliseGroupName(value string) string {

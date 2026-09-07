@@ -64,10 +64,40 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) route(writer http.ResponseWriter, request *http.Request) {
 	switch {
+	case request.URL.Path == "/api/v1/settings" && request.Method == http.MethodGet:
+		writeJSON(writer, http.StatusOK, s.manager.Settings())
+	case request.URL.Path == "/api/v1/settings" && request.Method == http.MethodPut:
+		var payload config.RuntimeSettings
+		if !decodeJSON(writer, request, &payload) {
+			return
+		}
+		settings, err := s.manager.SaveSettings(request.Context(), payload)
+		if err != nil {
+			writeError(writer, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(writer, http.StatusOK, settings)
 	case request.URL.Path == "/api/v1/health" && request.Method == http.MethodGet:
 		s.health(writer, request)
 	case request.URL.Path == "/api/v1/groups" && request.Method == http.MethodGet:
 		s.groups(writer, request)
+	case request.URL.Path == "/api/v1/services" && request.Method == http.MethodGet:
+		catalog, err := s.manager.Services(request.Context())
+		if err != nil {
+			writeError(writer, http.StatusBadGateway, "could not load service catalog and bindings")
+			return
+		}
+		writeJSON(writer, http.StatusOK, catalog)
+	case request.URL.Path == "/api/v1/bindings" && request.Method == http.MethodPut:
+		var item model.ServiceBinding
+		if !decodeJSON(writer, request, &item) {
+			return
+		}
+		if err := s.manager.SetBinding(request.Context(), item); err != nil {
+			writeError(writer, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(writer, http.StatusOK, map[string]bool{"saved": true})
 	case request.URL.Path == "/api/v1/providers" && request.Method == http.MethodGet:
 		s.providers(writer, request)
 	case request.URL.Path == "/api/v1/regions" && request.Method == http.MethodGet:

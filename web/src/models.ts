@@ -5,11 +5,40 @@ export interface Health {
   error?: string
 }
 
+export interface RuntimeSettings {
+  revision: number
+  concurrency: number
+  batch_size: number
+  max_candidates: number
+  samples: number
+  timeout_ms: number
+  min_success_rate: number
+  median_target_ms: number
+  p95_target_ms: number
+  jitter_target_ms: number
+  default_profile: string
+  egress: {enabled: boolean; selector_group: string; proxy_url: string; trace_url: string}
+  strict: {enabled: boolean; selector_group: string; proxy_url: string; max_candidates: number}
+}
+
 export interface Group {
   name: string
   type: string
   now?: string
   all?: string[]
+}
+
+export interface ServiceBinding {
+  group: string
+  profile_id: string
+  status?: 'valid' | 'group_missing' | 'profile_missing'
+}
+
+export interface ServiceCatalog {
+  profiles: ProbeProfileSummary[]
+  bindings: ServiceBinding[]
+  suggestions: Record<string, string>
+  default_profile_id: string
 }
 
 export interface Provider {
@@ -97,6 +126,7 @@ export interface Scan {
   status: 'running' | 'complete' | 'failed' | 'cancelled'
   request: {
     target_group: string
+    profile_id?: string
     regions: string[]
     providers: string[]
     mode: 'stable' | 'quick'

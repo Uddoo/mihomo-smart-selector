@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
@@ -43,10 +44,12 @@ type candidate struct {
 }
 
 type Manager struct {
-	cfg        config.Config
-	client     mihomo.Client
-	classifier *regions.Classifier
-	store      *history.Store
+	cfg              atomic.Pointer[config.Config]
+	settingsMu       sync.Mutex
+	settingsRevision int
+	client           mihomo.Client
+	classifier       *regions.Classifier
+	store            *history.Store
 
 	mu             sync.Mutex
 	active         map[string]*model.Scan
@@ -56,22 +59,37 @@ type Manager struct {
 }
 
 func NewManager(cfg config.Config, client mihomo.Client, store *history.Store) *Manager {
-	return &Manager{
-		cfg: cfg, client: client, store: store, classifier: regions.New(cfg),
+	m := &Manager{
+		client: client, store: store, classifier: regions.New(cfg),
 		active: map[string]*model.Scan{}, cancels: map[string]context.CancelFunc{}, stopAfterBatch: map[string]bool{}, subscribers: map[string]map[chan Event]struct{}{},
 	}
+	m.cfg.Store(&cfg)
+	return m
 }
 
+func (m *Manager) currentConfig() config.Config { return *m.cfg.Load() }
+
 func (m *Manager) Start(request model.ScanRequest) (model.Scan, error) {
+	m.settingsMu.Lock()
+	defer m.settingsMu.Unlock()
+	if err := m.checkProbeTarget(request.TargetGroup); err != nil {
+		return model.Scan{}, err
+	}
+	cfg := m.currentConfig()
+	if (cfg.EgressVerification.Enabled || cfg.Scanner.StrictVerification.Enabled) && m.hasRunningScan() {
+		return model.Scan{}, fmt.Errorf("验证使用共享探测组，请等待当前扫描结束")
+	}
 	var err error
 	request, err = normaliseRequest(request)
 	if err != nil {
 		return model.Scan{}, err
 	}
-	profile, err := m.profileFor(request.TargetGroup)
+	profile, err := m.profileFor(request)
 	if err != nil {
 		return model.Scan{}, err
 	}
+	// Freeze the resolved service so later binding edits cannot change this scan.
+	request.ProfileID = profile.ID
 	now := time.Now().UTC()
 	scan := model.Scan{ID: newID(), Status: model.ScanRunning, Request: request, Profile: m.profileSummary(profile), StartedAt: now}
 	if err := m.store.CreateScan(context.Background(), scan); err != nil {
@@ -85,11 +103,16 @@ func (m *Manager) Start(request model.ScanRequest) (model.Scan, error) {
 }
 
 func (m *Manager) Preflight(ctx context.Context, request model.ScanRequest) (model.ScanPreview, error) {
+	m.settingsMu.Lock()
+	defer m.settingsMu.Unlock()
+	if err := m.checkProbeTarget(request.TargetGroup); err != nil {
+		return model.ScanPreview{}, err
+	}
 	request, err := normaliseRequest(request)
 	if err != nil {
 		return model.ScanPreview{}, err
 	}
-	profile, err := m.cfg.ResolveProbeProfile(request.TargetGroup)
+	profile, err := m.resolveService(ctx, request)
 	if err != nil {
 		return model.ScanPreview{}, err
 	}
@@ -109,16 +132,16 @@ func (m *Manager) Preflight(ctx context.Context, request model.ScanRequest) (mod
 		}
 		return model.ScanPreview{}, err
 	}
-	if len(candidates) > m.cfg.Scanner.MaxTotalCandidates {
-		return model.ScanPreview{}, fmt.Errorf("%d candidates exceed scanner.max_total_candidates (%d); narrow regions or providers", len(candidates), m.cfg.Scanner.MaxTotalCandidates)
+	if len(candidates) > m.currentConfig().Scanner.MaxTotalCandidates {
+		return model.ScanPreview{}, fmt.Errorf("%d candidates exceed scanner.max_total_candidates (%d); narrow regions or providers", len(candidates), m.currentConfig().Scanner.MaxTotalCandidates)
 	}
-	samples := m.cfg.Scanner.Samples
+	samples := m.currentConfig().Scanner.Samples
 	if request.Mode == "quick" {
 		samples = 1
 	}
 	return model.ScanPreview{
-		CandidateCount: len(candidates), BatchSize: m.cfg.Scanner.BatchSize,
-		BatchCount:     (len(candidates) + m.cfg.Scanner.BatchSize - 1) / m.cfg.Scanner.BatchSize,
+		CandidateCount: len(candidates), BatchSize: m.currentConfig().Scanner.BatchSize,
+		BatchCount:     (len(candidates) + m.currentConfig().Scanner.BatchSize - 1) / m.currentConfig().Scanner.BatchSize,
 		SamplesPerNode: samples, ProbeRequests: len(candidates) * len(profile.Probes) * samples,
 		Profile: m.profileSummary(profile), Ready: true,
 	}, nil
@@ -178,11 +201,11 @@ func (m *Manager) Providers(ctx context.Context) ([]mihomo.Provider, error) {
 }
 
 func (m *Manager) Regions() []config.Region {
-	return append([]config.Region(nil), m.cfg.Regions...)
+	return append([]config.Region(nil), m.currentConfig().Regions...)
 }
 
-func (m *Manager) profileFor(groupName string) (config.ProbeProfile, error) {
-	profile, err := m.cfg.ResolveProbeProfile(groupName)
+func (m *Manager) profileFor(request model.ScanRequest) (config.ProbeProfile, error) {
+	profile, err := m.resolveService(context.Background(), request)
 	if err != nil {
 		return config.ProbeProfile{}, err
 	}
@@ -216,7 +239,7 @@ func (m *Manager) profileSummary(profile config.ProbeProfile) model.ProbeProfile
 	return model.ProbeProfileSummary{
 		ID: profile.ID, Label: profile.Label, Description: profile.Description,
 		ProbeCount: len(profile.Probes), StrictProbeCount: len(profile.StrictProbes),
-		StrictVerificationAvailable: len(profile.StrictProbes) > 0 && m.cfg.Scanner.StrictVerification.Enabled,
+		StrictVerificationAvailable: len(profile.StrictProbes) > 0 && m.currentConfig().Scanner.StrictVerification.Enabled,
 		RequiresConfiguration:       profile.RequiresConfiguration, SetupHint: profile.SetupHint,
 		ExpectedRegions: append([]string(nil), profile.ExpectedRegions...), TransportScope: profile.TransportScope,
 		Targets: targets,
@@ -267,6 +290,8 @@ func (m *Manager) History(ctx context.Context, limit int) ([]model.SwitchEvent, 
 }
 
 func (m *Manager) Select(ctx context.Context, scanID, requestedNode string) (model.SwitchEvent, error) {
+	m.settingsMu.Lock()
+	defer m.settingsMu.Unlock()
 	scan, err := m.store.GetScan(ctx, scanID)
 	if err != nil {
 		return model.SwitchEvent{}, err
@@ -288,7 +313,7 @@ func (m *Manager) Select(ctx context.Context, scanID, requestedNode string) (mod
 	if selected == nil {
 		return model.SwitchEvent{}, fmt.Errorf("requested node is not a result of scan %q", scanID)
 	}
-	if selected.SuccessRate < m.cfg.Scanner.MinSuccessRate {
+	if selected.SuccessRate < m.currentConfig().Scanner.MinSuccessRate {
 		return model.SwitchEvent{}, fmt.Errorf("node %q is below min_success_rate", selected.Name)
 	}
 	proxies, err := m.client.ListProxies(ctx)
@@ -359,6 +384,8 @@ func (m *Manager) run(ctx context.Context, scan model.Scan) {
 	}
 	scan.CompletedAt = &completed
 	if persistErr := m.store.CompleteScan(context.Background(), scan); persistErr != nil {
+		scan.Status = model.ScanFailed
+		scan.Error = "could not persist scan results; selection is unavailable"
 		m.setActive(scan)
 		m.publish(scan.ID, Event{Kind: "error", Message: "scan completed but could not persist results", At: completed})
 		return
@@ -372,7 +399,7 @@ func (m *Manager) run(ctx context.Context, scan model.Scan) {
 }
 
 func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult, error) {
-	profile, err := m.profileFor(scan.Request.TargetGroup)
+	profile, err := m.profileFor(scan.Request)
 	if err != nil {
 		return nil, err
 	}
@@ -384,15 +411,15 @@ func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult
 	if err != nil {
 		return nil, fmt.Errorf("discover proxies for egress verification: %w", err)
 	}
-	if len(candidates) > m.cfg.Scanner.MaxTotalCandidates {
-		return nil, fmt.Errorf("%d candidates exceed scanner.max_total_candidates (%d); narrow regions or providers", len(candidates), m.cfg.Scanner.MaxTotalCandidates)
+	if len(candidates) > m.currentConfig().Scanner.MaxTotalCandidates {
+		return nil, fmt.Errorf("%d candidates exceed scanner.max_total_candidates (%d); narrow regions or providers", len(candidates), m.currentConfig().Scanner.MaxTotalCandidates)
 	}
 
-	totalBatches := (len(candidates) + m.cfg.Scanner.BatchSize - 1) / m.cfg.Scanner.BatchSize
+	totalBatches := (len(candidates) + m.currentConfig().Scanner.BatchSize - 1) / m.currentConfig().Scanner.BatchSize
 	m.setProgress(scan.ID, model.ScanProgress{Total: len(candidates), TotalBatches: totalBatches})
 	allResults := make([]model.NodeResult, 0, len(candidates))
-	for batchIndex, start := 1, 0; start < len(candidates); batchIndex, start = batchIndex+1, start+m.cfg.Scanner.BatchSize {
-		end := min(start+m.cfg.Scanner.BatchSize, len(candidates))
+	for batchIndex, start := 1, 0; start < len(candidates); batchIndex, start = batchIndex+1, start+m.currentConfig().Scanner.BatchSize {
+		end := min(start+m.currentConfig().Scanner.BatchSize, len(candidates))
 		progress := m.progressSnapshot(scan.ID)
 		progress.Total = len(candidates)
 		progress.CurrentBatch = batchIndex
@@ -410,15 +437,15 @@ func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult
 		}
 	}
 
-	if m.cfg.EgressVerification.Enabled {
+	if m.currentConfig().EgressVerification.Enabled {
 		m.verifyEgress(ctx, proxies, allResults, scan.ID)
 		for index := range allResults {
-			calculateMetrics(&allResults[index], m.cfg.Scanner)
+			calculateMetrics(&allResults[index], m.currentConfig().Scanner)
 		}
 	}
 	m.verifyStrict(ctx, proxies, profile, allResults, scan.ID)
 	for index := range allResults {
-		assessResult(&allResults[index], profile, m.cfg.Scanner.StrictVerification.Enabled)
+		assessResult(&allResults[index], profile, m.currentConfig().Scanner.StrictVerification.Enabled)
 	}
 	sort.SliceStable(allResults, func(left, right int) bool {
 		if allResults[left].Score != allResults[right].Score {
@@ -490,7 +517,7 @@ func (m *Manager) probeBatch(parent context.Context, scan model.Scan, profile co
 	jobs := make(chan candidate)
 	results := make(chan model.NodeResult, len(candidates))
 	var workers sync.WaitGroup
-	for worker := 0; worker < m.cfg.Scanner.Concurrency; worker++ {
+	for worker := 0; worker < m.currentConfig().Scanner.Concurrency; worker++ {
 		workers.Add(1)
 		go func() {
 			defer workers.Done()
@@ -558,14 +585,14 @@ func (m *Manager) probeCandidate(parent context.Context, item candidate, profile
 	result := model.NodeResult{
 		Name: item.Name, Provider: item.Provider, InferredRegion: item.Region.Code, RegionSource: item.Region.Source,
 	}
-	samples := m.cfg.Scanner.Samples
+	samples := m.currentConfig().Scanner.Samples
 	if mode == "quick" {
 		samples = 1
 	}
 	for _, probe := range profile.Probes {
 		for sample := 0; sample < samples; sample++ {
-			ctx, cancel := context.WithTimeout(parent, time.Duration(m.cfg.Scanner.TimeoutMS+500)*time.Millisecond)
-			delay, err := m.client.Delay(ctx, item.Name, item.Provider, probe, m.cfg.Scanner.TimeoutMS)
+			ctx, cancel := context.WithTimeout(parent, time.Duration(m.currentConfig().Scanner.TimeoutMS+500)*time.Millisecond)
+			delay, err := m.client.Delay(ctx, item.Name, item.Provider, probe, m.currentConfig().Scanner.TimeoutMS)
 			cancel()
 			entry := model.ProbeSample{Probe: probe.Name, DelayMS: delay}
 			if err != nil {
@@ -575,20 +602,21 @@ func (m *Manager) probeCandidate(parent context.Context, item candidate, profile
 			result.Samples = append(result.Samples, entry)
 		}
 	}
-	calculateMetrics(&result, m.cfg.Scanner)
-	assessResult(&result, profile, m.cfg.Scanner.StrictVerification.Enabled)
+	calculateMetrics(&result, m.currentConfig().Scanner)
+	assessResult(&result, profile, m.currentConfig().Scanner.StrictVerification.Enabled)
 	return result
 }
 
 func (m *Manager) verifyEgress(ctx context.Context, proxies map[string]mihomo.Proxy, results []model.NodeResult, scanID string) {
-	probeSelector, exists := proxies[m.cfg.EgressVerification.SelectorGroup]
+	probeSelector, exists := proxies[m.currentConfig().EgressVerification.SelectorGroup]
 	if !exists || !strings.EqualFold(probeSelector.Type, "Selector") {
 		for index := range results {
 			results[index].EgressError = "configured probe selector is unavailable"
 		}
 		return
 	}
-	proxyURL, err := url.Parse(m.cfg.EgressVerification.ProxyURL)
+	defer m.restoreProbeSelector(probeSelector.Name, probeSelector.Now)
+	proxyURL, err := url.Parse(m.currentConfig().EgressVerification.ProxyURL)
 	if err != nil {
 		for index := range results {
 			results[index].EgressError = "configured probe listener URL is invalid"
@@ -596,10 +624,10 @@ func (m *Manager) verifyEgress(ctx context.Context, proxies map[string]mihomo.Pr
 		return
 	}
 	httpClient := &http.Client{
-		Timeout: time.Duration(m.cfg.Scanner.TimeoutMS+1000) * time.Millisecond,
+		Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS+1000) * time.Millisecond,
 		Transport: &http.Transport{
 			Proxy:       http.ProxyURL(proxyURL),
-			DialContext: (&net.Dialer{Timeout: time.Duration(m.cfg.Scanner.TimeoutMS) * time.Millisecond}).DialContext,
+			DialContext: (&net.Dialer{Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS) * time.Millisecond}).DialContext,
 		},
 	}
 	for index := range results {
@@ -611,7 +639,7 @@ func (m *Manager) verifyEgress(ctx context.Context, proxies map[string]mihomo.Pr
 			results[index].EgressError = "could not select candidate in probe selector"
 			continue
 		}
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, m.cfg.EgressVerification.TraceURL, nil)
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, m.currentConfig().EgressVerification.TraceURL, nil)
 		if err != nil {
 			results[index].EgressError = "could not create egress probe request"
 			continue
@@ -652,7 +680,7 @@ func (m *Manager) verifyStrict(ctx context.Context, proxies map[string]mihomo.Pr
 	if len(profile.StrictProbes) == 0 {
 		return
 	}
-	verification := m.cfg.Scanner.StrictVerification
+	verification := m.currentConfig().Scanner.StrictVerification
 	if !verification.Enabled {
 		for index := range results {
 			results[index].StrictVerificationStatus = "not_configured"
@@ -686,9 +714,9 @@ func (m *Manager) verifyStrict(ctx context.Context, proxies map[string]mihomo.Pr
 	transport := &http.Transport{
 		Proxy:             http.ProxyURL(proxyURL),
 		DisableKeepAlives: true,
-		DialContext:       (&net.Dialer{Timeout: time.Duration(m.cfg.Scanner.TimeoutMS) * time.Millisecond}).DialContext,
+		DialContext:       (&net.Dialer{Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS) * time.Millisecond}).DialContext,
 	}
-	client := &http.Client{Timeout: time.Duration(m.cfg.Scanner.TimeoutMS+1000) * time.Millisecond, Transport: transport}
+	client := &http.Client{Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS+1000) * time.Millisecond, Transport: transport}
 	defer transport.CloseIdleConnections()
 	if probeSelector.Now != "" {
 		defer m.restoreProbeSelector(probeSelector.Name, probeSelector.Now)
@@ -716,7 +744,7 @@ func (m *Manager) verifyStrict(ctx context.Context, proxies map[string]mihomo.Pr
 
 func (m *Manager) runStrictCheck(parent context.Context, client *http.Client, probe config.StrictProbe) model.StrictCheck {
 	check := model.StrictCheck{Probe: probe.Name, ExpectedStatus: probe.ExpectedStatus, Status: "failed"}
-	ctx, cancel := context.WithTimeout(parent, time.Duration(m.cfg.Scanner.TimeoutMS+500)*time.Millisecond)
+	ctx, cancel := context.WithTimeout(parent, time.Duration(m.currentConfig().Scanner.TimeoutMS+500)*time.Millisecond)
 	defer cancel()
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, probe.URL, nil)
 	if err != nil {

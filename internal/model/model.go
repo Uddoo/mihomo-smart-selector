@@ -14,9 +14,23 @@ const (
 
 type ScanRequest struct {
 	TargetGroup string   `json:"target_group"`
+	ProfileID   string   `json:"profile_id,omitempty"`
 	Regions     []string `json:"regions"`
 	Providers   []string `json:"providers"`
 	Mode        string   `json:"mode"`
+}
+
+type ServiceBinding struct {
+	Group     string `json:"group"`
+	ProfileID string `json:"profile_id"`
+	Status    string `json:"status,omitempty"`
+}
+
+type ServiceCatalog struct {
+	Profiles         []ProbeProfileSummary `json:"profiles"`
+	Bindings         []ServiceBinding      `json:"bindings"`
+	Suggestions      map[string]string     `json:"suggestions"`
+	DefaultProfileID string                `json:"default_profile_id"`
 }
 
 type ScanPreview struct {

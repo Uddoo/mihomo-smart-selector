@@ -1,6 +1,6 @@
 # OpenWrt/iStoreOS example. Review every address before installation and keep
-# the installed copy mode 0600. The bundled OpenClash init script reads
-# MIHOMO_SECRET from /etc/openclash/dukou.yaml and supplies MSS_API_TOKEN from
+# the installed copy mode 0600. Mihomo reads a separately provisioned secret file.
+# The bundled init script supplies MSS_API_TOKEN from
 # /etc/mihomo-smart-selector/access-token.
 http:
   # Replace this example CIDR with the narrow LAN or Tailnet range that should
@@ -12,7 +12,9 @@ http:
   allowed_cidrs: ["192.168.1.0/24"]
 mihomo:
   controller: http://127.0.0.1:9090
-  secret_env: MIHOMO_SECRET
+  # One line containing the actual Controller secret; provision with mode 0600.
+  # This path is configurable and is not an OpenClash subscription YAML file.
+  secret_file: /etc/mihomo-smart-selector/mihomo-secret
   request_timeout_seconds: 8
 storage:
   path: /opt/mihomo-smart-selector/data/selector.db

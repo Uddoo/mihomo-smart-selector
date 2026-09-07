@@ -28,6 +28,25 @@ button svg { flex-shrink: 0; }
 small { font-size: 12px; color: var(--muted); }
 h1, h2, h3, p { margin-top: 0; }
 .shell { display: grid; grid-template-columns: 244px minmax(0, 1fr); min-height: 100vh; }
+.service-binding { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 0; font-size: 13px; }
+.service-binding > span { flex: 1 1 260px; overflow-wrap: anywhere; }
+.service-binding small { color: var(--muted); }
+.invalid-binding { border-top: 1px solid var(--line); }
+.runtime-settings { margin-bottom: 20px; }
+.runtime-settings .panel { border: 1px solid var(--line); border-radius: 9px; }
+.runtime-settings h2 { margin: 0 0 14px; }
+.runtime-settings p { font-size: 14px; line-height: 1.7; margin: 12px 0 18px; }
+.runtime-settings .settings-note { font-size: 12px; }
+.runtime-fields { border: 0; padding: 0; margin: 18px 0; min-width: 0; display: grid; gap: 18px; }
+.settings-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 18px; }
+.settings-inputs label { display: flex; flex-direction: column; gap: 8px; font-size: 13px; min-width: 0; }
+.settings-inputs input, .settings-inputs select { width: 100%; min-width: 0; padding: 10px; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.settings-toggle { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.settings-wide { grid-column: 1 / -1; }
+.settings-note { color: var(--muted); font-size: 12px; line-height: 1.7; }
+.settings-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.command > label { min-width: 0; }
+.command select { max-width: 100%; }
 .shell > aside { min-width: 0; background: var(--surface); border-right: 1px solid var(--line); padding: 28px 16px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
 .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 36px; font-size: 23px; font-weight: 750; letter-spacing: -.5px; }
 .brand > svg { color: var(--blue); flex-shrink: 0; }

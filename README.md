@@ -24,8 +24,9 @@ The current pre-release build provides:
 - discovery of selector groups, providers, and eligible members through the
   local Mihomo Controller API;
 - configurable region classification and node overrides;
-- service-aware Probe Profiles that map each selector to a no-credential,
-  read-only endpoint instead of one global URL;
+- independently selected service profiles, persistent group bindings and
+  additive custom YAML templates ([adaptation guide](docs/service-adaptation.md));
+- periodic group refresh and visible stale group/profile bindings;
 - multi-sample scans with median, P95, jitter, success rate, and a transparent
   90-point performance score with an independent score breakdown;
 - separate reachability, strict HTTP/body verification, restriction,

@@ -2,9 +2,11 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
@@ -12,6 +14,67 @@ import (
 	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
 	"github.com/Uddoo/mihomo-smart-selector/internal/scan"
 )
+
+func TestServiceCatalogAndBindingAPIsRespectAuthentication(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.HTTP.Listen = "0.0.0.0:8788"
+	cfg.HTTP.AllowedCIDRs = []string{"127.0.0.1/32"}
+	cfg.HTTP.APIToken = "test-token"
+	cfg.Scanner.ProbeProfiles = append(cfg.Scanner.ProbeProfiles, config.ProbeProfile{
+		ID: "private", Label: "Private API", TransportScope: "HTTP latency only",
+		Probes: []config.Probe{{Name: "health", URL: "https://private.example/health", ExpectedStatus: "200"}},
+	})
+	store, err := history.Open(filepath.Join(t.TempDir(), "selector.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	manager := scan.NewManager(cfg, testController{}, store)
+	server, err := New(cfg.HTTP, manager, testController{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	settingsJSON, err := json.Marshal(cfg.RuntimeSettings())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range []struct{ method, path, body string }{
+		{"GET", "/api/v1/services", ""},
+		{"PUT", "/api/v1/bindings", `{"group":"Gone","profile_id":""}`},
+		{"GET", "/api/v1/settings", ""},
+		{"PUT", "/api/v1/settings", string(settingsJSON)},
+	} {
+		for _, authorized := range []bool{false, true} {
+			request := httptest.NewRequest(item.method, item.path, strings.NewReader(item.body))
+			request.RemoteAddr = "127.0.0.1:1234"
+			request.Header.Set("Content-Type", "application/json")
+			if authorized {
+				request.Header.Set("Authorization", "Bearer test-token")
+			}
+			response := httptest.NewRecorder()
+			server.Handler().ServeHTTP(response, request)
+			expected := http.StatusUnauthorized
+			if authorized {
+				expected = http.StatusOK
+			}
+			if response.Code != expected {
+				t.Fatalf("%s authorized=%v: %d %s", item.path, authorized, response.Code, response.Body.String())
+			}
+			if authorized && item.path == "/api/v1/services" {
+				var catalog map[string]any
+				if err := json.Unmarshal(response.Body.Bytes(), &catalog); err != nil {
+					t.Fatal(err)
+				}
+				if strings.Contains(response.Body.String(), "private.example") {
+					t.Fatal("private template address leaked")
+				}
+				if len(catalog["profiles"].([]any)) == 0 {
+					t.Fatal("empty profile catalog")
+				}
+			}
+		}
+	}
+}
 
 type testController struct{}
 

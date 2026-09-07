@@ -3,7 +3,8 @@ import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {Network, ScanLine, List, History, Settings, Moon, Sun, RefreshCw, ChevronDown, CheckCircle2, Radio, ArrowRight} from '@lucide/vue'
 import {APIError, api, setAPIToken} from './api'
 import {rankResults} from './ranking'
-import type {Group, Health, NodeResult, NodeSummary, ProbeProfileSummary, Provider, Region, Scan, ScanPreview, SwitchEvent} from './models'
+import SettingsPanel from './SettingsPanel.vue'
+import type {Group, Health, NodeResult, NodeSummary, ProbeProfileSummary, Provider, Region, Scan, ScanPreview, SwitchEvent, ServiceCatalog, RuntimeSettings} from './models'
 
 type Page = 'scan' | 'nodes' | 'history' | 'settings'
 
@@ -15,6 +16,13 @@ const regions = ref<Region[]>([])
 const nodes = ref<NodeSummary[]>([])
 const history = ref<SwitchEvent[]>([])
 const group = ref('')
+const serviceID = ref('')
+const services = ref<ServiceCatalog | null>(null)
+const loading = ref(false)
+const savingBinding = ref(false)
+const discoveryValid = ref(false)
+const minimumSuccessRate = ref(.95)
+let discoveryPoll: number | undefined
 const areas = ref<string[]>([])
 const providerSet = ref<string[]>([])
 const mode = ref<'quick' | 'stable'>('quick')
@@ -46,11 +54,15 @@ const best = computed(() => results.value[0])
 const candidate = computed(() => results.value.find(x => x.name === focusedName.value) || best.value)
 const currentResult = computed(() => results.value.find(x => x.name === current.value?.now))
 const scanLabel = computed(() => scan.value?.status === 'complete' ? '扫描完成' : scan.value?.status === 'cancelled' ? '扫描已停止' : scan.value?.status === 'failed' ? '扫描失败' : running.value ? '扫描进行中' : '准备就绪')
-const configLocked = computed(() => running.value || starting.value || switching.value)
+const configLocked = computed(() => running.value || starting.value || switching.value || savingBinding.value)
 const progress = computed(() => scan.value?.progress)
 const percent = computed(() => progress.value?.total ? Math.round(progress.value.completed * 100 / progress.value.total) : 0)
-const profile = computed<ProbeProfileSummary | null>(() => running.value ? scan.value?.profile || null : preview.value?.profile || scan.value?.profile || null)
-const profileReady = computed(() => !!profile.value && !profile.value.requires_configuration && (running.value || preview.value?.ready === true))
+const profile = computed<ProbeProfileSummary | null>(() => running.value ? scan.value?.profile || null : preview.value?.profile || null)
+const groupMissing = computed(() => !!group.value && !groups.value.some(item => item.name === group.value))
+const binding = computed(() => services.value?.bindings.find(item => item.group === group.value))
+const invalidBindings = computed(() => services.value?.bindings.filter(item => item.status !== 'valid') || [])
+const serviceSource = computed(() => serviceID.value ? '本次手动选择；保存绑定后下次自动使用' : binding.value ? (binding.value.status === 'valid' ? '使用已保存的服务绑定' : '绑定已失效，请选择服务重新绑定或移除绑定') : services.value?.suggestions[group.value] ? '按组名推荐；可另选服务并保存绑定' : '未绑定服务，当前仅使用默认探测配置')
+const profileReady = computed(() => discoveryValid.value && !loading.value && !groupMissing.value && !!profile.value && !profile.value.requires_configuration && (running.value || preview.value?.ready === true))
 const visibleNodes = computed(() => nodes.value.filter(node =>
   (!query.value || node.name.toLowerCase().includes(query.value.toLowerCase())) &&
   (!areas.value.length || areas.value.includes(node.inferred_region || '')) &&
@@ -61,7 +73,8 @@ watch(theme, value => {
   document.documentElement.dataset.theme = value
   localStorage.setItem('mss-theme', value)
 }, {immediate: true})
-watch([group, areas, providerSet, mode], () => void preflight())
+watch(group, () => { serviceID.value = ''; void preflight() })
+watch([serviceID, areas, providerSet, mode], () => void preflight())
 watch(pendingChoice, value => {
   if (value) choiceDialog.value?.showModal()
   else choiceDialog.value?.close()
@@ -70,20 +83,30 @@ watch(pendingChoice, value => {
 onMounted(() => {
   setAPIToken(token.value)
   void load()
+  discoveryPoll = window.setInterval(() => {
+    if (!configLocked.value && !access.value && !document.hidden) void load()
+  }, 30000)
 })
-onBeforeUnmount(close)
+onBeforeUnmount(() => { close(); window.clearInterval(discoveryPoll); ++previewRevision })
 
 async function load() {
+  if (loading.value || configLocked.value) return
+  loading.value = true
+  discoveryValid.value = false
+  ++previewRevision
+  preview.value = null
   failure.value = ''
   const response = await Promise.allSettled([
-    api<Health>('/health'), api<Group[]>('/groups'), api<Provider[]>('/providers'), api<Region[]>('/regions'), api<NodeSummary[]>('/nodes'), api<SwitchEvent[]>('/history'),
+    api<Health>('/health'), api<Group[]>('/groups'), api<Provider[]>('/providers'), api<Region[]>('/regions'), api<NodeSummary[]>('/nodes'), api<SwitchEvent[]>('/history'), api<ServiceCatalog>('/services'), api<RuntimeSettings>('/settings'),
   ])
   if (response[0].status === 'rejected' && response[0].reason instanceof APIError && response[0].reason.status === 401) {
     access.value = true
+    loading.value = false
     return
   }
   access.value = false
   if (response[0].status === 'fulfilled') health.value = response[0].value
+  else health.value = {status: 'degraded', mihomo_connected: false}
   if (response[1].status === 'fulfilled') {
     groups.value = response[1].value || []
     if (!group.value && groups.value[0]) group.value = groups.value[0].name
@@ -92,9 +115,31 @@ async function load() {
   if (response[3].status === 'fulfilled') regions.value = response[3].value || []
   if (response[4].status === 'fulfilled') nodes.value = response[4].value || []
   if (response[5].status === 'fulfilled') history.value = response[5].value || []
+  if (response[6].status === 'fulfilled') services.value = response[6].value
+  if (response[7].status === 'fulfilled') minimumSuccessRate.value = response[7].value.min_success_rate
   const bad = response.find(item => item.status === 'rejected') as PromiseRejectedResult | undefined
   if (bad) failure.value = bad.reason instanceof Error ? bad.reason.message : '无法加载 Mihomo 数据'
+  discoveryValid.value = !bad
+  loading.value = false
   await preflight()
+}
+
+async function saveBinding(target = group.value, remove = false) {
+  if (configLocked.value || loading.value) return
+  const id = serviceID.value || profile.value?.id
+  if (!remove && !id) return
+  savingBinding.value = true
+  try {
+    await api('/bindings', {method: 'PUT', body: JSON.stringify({group: target, profile_id: remove ? '' : id})})
+    services.value = await api<ServiceCatalog>('/services')
+    if (target === group.value) serviceID.value = ''
+    notice.value = remove ? '已移除绑定' : '已保存服务绑定，下次自动使用'
+  } catch (error) {
+    failure.value = error instanceof Error ? error.message : '无法保存服务绑定'
+  } finally {
+    savingBinding.value = false
+    await preflight()
+  }
 }
 
 function unlock() {
@@ -104,7 +149,7 @@ function unlock() {
 }
 
 function body() {
-  return {target_group: group.value, regions: areas.value, providers: providerSet.value, mode: mode.value}
+  return {target_group: group.value, profile_id: serviceID.value || undefined, regions: areas.value, providers: providerSet.value, mode: mode.value}
 }
 
 function area(code: string) {
@@ -116,9 +161,10 @@ function provider(name: string) {
 }
 
 async function preflight() {
-  if (!group.value || running.value) return
   const revision = ++previewRevision
+  if (running.value) return
   preview.value = null
+  if (!group.value || groupMissing.value || loading.value || !discoveryValid.value) return
   try {
     const response = await api<ScanPreview>('/scans/preflight', {method: 'POST', body: JSON.stringify(body())})
     if (revision !== previewRevision) return
@@ -171,6 +217,7 @@ async function refresh() {
     if (response.status !== 'running') {
       running.value = false
       close()
+      void preflight()
       if (response.status === 'cancelled') notice.value = '扫描已停止；保留实时排名，选择操作已锁定。'
       else if (response.status === 'failed') failure.value = response.error || '扫描失败'
     }
@@ -196,8 +243,11 @@ async function stop(after: boolean) {
 function selectionReason(result?: NodeResult) {
   if (switching.value) return '正在切换'
   if (starting.value || scan.value?.status !== 'complete') return '扫描完成后可选择'
+  if (loading.value || !discoveryValid.value) return '请先刷新并连接 Controller'
+  if (!current.value) return '扫描目标策略组已失效'
   if (!result) return '等待节点结果'
-  if (result.success_rate < .95) return '成功率低于 95%'
+  if (!current.value.all?.includes(result.name)) return '节点已不属于扫描目标策略组'
+  if (result.success_rate < minimumSuccessRate.value) return `成功率低于 ${Math.round(minimumSuccessRate.value * 100)}%`
   return ''
 }
 
@@ -302,9 +352,10 @@ function probeKind(value: 'reachability' | 'strict') {
 
       <section v-if="page === 'scan'">
         <div class="scan-config">
-        <fieldset class="command" :disabled="configLocked">
+        <fieldset class="command" :disabled="configLocked || loading">
           <legend class="sr-only">扫描配置</legend>
-          <label>目标服务<select v-model="group"><option v-for="item in groups" :key="item.name" :value="item.name">{{ item.name }}</option></select></label>
+          <label>目标策略组<select v-model="group" aria-label="目标策略组"><option v-if="groupMissing" :value="group">{{ group }}（已失效）</option><option v-for="item in groups" :key="item.name" :value="item.name">{{ item.name }}</option></select></label>
+          <label>测试服务<select v-model="serviceID" aria-label="测试服务"><option value="">自动使用绑定或推荐</option><option v-for="item in services?.profiles || []" :key="item.id" :value="item.id">{{ item.label }}{{ item.requires_configuration ? '（待配置）' : '' }}</option></select></label>
           <div class="chips">
             <b>地区</b>
             <button :class="{active: !areas.length}" :aria-pressed="!areas.length" @click="areas = []">全部</button>
@@ -317,6 +368,18 @@ function probeKind(value: 'reachability' | 'strict') {
           <label>模式<select v-model="mode"><option value="quick">快速</option><option value="stable">稳定</option></select></label>
           <button :class="['scan-button', {primary: !scan}]" :disabled="configLocked || !group || !profileReady" @click="start"><RefreshCw :size="16" :class="{spinning: running}"/>{{ starting ? '正在启动' : running ? '扫描中' : scan ? '重新扫描' : '开始扫描' }}</button>
         </fieldset>
+        <div class="service-binding">
+          <span>{{ serviceSource }}</span>
+          <button :disabled="configLocked || loading || !profile || groupMissing" @click="saveBinding()">保存绑定</button>
+          <button v-if="binding" :disabled="configLocked || loading" @click="saveBinding(group, true)">移除绑定</button>
+          <button :disabled="configLocked || loading" @click="load()">{{ loading ? '正在刷新' : '刷新策略组' }}</button>
+          <small>每 30 秒刷新 · 扫描期间暂停刷新</small>
+        </div>
+        <p v-if="groupMissing" class="preflight warning" role="alert">目标策略组已删除或改名，请重新选择策略组；不会自动迁移绑定。</p>
+        <div v-for="item in invalidBindings" :key="item.group" class="service-binding invalid-binding" role="status">
+          <span>失效绑定：{{ item.group }} → {{ item.profile_id }}（{{ item.status === 'group_missing' ? '策略组不存在或不再是 Selector' : '服务模板不存在' }}）</span>
+          <button :disabled="configLocked || loading" @click="saveBinding(item.group, true)">移除此失效绑定</button>
+        </div>
         <div class="config-summary"><span><b>{{ profile?.label || '等待评分配置' }}</b><span v-if="preview?.ready"> · {{ preview.candidate_count }} 个候选 · {{ preview.batch_count }} 批</span></span><button :aria-expanded="showProfile" aria-controls="probe-profile" @click="showProfile = !showProfile">探测配置与地址<ChevronDown :size="15" :class="{expanded: showProfile}"/></button></div>
 
         <section v-if="profile && (showProfile || profile.requires_configuration)" id="probe-profile" class="profile-card" :class="{warning: profile.requires_configuration}">
@@ -346,7 +409,7 @@ function probeKind(value: 'reachability' | 'strict') {
         </section>
         </div>
 
-        <div v-if="!running && !profile?.requires_configuration && !preview?.ready" class="preflight warning"><b>当前不可扫描</b><span>{{ preview?.reason || '正在加载预检。' }}</span></div>
+        <div v-if="!running && !groupMissing && discoveryValid && !profile?.requires_configuration && !preview?.ready" class="preflight warning"><b>当前不可扫描</b><span>{{ !group ? '未发现可选择的 Selector 策略组。' : preview?.reason || failure || '正在加载预检。' }}</span></div>
 
         <div v-if="running" class="progress">
           <div><b>已完成 {{ progress?.completed || 0 }} / {{ progress?.total || 0 }} · 第 {{ progress?.current_batch || 0 }} / {{ progress?.total_batches || 0 }} 批</b><strong>{{ percent }}%</strong></div>
@@ -356,7 +419,7 @@ function probeKind(value: 'reachability' | 'strict') {
         </div>
 
         <div class="result-workspace">
-        <div class="scan-state" role="status"><span><CheckCircle2 v-if="scan?.status === 'complete'" :size="18"/><Radio v-else :size="18"/><b>{{ scanLabel }}</b> · {{ results.length }} 个节点</span><small>{{ scan ? scan.request.target_group + ' · ' : '' }}{{ running ? '结果返回即更新排名，验证后分数仍可能变化' : '扫描不改变当前节点' }}</small><span v-if="health?.mihomo_version === 'dev-mock'" class="fixture-label">示例数据</span></div>
+        <div class="scan-state" role="status"><span><CheckCircle2 v-if="scan?.status === 'complete'" :size="18"/><Radio v-else :size="18"/><b>{{ scanLabel }}</b> · {{ results.length }} 个节点</span><small>{{ scan ? scan.request.target_group + ' · ' + scan.profile.label + ' · ' : '' }}{{ running ? '结果返回即更新排名，验证后分数仍可能变化' : '扫描不改变当前节点' }}</small><span v-if="health?.mihomo_version === 'dev-mock'" class="fixture-label">示例数据</span></div>
         <div class="grid">
           <section class="ranking panel">
             <div class="head">
@@ -419,9 +482,12 @@ function probeKind(value: 'reachability' | 'strict') {
 
       <section v-else-if="page === 'history'" class="panel"><h2>手动切换记录</h2><article v-for="item in history" :key="item.id"><small>{{ new Date(item.created_at).toLocaleString() }}</small><b>{{ item.previous || '—' }} → {{ item.selected }}</b><span>{{ item.group }}</span></article><p v-if="!history.length">尚无手动切换记录。</p></section>
 
-      <section v-else class="settings">
+      <section v-else>
+        <SettingsPanel :locked="configLocked" :groups="groups" :profiles="services?.profiles || []" @saved="load()"/>
+        <div class="settings">
         <div class="panel"><h2>外观</h2><p>主题偏好保存在当前浏览器。</p><button class="primary" @click="theme = theme === 'light' ? 'dark' : 'light'">切换主题</button></div>
         <div class="panel"><h2>扫描安全</h2><p>可达性与时延扫描不切换业务选择器。严格状态/正文验证默认关闭，只有配置独立的探测选择器和本地代理后才会运行。</p></div>
+        </div>
       </section>
     </section>
     <dialog ref="choiceDialog" class="choice-dialog" aria-labelledby="choice-title" @cancel="switching ? $event.preventDefault() : pendingChoice = null" @close="pendingChoice = null">

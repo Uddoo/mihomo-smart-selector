@@ -37,6 +37,9 @@ func main() {
 	defer store.Close()
 
 	manager := scan.NewManager(cfg, controller, store)
+	if err := manager.LoadSettings(context.Background()); err != nil {
+		log.Fatalf("runtime settings error: %v", err)
+	}
 	apiServer, err := api.New(cfg.HTTP, manager, controller)
 	if err != nil {
 		log.Fatalf("HTTP server configuration error: %v", err)
