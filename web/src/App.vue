@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+import {Network, ScanLine, List, History, Settings, Moon, Sun, RefreshCw, ChevronDown, CheckCircle2, Radio, ArrowRight} from '@lucide/vue'
 import {APIError, api, setAPIToken} from './api'
+import {rankResults} from './ranking'
 import type {Group, Health, NodeResult, NodeSummary, ProbeProfileSummary, Provider, Region, Scan, ScanPreview, SwitchEvent} from './models'
 
 type Page = 'scan' | 'nodes' | 'history' | 'settings'
@@ -26,12 +28,25 @@ const notice = ref('')
 const failure = ref('')
 const query = ref('')
 const selected = ref<NodeSummary | null>(null)
+const focusedName = ref('')
+const pendingChoice = ref<NodeResult | null>(null)
+const choiceDialog = ref<HTMLDialogElement | null>(null)
+const switching = ref(false)
+const starting = ref(false)
+const showProfile = ref(false)
 let poll: number | undefined
 let stream: EventSource | undefined
+let refreshPending = false
+let refreshAgain = false
+let previewRevision = 0
 
-const current = computed(() => groups.value.find(x => x.name === group.value))
-const results = computed(() => scan.value?.results || [])
-const best = computed(() => results.value.find(x => x.rank === 1) || [...results.value].sort((a, b) => b.score - a.score)[0])
+const current = computed(() => groups.value.find(x => x.name === (scan.value?.request.target_group || group.value)))
+const results = computed(() => rankResults(scan.value?.results || []))
+const best = computed(() => results.value[0])
+const candidate = computed(() => results.value.find(x => x.name === focusedName.value) || best.value)
+const currentResult = computed(() => results.value.find(x => x.name === current.value?.now))
+const scanLabel = computed(() => scan.value?.status === 'complete' ? '扫描完成' : scan.value?.status === 'cancelled' ? '扫描已停止' : scan.value?.status === 'failed' ? '扫描失败' : running.value ? '扫描进行中' : '准备就绪')
+const configLocked = computed(() => running.value || starting.value || switching.value)
 const progress = computed(() => scan.value?.progress)
 const percent = computed(() => progress.value?.total ? Math.round(progress.value.completed * 100 / progress.value.total) : 0)
 const profile = computed<ProbeProfileSummary | null>(() => running.value ? scan.value?.profile || null : preview.value?.profile || scan.value?.profile || null)
@@ -47,6 +62,10 @@ watch(theme, value => {
   localStorage.setItem('mss-theme', value)
 }, {immediate: true})
 watch([group, areas, providerSet, mode], () => void preflight())
+watch(pendingChoice, value => {
+  if (value) choiceDialog.value?.showModal()
+  else choiceDialog.value?.close()
+}, {flush: 'post'})
 
 onMounted(() => {
   setAPIToken(token.value)
@@ -98,54 +117,111 @@ function provider(name: string) {
 
 async function preflight() {
   if (!group.value || running.value) return
+  const revision = ++previewRevision
+  preview.value = null
   try {
-    preview.value = await api<ScanPreview>('/scans/preflight', {method: 'POST', body: JSON.stringify(body())})
+    const response = await api<ScanPreview>('/scans/preflight', {method: 'POST', body: JSON.stringify(body())})
+    if (revision !== previewRevision) return
+    preview.value = response
   } catch (error) {
+    if (revision !== previewRevision) return
     preview.value = null
     failure.value = error instanceof Error ? error.message : '无法生成扫描预检'
   }
 }
 
 async function start() {
+  if (configLocked.value) return
   if (!profileReady.value) {
     failure.value = profile.value?.setup_hint || '当前评分配置尚未完成。'
     return
   }
   failure.value = ''
   notice.value = ''
-  scan.value = await api<Scan>('/scans', {method: 'POST', body: JSON.stringify(body())})
-  running.value = true
-  stream = new EventSource('/api/v1/scans/' + encodeURIComponent(scan.value.id) + '/events')
-  for (const name of ['batch-started', 'candidate-complete', 'egress-verified', 'strict-verified', 'completed', 'error']) stream.addEventListener(name, () => void refresh())
-  poll = window.setInterval(() => void refresh(), 1200)
+  starting.value = true
+  try {
+    const response = await api<Scan>('/scans', {method: 'POST', body: JSON.stringify(body())})
+    close()
+    scan.value = response
+    focusedName.value = ''
+    pendingChoice.value = null
+    running.value = true
+    stream = new EventSource('/api/v1/scans/' + encodeURIComponent(response.id) + '/events')
+    for (const name of ['batch-started', 'candidate-complete', 'egress-verified', 'strict-verified', 'completed', 'error']) stream.addEventListener(name, () => void refresh())
+    poll = window.setInterval(() => void refresh(), 1200)
+    void refresh()
+  } catch (error) {
+    failure.value = error instanceof Error ? error.message : '无法开始扫描'
+  } finally {
+    starting.value = false
+  }
 }
 
 async function refresh() {
   if (!scan.value) return
-  scan.value = await api<Scan>('/scans/' + encodeURIComponent(scan.value.id))
-  if (scan.value.status !== 'running') {
-    running.value = false
-    close()
-    if (scan.value.status === 'complete') notice.value = String(scan.value.results.length) + ' 个节点已完成最终排名'
-    else if (scan.value.status === 'cancelled') notice.value = '扫描已停止；保留 ' + String(scan.value.results.length) + ' 个暂定结果，不能用于切换'
-    else failure.value = scan.value.error || '扫描失败'
+  // Coalesce SSE bursts and polling. Concurrent responses must not replace a
+  // newer ranking with an older snapshot or reopen a completed scan.
+  if (refreshPending) { refreshAgain = true; return }
+  refreshPending = true
+  const id = scan.value.id
+  try {
+    const response = await api<Scan>('/scans/' + encodeURIComponent(id))
+    if (scan.value?.id !== id) return
+    scan.value = response
+    if (response.status !== 'running') {
+      running.value = false
+      close()
+      if (response.status === 'cancelled') notice.value = '扫描已停止；保留实时排名，选择操作已锁定。'
+      else if (response.status === 'failed') failure.value = response.error || '扫描失败'
+    }
+  } catch (error) {
+    failure.value = error instanceof Error ? error.message : '无法更新扫描结果'
+  } finally {
+    refreshPending = false
+    if (refreshAgain) {
+      refreshAgain = false
+      if (running.value) void refresh()
+    }
   }
 }
 
 async function stop(after: boolean) {
   if (!scan.value) return
-  await api('/scans/' + encodeURIComponent(scan.value.id) + '/stop', {method: 'POST', body: JSON.stringify({after_current_batch: after})})
-  notice.value = after ? '将在本批结束后停止' : '正在停止扫描'
+  try {
+    await api('/scans/' + encodeURIComponent(scan.value.id) + '/stop', {method: 'POST', body: JSON.stringify({after_current_batch: after})})
+    notice.value = after ? '将在本批结束后停止' : '正在停止扫描'
+  } catch (error) { failure.value = error instanceof Error ? error.message : '无法停止扫描' }
 }
 
-async function choose(result?: NodeResult) {
-  const candidate = result || best.value
-  if (!scan.value || scan.value.status !== 'complete' || !candidate) return
-  if (!confirm('将 ' + (current.value?.now || '当前节点') + ' 切换到 ' + candidate.name + '？')) return
-  const event = await api<SwitchEvent>('/scans/' + encodeURIComponent(scan.value.id) + '/select', {method: 'POST', body: JSON.stringify({node: candidate.name})})
-  groups.value = groups.value.map(item => item.name === event.group ? {...item, now: event.selected} : item)
-  history.value = [event, ...history.value]
-  notice.value = '已切换到 ' + event.selected
+function selectionReason(result?: NodeResult) {
+  if (switching.value) return '正在切换'
+  if (starting.value || scan.value?.status !== 'complete') return '扫描完成后可选择'
+  if (!result) return '等待节点结果'
+  if (result.success_rate < .95) return '成功率低于 95%'
+  return ''
+}
+
+function choose(result = candidate.value) {
+  if (!result || selectionReason(result)) return
+  focusedName.value = result.name
+  pendingChoice.value = result
+}
+
+async function confirmChoice() {
+  const result = pendingChoice.value
+  if (!result || !scan.value || selectionReason(result)) return
+  switching.value = true
+  failure.value = ''
+  try {
+    const event = await api<SwitchEvent>('/scans/' + encodeURIComponent(scan.value.id) + '/select', {method: 'POST', body: JSON.stringify({node: result.name})})
+    groups.value = groups.value.map(item => item.name === event.group ? {...item, now: event.selected} : item)
+    history.value = [event, ...history.value]
+    notice.value = '已切换到 ' + event.selected
+    pendingChoice.value = null
+  } catch (error) {
+    failure.value = error instanceof Error ? error.message : '切换失败'
+    pendingChoice.value = null
+  } finally { switching.value = false }
 }
 
 function close() {
@@ -159,7 +235,8 @@ function close() {
 
 function regionLabel(code?: string) {
   const region = regions.value.find(item => item.code === code)
-  return region ? (region.emoji || '') + ' ' + region.name : code || 'Unknown'
+  const labels: Record<string, string> = {JP: '日本', US: '美国', KR: '韩国', HK: '香港', TW: '台湾', SG: '新加坡'}
+  return labels[code || ''] || region?.name || code || '未知'
 }
 
 function percentLabel(value: number) { return Math.round(value * 100) + '%' }
@@ -201,45 +278,48 @@ function probeKind(value: 'reachability' | 'strict') {
 
   <main v-else class="shell">
     <aside>
-      <div class="brand">Mihomo <small>Smart Selector</small></div>
-      <nav>
-        <button :class="{active: page === 'scan'}" @click="page = 'scan'">扫描</button>
-        <button :class="{active: page === 'nodes'}" @click="page = 'nodes'">节点</button>
-        <button :class="{active: page === 'history'}" @click="page = 'history'">历史</button>
-        <button :class="{active: page === 'settings'}" @click="page = 'settings'">设置</button>
+      <div class="brand"><Network :size="36" :stroke-width="1.5"/><div>Mihomo <small>Smart Selector</small></div></div>
+      <nav aria-label="主导航">
+        <button :class="{active: page === 'scan'}" :aria-current="page === 'scan' ? 'page' : undefined" @click="page = 'scan'"><ScanLine/>扫描工作台</button>
+        <button :class="{active: page === 'nodes'}" :aria-current="page === 'nodes' ? 'page' : undefined" @click="page = 'nodes'"><List/>节点目录</button>
+        <button :class="{active: page === 'history'}" :aria-current="page === 'history' ? 'page' : undefined" @click="page = 'history'"><History/>选择历史</button>
+        <button :class="{active: page === 'settings'}" :aria-current="page === 'settings' ? 'page' : undefined" @click="page = 'settings'"><Settings/>偏好设置</button>
       </nav>
-      <footer>● {{ health?.mihomo_connected ? 'Controller 已连接' : 'Controller 不可用' }}<small>手动选择 · 不自动切换</small></footer>
+      <footer :class="{offline: !health?.mihomo_connected}"><span class="connection-dot"></span>{{ health?.mihomo_connected ? 'Controller 已连接' : 'Controller 不可用' }}<small>手动选择 · 不自动切换</small></footer>
     </aside>
 
     <section class="work">
       <header>
         <div>
           <h1>{{ page === 'scan' ? '扫描工作台' : page === 'nodes' ? '节点目录' : page === 'history' ? '选择历史' : '偏好设置' }}</h1>
-          <p>{{ page === 'scan' ? '按所选业务服务评分，扫描不改变业务选择器。' : 'Mihomo Smart Selector' }}</p>
+          <p>{{ page === 'scan' ? '为所选服务找到更稳定的节点' : 'Mihomo Smart Selector' }}</p>
         </div>
-        <button class="theme" @click="theme = theme === 'light' ? 'dark' : 'light'">{{ theme === 'light' ? '深色' : '明亮' }}主题</button>
+        <button class="theme" @click="theme = theme === 'light' ? 'dark' : 'light'"><Moon v-if="theme === 'light'" :size="17"/><Sun v-else :size="17"/>{{ theme === 'light' ? '深色' : '明亮' }}主题</button>
       </header>
 
-      <div v-if="failure" class="notice error">{{ failure }}</div>
-      <div v-if="notice" class="notice">{{ notice }}</div>
+      <div v-if="failure" class="notice error" role="alert">{{ failure }}</div>
+      <div v-if="notice" class="notice" role="status">{{ notice }}</div>
 
       <section v-if="page === 'scan'">
-        <div class="command">
-          <label>目标<select v-model="group"><option v-for="item in groups" :key="item.name" :value="item.name">{{ item.name }}</option></select></label>
+        <div class="scan-config">
+        <fieldset class="command" :disabled="configLocked">
+          <legend class="sr-only">扫描配置</legend>
+          <label>目标服务<select v-model="group"><option v-for="item in groups" :key="item.name" :value="item.name">{{ item.name }}</option></select></label>
           <div class="chips">
             <b>地区</b>
-            <button :class="{active: !areas.length}" @click="areas = []">All</button>
-            <button v-for="item in regions" :key="item.code" :class="{active: areas.includes(item.code)}" @click="area(item.code)">{{ item.emoji }} {{ item.name }}</button>
+            <button :class="{active: !areas.length}" :aria-pressed="!areas.length" @click="areas = []">全部</button>
+            <button v-for="item in regions" :key="item.code" :class="{active: areas.includes(item.code)}" :aria-pressed="areas.includes(item.code)" @click="area(item.code)">{{ regionLabel(item.code) }}</button>
           </div>
-          <details>
-            <summary>Provider · {{ providerSet.length || '全部' }}</summary>
-            <label v-for="item in providers" :key="item.name"><input type="checkbox" :checked="providerSet.includes(item.name)" @change="provider(item.name)">{{ item.name }}</label>
+          <details class="providers">
+            <summary>Provider <span>{{ providerSet.length || '全部' }}</span><ChevronDown :size="14"/></summary>
+            <div class="provider-options"><label v-for="item in providers" :key="item.name"><input type="checkbox" :checked="providerSet.includes(item.name)" @change="provider(item.name)">{{ item.name }}</label></div>
           </details>
-          <label>模式<select v-model="mode"><option value="quick">Quick</option><option value="stable">Stable</option></select></label>
-          <button class="primary" :disabled="running || !group || !profileReady" @click="start">{{ running ? '扫描中' : '开始扫描' }}</button>
-        </div>
+          <label>模式<select v-model="mode"><option value="quick">快速</option><option value="stable">稳定</option></select></label>
+          <button :class="['scan-button', {primary: !scan}]" :disabled="configLocked || !group || !profileReady" @click="start"><RefreshCw :size="16" :class="{spinning: running}"/>{{ starting ? '正在启动' : running ? '扫描中' : scan ? '重新扫描' : '开始扫描' }}</button>
+        </fieldset>
+        <div class="config-summary"><span><b>{{ profile?.label || '等待评分配置' }}</b><span v-if="preview?.ready"> · {{ preview.candidate_count }} 个候选 · {{ preview.batch_count }} 批</span></span><button :aria-expanded="showProfile" aria-controls="probe-profile" @click="showProfile = !showProfile">探测配置与地址<ChevronDown :size="15" :class="{expanded: showProfile}"/></button></div>
 
-        <section v-if="profile" class="profile-card" :class="{warning: profile.requires_configuration}">
+        <section v-if="profile && (showProfile || profile.requires_configuration)" id="probe-profile" class="profile-card" :class="{warning: profile.requires_configuration}">
           <div class="profile-copy">
             <small>本次评分配置 · {{ profile.id }}</small>
             <h2>{{ profile.label }}</h2>
@@ -264,45 +344,44 @@ function probeKind(value: 'reachability' | 'strict') {
           <p v-if="profile.requires_configuration" class="profile-hint">{{ profile.setup_hint }}</p>
           <p v-else class="profile-scope">评分衡量此服务的可达性、时延与稳定性；除非“严格验证”已通过，否则不把结果视为登录、解锁或播放证明。</p>
         </section>
-
-        <div v-if="!running && !profile?.requires_configuration" class="preflight" :class="{warning: preview && !preview.ready}">
-          <b v-if="preview?.ready">{{ preview.candidate_count }} 个候选 · {{ preview.batch_count }} 批</b>
-          <b v-else>当前不可扫描</b>
-          <span>{{ preview?.ready ? preview.probe_requests + ' 次探测；开始后不会改变节点。' : preview?.reason || '正在加载预检。' }}</span>
         </div>
+
+        <div v-if="!running && !profile?.requires_configuration && !preview?.ready" class="preflight warning"><b>当前不可扫描</b><span>{{ preview?.reason || '正在加载预检。' }}</span></div>
 
         <div v-if="running" class="progress">
           <div><b>已完成 {{ progress?.completed || 0 }} / {{ progress?.total || 0 }} · 第 {{ progress?.current_batch || 0 }} / {{ progress?.total_batches || 0 }} 批</b><strong>{{ percent }}%</strong></div>
-          <i><span :style="{width: percent + '%'}"></span></i>
+          <div class="progress-track" role="progressbar" aria-label="扫描进度" :aria-valuenow="percent" :aria-valuemin="0" :aria-valuemax="100"><span :style="{width: percent + '%'}"></span></div>
           <section><span>成功 <b>{{ progress?.succeeded || 0 }}</b></span><span>失败 <b>{{ progress?.failed || 0 }}</b></span><span>耗时 <b>{{ clock(progress?.elapsed_seconds) }}</b></span><span>预计剩余 <b>{{ clock(progress?.estimated_remaining_seconds) }}</b></span></section>
           <p><button @click="stop(true)">本批结束后停止</button><button class="danger" @click="stop(false)">立即停止</button></p>
         </div>
 
+        <div class="result-workspace">
+        <div class="scan-state" role="status"><span><CheckCircle2 v-if="scan?.status === 'complete'" :size="18"/><Radio v-else :size="18"/><b>{{ scanLabel }}</b> · {{ results.length }} 个节点</span><small>{{ scan ? scan.request.target_group + ' · ' : '' }}{{ running ? '结果返回即更新排名，验证后分数仍可能变化' : '扫描不改变当前节点' }}</small><span v-if="health?.mihomo_version === 'dev-mock'" class="fixture-label">示例数据</span></div>
         <div class="grid">
-          <section class="panel">
+          <section class="ranking panel">
             <div class="head">
-              <div><h2>{{ scan?.status === 'complete' ? '最终排名' : '暂定结果' }}</h2><p>{{ scan?.status === 'complete' ? '严格、地区和受限状态与性能得分分开显示。' : '最终排名尚未生成，所有选择操作保持锁定。' }}</p></div>
-              <button v-if="best && scan?.status === 'complete'" class="primary" @click="choose()">选择最佳节点</button>
+              <div><h2>实时排名</h2><p>{{ scan?.status === 'complete' ? '性能满分 90 · 可选择任意符合条件的节点' : '结果返回即排序 · 扫描完成后可选择' }}</p></div>
             </div>
             <div class="scroll">
-              <table>
-                <thead><tr><th>#</th><th>节点 / 服务状态</th><th>地区</th><th>成功</th><th>P95</th><th>评分</th><th></th></tr></thead>
+              <table aria-label="节点实时排名">
+                <thead><tr><th>排名</th><th>节点 / Provider</th><th>地区</th><th class="numeric">成功率</th><th class="numeric">P95</th><th class="numeric">性能评分</th><th class="action-column">操作</th></tr></thead>
                 <tbody>
-                  <tr v-for="result in results" :key="result.name">
-                    <td>{{ result.rank || '—' }}</td>
+                  <tr v-for="result in results" :key="result.name" :class="{selected: candidate?.name === result.name}" @click="focusedName = result.name">
+                    <td class="rank">{{ result.rank }}</td>
                     <td>
-                      <b>{{ result.name }}</b><small>{{ result.provider }}</small>
+                      <div class="node-name"><button class="node-focus" :aria-label="'查看 ' + result.name + ' 详情'" :aria-pressed="candidate?.name === result.name" @click.stop="focusedName = result.name">{{ result.name }}</button><span v-if="current?.now === result.name" class="current-tag">当前</span></div><small>{{ result.provider }}</small>
                       <div class="state-row">
                         <span :class="['state', statusTone(result.reachability_status)]">{{ statusLabel(result.reachability_status) }}</span>
-                        <span :class="['state', statusTone(result.restriction_status)]">{{ statusLabel(result.restriction_status) }}</span>
-                        <span :class="['state', statusTone(result.strict_verification_status)]">{{ statusLabel(result.strict_verification_status) }}</span>
+                        <span v-if="statusTone(result.restriction_status) === 'bad'" class="state bad">{{ statusLabel(result.restriction_status) }}</span>
+                        <span v-if="statusTone(result.strict_verification_status) === 'bad'" class="state bad">严格 · {{ statusLabel(result.strict_verification_status) }}</span>
+                        <span v-if="statusTone(result.region_verification_status) === 'bad'" class="state bad">{{ statusLabel(result.region_verification_status) }}</span>
                       </div>
                     </td>
-                    <td><b>{{ regionLabel(result.inferred_region) }}</b><small :class="['state', statusTone(result.region_verification_status)]">{{ statusLabel(result.region_verification_status) }}</small></td>
-                    <td>{{ percentLabel(result.success_rate) }}</td>
-                    <td>{{ latency(result.p95_ms) }}</td>
-                    <td class="score"><b>{{ result.score.toFixed(1) }}</b><small>{{ result.score_breakdown ? '可靠 ' + points(result.score_breakdown.reliability) : '' }}</small></td>
-                    <td><button :disabled="scan?.status !== 'complete' || result.success_rate < .95" @click="choose(result)">选择</button></td>
+                    <td>{{ regionLabel(result.inferred_region) }}</td>
+                    <td class="numeric">{{ percentLabel(result.success_rate) }}</td>
+                    <td class="numeric">{{ latency(result.p95_ms) }}</td>
+                    <td class="score numeric"><b>{{ result.score.toFixed(1) }}</b></td>
+                    <td class="action-column"><button class="row-select" :aria-label="'选择 ' + result.name" :title="selectionReason(result) || '确认切换到 ' + result.name" :disabled="!!selectionReason(result)" @click.stop="choose(result)">选择</button></td>
                   </tr>
                   <tr v-if="!results.length"><td colspan="7">开始扫描后，部分结果会实时出现。</td></tr>
                 </tbody>
@@ -310,24 +389,27 @@ function probeKind(value: 'reachability' | 'strict') {
             </div>
           </section>
 
-          <aside class="panel compare">
-            <h2>当前与候选</h2>
-            <div class="vs"><div><small>当前节点</small><b>{{ current?.now || '—' }}</b></div><em>VS</em><div><small>最佳候选</small><b>{{ best?.name || '等待结果' }}</b></div></div>
-            <dl>
-              <div><dt>成功率</dt><dd>{{ best ? percentLabel(best.success_rate) : '—' }}</dd></div>
-              <div><dt>P95</dt><dd>{{ best ? latency(best.p95_ms) : '—' }}</dd></div>
-              <div><dt>总分</dt><dd>{{ best ? best.score.toFixed(1) : '—' }}</dd></div>
-            </dl>
-            <section v-if="best" class="assessment">
-              <h3>服务验证</h3>
-              <p><span :class="['state', statusTone(best.reachability_status)]">可达 · {{ statusLabel(best.reachability_status) }}</span><span :class="['state', statusTone(best.strict_verification_status)]">严格 · {{ statusLabel(best.strict_verification_status) }}</span></p>
-              <p><span :class="['state', statusTone(best.region_verification_status)]">地区 · {{ statusLabel(best.region_verification_status) }}</span><span class="state neutral">传输 · {{ best.transport_status }}</span></p>
-              <h3>性能得分拆解</h3>
-              <dl class="breakdown"><div><dt>可靠性</dt><dd>{{ points(best.score_breakdown.reliability) }} / 40</dd></div><div><dt>P50</dt><dd>{{ points(best.score_breakdown.p50) }} / 15</dd></div><div><dt>P95</dt><dd>{{ points(best.score_breakdown.p95) }} / 20</dd></div><div><dt>抖动</dt><dd>{{ points(best.score_breakdown.jitter) }} / 10</dd></div><div><dt>地区</dt><dd>{{ points(best.score_breakdown.region) }} / 5</dd></div></dl>
-            </section>
-            <p>{{ scan?.status === 'complete' ? '比较后确认切换。严格验证不通过或地区不符会醒目标识，但不会自动切换。' : '扫描未完成或已停止，选择操作保持锁定。' }}</p>
+          <aside class="panel compare" aria-label="候选详情">
+            <h2>候选详情</h2>
+            <template v-if="candidate">
+              <div class="candidate-heading"><span class="candidate-tag">{{ candidate.name === best?.name ? (running ? '暂列第一' : '最高评分') : '已选候选' }}</span><h3>{{ candidate.name }}</h3><p>{{ candidate.provider || '未知 Provider' }} · {{ regionLabel(candidate.inferred_region) }}</p></div>
+              <div class="candidate-score"><div><b>性能评分</b><span><strong>{{ candidate.score.toFixed(1) }}</strong> / 90</span></div><meter min="0" max="90" :value="candidate.score" aria-label="候选性能评分"/></div>
+              <div class="current-node"><span>当前节点</span><b>{{ current?.now || '—' }}</b></div>
+              <table class="comparison-table" aria-label="当前与候选指标"><thead><tr><th></th><th>当前</th><th>候选</th></tr></thead><tbody><tr><th>P95 时延</th><td>{{ currentResult ? latency(currentResult.p95_ms) : '本次未测' }}</td><td>{{ latency(candidate.p95_ms) }}</td></tr><tr><th>成功率</th><td>{{ currentResult ? percentLabel(currentResult.success_rate) : '本次未测' }}</td><td>{{ percentLabel(candidate.success_rate) }}</td></tr></tbody></table>
+              <section class="assessment"><h3>服务验证</h3><dl>
+                <div><dt>可达性</dt><dd :class="statusTone(candidate.reachability_status)">{{ statusLabel(candidate.reachability_status) }}</dd></div>
+                <div><dt>严格验证</dt><dd :class="statusTone(candidate.strict_verification_status)">{{ statusLabel(candidate.strict_verification_status) }}</dd></div>
+                <div><dt>地区验证</dt><dd :class="statusTone(candidate.region_verification_status)">{{ statusLabel(candidate.region_verification_status) }}</dd></div>
+                <div><dt>服务限制</dt><dd :class="statusTone(candidate.restriction_status)">{{ statusLabel(candidate.restriction_status) }}</dd></div>
+              </dl></section>
+              <details class="score-details"><summary>性能得分拆解<ChevronDown :size="15"/></summary><dl class="breakdown"><div><dt>可靠性</dt><dd>{{ points(candidate.score_breakdown?.reliability) }} / 40</dd></div><div><dt>P50</dt><dd>{{ points(candidate.score_breakdown?.p50) }} / 15</dd></div><div><dt>P95</dt><dd>{{ points(candidate.score_breakdown?.p95) }} / 20</dd></div><div><dt>抖动</dt><dd>{{ points(candidate.score_breakdown?.jitter) }} / 10</dd></div><div><dt>地区</dt><dd>{{ points(candidate.score_breakdown?.region) }} / 5</dd></div></dl><p>传输范围：{{ candidate.transport_status }}</p></details>
+              <div class="candidate-action"><button class="primary" :disabled="!!selectionReason(candidate)" @click="choose()">选择此节点<ArrowRight :size="16"/></button><p>{{ selectionReason(candidate) || '确认后切换，不自动切换' }}</p></div>
+            </template>
+            <p v-else class="empty-detail">{{ running ? '等待第一个节点完成检测，结果将实时出现。' : '开始扫描，或点击排名中的节点查看详情。' }}</p>
           </aside>
         </div>
+        </div>
+        <p class="scope-note">评分反映可达性、时延与稳定性，不代表登录、解锁或播放验证通过。</p>
       </section>
 
       <section v-else-if="page === 'nodes'">
@@ -342,5 +424,8 @@ function probeKind(value: 'reachability' | 'strict') {
         <div class="panel"><h2>扫描安全</h2><p>可达性与时延扫描不切换业务选择器。严格状态/正文验证默认关闭，只有配置独立的探测选择器和本地代理后才会运行。</p></div>
       </section>
     </section>
+    <dialog ref="choiceDialog" class="choice-dialog" aria-labelledby="choice-title" @cancel="switching ? $event.preventDefault() : pendingChoice = null" @close="pendingChoice = null">
+      <template v-if="pendingChoice"><h2 id="choice-title">确认切换节点</h2><p>将 {{ scan?.request.target_group }} 的当前节点切换为：</p><div class="switch-path"><span>{{ current?.now || '—' }}</span><ArrowRight :size="18"/><strong>{{ pendingChoice.name }}</strong></div><p>性能评分 {{ pendingChoice.score.toFixed(1) }} / 90 · {{ regionLabel(pendingChoice.inferred_region) }}</p><p class="confirm-scope">严格验证：{{ statusLabel(pendingChoice.strict_verification_status) }} · 地区验证：{{ statusLabel(pendingChoice.region_verification_status) }}</p><div class="dialog-actions"><button :disabled="switching" @click="pendingChoice = null">取消</button><button class="primary" :disabled="switching" @click="confirmChoice">{{ switching ? '正在切换' : '确认切换' }}</button></div></template>
+    </dialog>
   </main>
 </template>

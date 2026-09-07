@@ -8,11 +8,13 @@
   },
   "type": "module",
   "scripts": {
+    "test": "node --experimental-strip-types --test src/ranking.test.mjs",
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@lucide/vue": "^1.41.0",
     "vue": "^3.5.42"
   },
   "devDependencies": {

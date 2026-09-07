@@ -77,6 +77,7 @@ try {
     Write-Host 'Installing and checking the Vue application...'
     pnpm --dir web install --frozen-lockfile
     pnpm --dir web exec vue-tsc --noEmit
+    pnpm --dir web test
     & (Join-Path $PSScriptRoot 'check-web-assets.ps1')
 
     Write-Host 'Checking the OpenWrt init script syntax...'

@@ -35,6 +35,10 @@ versioned releases begin.
 
 ### Changed
 
+- Redesigned the scan workbench with compact configuration, live sorted rankings,
+  persistent candidate details, and per-node selection with explicit confirmation.
+  In-progress results are ranked immediately; switching remains restricted to
+  completed scans and eligible nodes.
 - Canonical Go module path is now `github.com/Uddoo/mihomo-smart-selector`.
 - Default branch is now `main`.
 - Public router examples require both a generated API token and a narrow
