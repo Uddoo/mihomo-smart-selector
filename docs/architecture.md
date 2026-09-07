@@ -37,8 +37,10 @@ permitted to change traffic unattended.
    separately configured unauthenticated-LAN mode removes the token boundary
    for every client in that CIDR and is a high-risk, explicit opt-in; it is not
    used by the public router example.
-4. **Secrets are environment-only.** The application config contains the name
-   of an environment variable, never the secret itself. Subscription URLs and
+4. **Secrets remain server-side.** The application config contains an environment
+   variable name or a private one-line `mihomo.secret_file` path, never the secret
+   itself. A configured secret file takes precedence over the environment.
+   Subscription URLs and
    node credentials are neither persisted nor logged.
 5. **Changing production traffic is explicit.** A scan has no effect on the
    user's service group. `POST .../select` validates that the chosen node was a
@@ -204,12 +206,16 @@ purchases, playback requests or other state-changing traffic.
 | --- | --- | --- |
 | `GET /api/v1/health` | service and Controller reachability | none |
 | `GET /api/v1/groups` | selectable Mihomo groups/current member | none |
+| `GET /api/v1/services` | service templates, bindings and name suggestions | none |
+| `PUT /api/v1/bindings` | bind any Selector to a service; empty profile removes binding | persists binding |
+| `GET /api/v1/settings` | current editable runtime parameters and revision | none |
+| `PUT /api/v1/settings` | validate and save runtime parameters | persists overrides for subsequent scans |
 | `GET /api/v1/providers` | available proxy providers | none |
 | `GET /api/v1/regions` | configured classifier rules, no secrets | none |
 | `GET /api/v1/nodes` | eligible leaf-node catalogue and name-inferred region | none |
 | `GET /api/v1/history` | past scan/switch evidence | none |
 | `POST /api/v1/scans/preflight` | validate filters and estimate candidates/probes | none |
-| `POST /api/v1/scans` | submit group, regions, providers, mode | creates an inactive scan record only |
+| `POST /api/v1/scans` | submit group, optional profile, filters and mode | starts asynchronous probes; enabled verification temporarily changes the dedicated probe selector |
 | `GET /api/v1/scans/{id}` | status and results | none |
 | `GET /api/v1/scans/{id}/events` | live scan events (SSE) | none |
 | `POST /api/v1/scans/{id}/stop` | cancel now or after the current batch | stops work; never switches a selector |
@@ -220,6 +226,7 @@ purchases, playback requests or other state-changing traffic.
 ```json
 {
   "target_group": "🤖 ChatGPT",
+  "profile_id": "chatgpt",
   "regions": ["JP", "KR"],
   "providers": ["provider-a"],
   "mode": "stable"
@@ -231,12 +238,18 @@ or raw proxy configuration.
 
 ## 6. Data retained locally
 
-SQLite at the configured path stores only operational evidence:
+SQLite at the configured path stores operational evidence and user settings:
 
 - scan identity, requested group/filters, start/completion time and outcome;
 - result name, provider display name, inferred/verified region, samples and
   derived metrics; and
-- selection audit: old member, new member, requested group, reason, timestamp.
+- selection audit: old member, new member, requested group, reason, timestamp;
+- service bindings scoped by Controller address; and
+- editable runtime settings, including dedicated probe addresses, with a revision
+  used to reject stale edits. Saved runtime values override YAML defaults after restart.
+
+Settings cannot change during a scan. Each scan freezes its selected service;
+verification-enabled scans cannot run concurrently against shared probe selectors.
 
 It deliberately does not store the Mihomo `secret`, subscription URLs, or
 complete provider/node configuration. Database growth needs a retention policy

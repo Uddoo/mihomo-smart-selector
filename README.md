@@ -14,6 +14,12 @@ Mihomo selector member for a particular internet service. It is designed for
 OpenClash/iStoreOS, but it does not replace OpenClash and does not expose the
 Mihomo controller secret to a browser.
 
+> **A self-hosted tool under active development, with support scoped to verified environments.**
+> Runtime validation currently covers Windows with a local mock Controller and
+> a NanoPi R5S LTS running iStoreOS 24.10.8 / ARM64 with Mihomo
+> `alpha-smart-86ece76`. CI verifies Linux builds for ARM64 and AMD64; a passing
+> build does not establish runtime support for every router or OpenClash version.
+>
 > **Pre-release:** no stable package or public release has been published yet.
 > Configuration and API compatibility may change before `v1.0.0`. The current
 > dashboard UI is Simplified Chinese; English UI localization is not complete.
@@ -61,7 +67,17 @@ scan workbench, node catalog, selection history, and preferences.
 
 ### Preferences
 
-![Appearance preferences and scan safety information](docs/assets/screenshots/preferences.png)
+![Persistent scan parameters, egress verification and strict verification settings](docs/assets/screenshots/preferences.png)
+
+The workbench image shows a preflight without starting a scan. Existing node
+catalog and selection-history images retain real usage information with the
+maintainer's permission.
+
+Runtime scan parameters and verification controls can be changed in Settings.
+Saved values persist on the server and override the corresponding YAML defaults
+for subsequent scans. Service templates, Controller credentials and listener
+access controls remain server configuration. See the
+[configuration and persistence guide](docs/service-adaptation.md).
 
 ## Architecture
 
@@ -258,7 +274,8 @@ verification profiles, use the full [`config.example.yaml`](config.example.yaml)
 
 Check that `mihomo.controller` points to the running Mihomo Controller, that the
 service can reach it, and that the secret environment variable is set (`MIHOMO_SECRET`
-by default).
+by default). If `mihomo.secret_file` is configured, it takes precedence: verify
+the private file is readable and contains the active secret on one line.
 
 ### Why is the scan page empty?
 

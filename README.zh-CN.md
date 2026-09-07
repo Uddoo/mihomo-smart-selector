@@ -13,6 +13,11 @@
 从 Mihomo `Selector` 的成员中选择更稳定的节点。它面向 OpenClash/iStoreOS，
 但不会替代 OpenClash，也不会把 Mihomo Controller secret 暴露给浏览器。
 
+> **支持已验证环境、仍在开发中的自托管工具。**
+> 当前运行验证覆盖 Windows 本地模拟 Controller，以及 NanoPi R5S LTS 上的
+> iStoreOS 24.10.8 / ARM64 和 Mihomo `alpha-smart-86ece76`。
+> CI 验证 Linux ARM64、AMD64 构建；构建通过不代表所有路由器和 OpenClash 版本均已实机验证。
+>
 > **预发布状态：** 当前还没有稳定安装包或公开 Release。在 `v1.0.0` 前，
 > 配置和 API 兼容性仍可能变化。当前仪表盘以简体中文为主，英文 UI 本地化
 > 尚未完成。
@@ -55,7 +60,13 @@ loopback 默认值。不同组名、私有服务和密钥文件的配置见
 
 ### 偏好设置
 
-![外观偏好与扫描安全说明](docs/assets/screenshots/preferences.png)
+![扫描参数、真实出口地区验证和严格验证的持久化设置](docs/assets/screenshots/preferences.png)
+
+工作台截图展示未启动扫描的预检状态；节点目录与选择历史截图经维护者确认，保留真实使用信息。
+
+运行参数与验证开关可以在“偏好设置”中修改，保存后在服务端持久化，覆盖 YAML 中对应的默认值，
+用于后续扫描。服务模板、Controller 密钥和监听访问控制仍由服务器配置管理。
+详见[配置与持久化说明](docs/service-adaptation.md)。
 
 ## 项目架构
 
@@ -262,7 +273,8 @@ Probe Profile。
 
 ### 如何避免暴露 Controller secret？
 
-请使用 `api_token` 与 `allowed_cidrs` 组合，并通过环境变量传递 `MIHOMO_SECRET`；
+请使用 `api_token` 与 `allowed_cidrs` 组合，并通过环境变量传递 `MIHOMO_SECRET`，
+或通过权限为 `0600` 的 `mihomo.secret_file` 提供密钥；配置文件方式优先。
 避免在日志和 issue 里贴明文配置、Provider URL、订阅地址或私有服务地址。
 
 ## 本地开发
