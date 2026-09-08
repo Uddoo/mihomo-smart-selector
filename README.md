@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/branding/logo.png" width="88" height="88" alt="Mihomo Smart Selector logo" />
+  <img src="docs/assets/branding/social-preview.png" width="1280" alt="Mihomo Smart Selector — scan, compare, and confirm. Application preview uses demo data." />
 </p>
 <h1 align="center">Mihomo Smart Selector</h1>
 <p align="center"><strong>Choose your next node with evidence.</strong></p>
