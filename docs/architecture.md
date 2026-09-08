@@ -275,8 +275,10 @@ Settings cannot change during a scan. Each scan freezes its selected service;
 verification-enabled scans cannot run concurrently against shared probe selectors.
 
 It deliberately does not store the Mihomo `secret`, subscription URLs, or
-complete provider/node configuration. Database growth needs a retention policy
-before background scans are enabled.
+complete provider/node configuration. Scan and audit retention limits now bound
+ended history; unresolved operations remain protected. See [long-running operation
+and recovery](operations.md) for recovery, admission limits, switch operation
+states, idempotent retries and storage cleanup APIs. Background scans remain deferred.
 
 ## 7. Router integration (after local acceptance)
 

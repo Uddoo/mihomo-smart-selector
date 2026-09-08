@@ -39,6 +39,8 @@ func TestServiceCatalogAndBindingAPIsRespectAuthentication(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, item := range []struct{ method, path, body string }{
+		{"GET", "/api/v1/scans", ""},
+		{"GET", "/api/v1/storage", ""},
 		{"GET", "/api/v1/services", ""},
 		{"PUT", "/api/v1/bindings", `{"group":"Gone","profile_id":""}`},
 		{"GET", "/api/v1/settings", ""},

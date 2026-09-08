@@ -53,7 +53,8 @@ onMounted(reload)
       <section class="panel">
         <h2>扫描参数</h2>
         <div class="settings-inputs">
-          <label>并发节点数<input v-model.number="draft.concurrency" type="number" min="1" max="16" required></label>
+          <label>全局并发节点数<input v-model.number="draft.concurrency" type="number" min="1" max="16" required></label>
+		  <label>同时扫描上限<input v-model.number="draft.max_active_scans" type="number" min="1" max="8" required></label>
           <label>每批节点数<input v-model.number="draft.batch_size" type="number" min="1" max="100" required></label>
           <label>候选节点上限<input v-model.number="draft.max_candidates" type="number" min="1" max="1000" required></label>
           <label>稳定模式采样次数<input v-model.number="draft.samples" type="number" min="1" max="10" required></label>
@@ -78,6 +79,16 @@ onMounted(reload)
           <label class="settings-wide">出口地区探测地址<input v-model.trim="draft.egress.trace_url" type="url" placeholder="https://chatgpt.com/cdn-cgi/trace" :required="draft.egress.enabled"></label>
         </div>
         <p class="settings-note">探测地址须使用 HTTPS，并返回 loc=JP 这样的两位国家代码。未启用时，节点名称中的地区仍仅作为推断。</p>
+      </section>
+      <section class="panel">
+        <h2>历史保留策略</h2>
+        <div class="settings-inputs">
+          <label>扫描保留天数<input v-model.number="draft.retention.scan_days" type="number" min="1" max="3650" required></label>
+          <label>扫描保留数量<input v-model.number="draft.retention.max_scans" type="number" min="1" max="100000" required></label>
+          <label>审计保留天数<input v-model.number="draft.retention.audit_days" type="number" min="1" max="3650" required></label>
+          <label>审计保留数量<input v-model.number="draft.retention.max_audit" type="number" min="1" max="100000" required></label>
+        </div>
+        <p>保存后，后台按新策略清理超过期限或数量上限的已结束记录。未确认操作及其关联扫描始终保留。</p>
       </section>
       <section class="panel">
         <h2>严格 HTTP / 正文验证</h2>

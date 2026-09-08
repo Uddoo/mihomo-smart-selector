@@ -135,13 +135,14 @@ flowchart LR
         decide{"用户选择节点？"}
         allowed{"扫描记录与成员<br/>校验通过？"}
         switch["通过 PUT 将业务 Selector<br/>切换到所选成员"]
-        audit["切换成功后<br/>记录审计事件"]
+        intent["先保存待执行审计"]
+        audit["回读 Controller<br/>更新操作结果与审计状态"]
         keep["保持当前节点<br/>如被拒绝则说明原因"]
 
         decide -->|"是"| allowed
         decide -->|"否"| keep
         allowed -->|"否"| keep
-        allowed -->|"是"| switch --> audit
+        allowed -->|"是"| intent --> switch --> audit
     end
 
     scanning -->|"仅限已完成并持久化的扫描"| selection

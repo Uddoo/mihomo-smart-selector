@@ -7,6 +7,8 @@ import (
 
 // RuntimeSettings contains only user-facing scan controls, never credentials or listeners.
 type RuntimeSettings struct {
+	MaxActiveScans      int                      `json:"max_active_scans"`
+	Retention           RetentionPolicy          `json:"retention"`
 	RefineTopK          int                      `json:"refine_top_k"`
 	ResultMaxAgeSeconds int                      `json:"result_max_age_seconds"`
 	Revision            int                      `json:"revision"`
@@ -26,10 +28,12 @@ type RuntimeSettings struct {
 
 func (c Config) RuntimeSettings() RuntimeSettings {
 	s := c.Scanner
-	return RuntimeSettings{RefineTopK: s.RefineTopK, ResultMaxAgeSeconds: s.ResultMaxAgeSeconds, Concurrency: s.Concurrency, BatchSize: s.BatchSize, MaxCandidates: s.MaxTotalCandidates, Samples: s.Samples, TimeoutMS: s.TimeoutMS, MinSuccessRate: s.MinSuccessRate, MedianTargetMS: s.MedianTargetMS, P95TargetMS: s.P95TargetMS, JitterTargetMS: s.JitterTargetMS, DefaultProfile: s.DefaultProbeProfile, Egress: c.EgressVerification, Strict: s.StrictVerification}
+	return RuntimeSettings{MaxActiveScans: s.MaxActiveScans, Retention: c.Storage.Retention, RefineTopK: s.RefineTopK, ResultMaxAgeSeconds: s.ResultMaxAgeSeconds, Concurrency: s.Concurrency, BatchSize: s.BatchSize, MaxCandidates: s.MaxTotalCandidates, Samples: s.Samples, TimeoutMS: s.TimeoutMS, MinSuccessRate: s.MinSuccessRate, MedianTargetMS: s.MedianTargetMS, P95TargetMS: s.P95TargetMS, JitterTargetMS: s.JitterTargetMS, DefaultProfile: s.DefaultProbeProfile, Egress: c.EgressVerification, Strict: s.StrictVerification}
 }
 
 func (c Config) WithRuntimeSettings(s RuntimeSettings) (Config, error) {
+	c.Scanner.MaxActiveScans = s.MaxActiveScans
+	c.Storage.Retention = s.Retention
 	c.Scanner.RefineTopK = s.RefineTopK
 	c.Scanner.ResultMaxAgeSeconds = s.ResultMaxAgeSeconds
 	c.Scanner.Concurrency = s.Concurrency

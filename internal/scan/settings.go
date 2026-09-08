@@ -43,6 +43,7 @@ func (m *Manager) LoadSettings(ctx context.Context) error {
 		return fmt.Errorf("saved runtime settings: %w", err)
 	}
 	m.cfg.Store(&cfg)
+	m.probeSlots = make(chan struct{}, cfg.Scanner.Concurrency)
 	m.settingsRevision = s.Revision
 	return nil
 }
@@ -93,6 +94,7 @@ func (m *Manager) SaveSettings(ctx context.Context, s config.RuntimeSettings) (c
 		return s, fmt.Errorf("无法保存运行设置")
 	}
 	m.cfg.Store(&next)
+	m.probeSlots = make(chan struct{}, next.Scanner.Concurrency)
 	m.settingsRevision = s.Revision
 	return s, nil
 }

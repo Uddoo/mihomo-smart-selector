@@ -40,11 +40,20 @@ type MihomoConfig struct {
 	RequestTimeoutSeconds int    `yaml:"request_timeout_seconds"`
 }
 
+type RetentionPolicy struct {
+	ScanDays  int `yaml:"scan_days" json:"scan_days"`
+	MaxScans  int `yaml:"max_scans" json:"max_scans"`
+	AuditDays int `yaml:"audit_days" json:"audit_days"`
+	MaxAudit  int `yaml:"max_audit" json:"max_audit"`
+}
+
 type StorageConfig struct {
-	Path string `yaml:"path"`
+	Retention RetentionPolicy `yaml:"retention"`
+	Path      string          `yaml:"path"`
 }
 
 type ScannerConfig struct {
+	MaxActiveScans        int                             `yaml:"max_active_scans"`
 	RefineTopK            int                             `yaml:"refine_top_k"`
 	ResultMaxAgeSeconds   int                             `yaml:"result_max_age_seconds"`
 	Concurrency           int                             `yaml:"concurrency"`
@@ -149,9 +158,10 @@ func Defaults() Config {
 		Mihomo: MihomoConfig{
 			Controller: "http://127.0.0.1:9090", SecretEnv: "MIHOMO_SECRET", RequestTimeoutSeconds: 8,
 		},
-		Storage: StorageConfig{Path: "data/selector.db"},
+		Storage: StorageConfig{Path: "data/selector.db", Retention: RetentionPolicy{ScanDays: 30, MaxScans: 200, AuditDays: 180, MaxAudit: 1000}},
 		Scanner: ScannerConfig{
-			RefineTopK: 10, ResultMaxAgeSeconds: 600,
+			MaxActiveScans: 2,
+			RefineTopK:     10, ResultMaxAgeSeconds: 600,
 			Concurrency: 4, BatchSize: 60, MaxTotalCandidates: 500, Samples: 3, TimeoutMS: 5000, MinSuccessRate: 0.95,
 			MedianTargetMS: 300, P95TargetMS: 800, JitterTargetMS: 200,
 			Probes: []Probe{
@@ -285,6 +295,13 @@ func (c Config) Validate() error {
 	}
 	if c.Scanner.MaxTotalCandidates < 1 || c.Scanner.MaxTotalCandidates > 1000 {
 		return fmt.Errorf("scanner.max_total_candidates must be in 1..1000")
+	}
+	if c.Scanner.MaxActiveScans < 1 || c.Scanner.MaxActiveScans > 8 {
+		return fmt.Errorf("scanner.max_active_scans must be in 1..8")
+	}
+	r := c.Storage.Retention
+	if r.ScanDays < 1 || r.ScanDays > 3650 || r.AuditDays < 1 || r.AuditDays > 3650 || r.MaxScans < 1 || r.MaxScans > 100000 || r.MaxAudit < 1 || r.MaxAudit > 100000 {
+		return fmt.Errorf("invalid storage retention: days must be 1..3650, counts 1..100000")
 	}
 	if c.Scanner.RefineTopK < 1 || c.Scanner.RefineTopK > 1000 {
 		return fmt.Errorf("scanner.refine_top_k must be in 1..1000")

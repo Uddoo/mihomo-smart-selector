@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {Network, ScanLine, List, History, Settings, Moon, Sun, RefreshCw, ChevronDown, CheckCircle2, Radio, ArrowRight} from '@lucide/vue'
 import {APIError, api, setAPIToken} from './api'
 import {rankResults, hasJitterEvidence, evidence, expired} from './ranking'
+import {useScanSession} from './scanSession'
+import {discover} from './discovery'
+import {selectionKey, operationLabel, operationMessage} from './selectionState'
 import SettingsPanel from './SettingsPanel.vue'
+import StoragePanel from './StoragePanel.vue'
 import type {Group, Health, NodeResult, NodeSummary, ProbeProfileSummary, Provider, Region, Scan, ScanPreview, SwitchEvent, ServiceCatalog, RuntimeSettings} from './models'
 
 type Page = 'scan' | 'nodes' | 'history' | 'settings'
@@ -26,13 +30,13 @@ let discoveryPoll: number | undefined
 const areas = ref<string[]>([])
 const providerSet = ref<string[]>([])
 const mode = ref<'quick' | 'stable'>('quick')
-const scan = ref<Scan | null>(null)
 const preview = ref<ScanPreview | null>(null)
-const running = ref(false)
 const access = ref(false)
 const token = ref(sessionStorage.getItem('mss-api-token') || '')
 const theme = ref<'light' | 'dark'>((localStorage.getItem('mss-theme') as 'light' | 'dark') || 'light')
 const notice = ref('')
+const noticeWarning = ref(false)
+watch(notice, () => { noticeWarning.value = false }, {flush:'sync'})
 const failure = ref('')
 const query = ref('')
 const selected = ref<NodeSummary | null>(null)
@@ -44,17 +48,39 @@ const starting = ref(false)
 const showProfile = ref(false)
 const now = ref(Date.now())
 let ageTimer: number | undefined
-let poll: number | undefined
-let refreshPending = false
-let refreshAgain = false
 let previewRevision = 0
+let restoredForm = false
+const session = useScanSession(value => {
+  void preflight()
+  if (value.status === 'interrupted') failure.value = '服务重启中断了此扫描，请重新扫描。'
+  else if (value.status === 'failed') failure.value = value.error || '扫描失败'
+  else if (value.status === 'cancelled') notice.value = '扫描已停止，保留已完成的结果。'
+  else if (value.request.nodes?.length) notice.value = '复测已完成，请检查新结果并再次确认选择。'
+}, message => { failure.value = message })
+const {scan, running, recent, refresh, close} = session
+async function openRecent(event: Event) {
+  try { await session.open((event.target as HTMLSelectElement).value); await restoreForm(); focusedName.value = ''; pendingChoice.value = null }
+  catch (error) { failure.value = error instanceof Error ? error.message : '无法打开扫描' }
+}
+
+async function restoreForm() {
+  if (!scan.value) return
+  const request = scan.value.request
+  group.value = request.target_group
+  await nextTick()
+  serviceID.value = request.profile_id || ''
+  areas.value = request.regions || []
+  providerSet.value = request.providers || []
+  mode.value = request.mode === 'stable' ? 'stable' : 'quick'
+}
+
 
 const current = computed(() => groups.value.find(x => x.name === (scan.value?.request.target_group || group.value)))
 const results = computed(() => rankResults(scan.value?.results || []))
 const best = computed(() => results.value[0])
 const candidate = computed(() => results.value.find(x => x.name === focusedName.value) || best.value)
 const currentResult = computed(() => results.value.find(x => x.name === current.value?.now))
-const scanLabel = computed(() => scan.value?.status === 'complete' ? '扫描完成' : scan.value?.status === 'cancelled' ? '扫描已停止' : scan.value?.status === 'failed' ? '扫描失败' : running.value ? (scan.value?.progress.stage === 'refining' ? '复测进行中' : '初筛进行中') : '准备就绪')
+const scanLabel = computed(() => scan.value?.status === 'interrupted' ? '扫描已中断' : scan.value?.status === 'complete' ? '扫描完成' : scan.value?.status === 'cancelled' ? '扫描已停止' : scan.value?.status === 'failed' ? '扫描失败' : running.value ? (scan.value?.progress.stage === 'refining' ? '复测进行中' : '初筛进行中') : '准备就绪')
 const configLocked = computed(() => running.value || starting.value || switching.value || savingBinding.value)
 const progress = computed(() => scan.value?.progress)
 const percent = computed(() => progress.value?.total ? Math.round(progress.value.completed * 100 / progress.value.total) : 0)
@@ -98,9 +124,7 @@ async function load() {
   ++previewRevision
   preview.value = null
   failure.value = ''
-  const response = await Promise.allSettled([
-    api<Health>('/health'), api<Group[]>('/groups'), api<Provider[]>('/providers'), api<Region[]>('/regions'), api<NodeSummary[]>('/nodes'), api<SwitchEvent[]>('/history'), api<ServiceCatalog>('/services'), api<RuntimeSettings>('/settings'),
-  ])
+  const response = await discover()
   if (response[0].status === 'rejected' && response[0].reason instanceof APIError && response[0].reason.status === 401) {
     access.value = true
     loading.value = false
@@ -123,6 +147,7 @@ async function load() {
   if (bad) failure.value = bad.reason instanceof Error ? bad.reason.message : '无法加载 Mihomo 数据'
   discoveryValid.value = !bad
   loading.value = false
+  if (!bad) { try { await session.restore(); if (!restoredForm) { await restoreForm(); restoredForm = true } } catch (error) { failure.value = error instanceof Error ? error.message : '无法恢复扫描' } }
   await preflight()
 }
 
@@ -197,16 +222,7 @@ async function start() {
   }
 }
 
-function monitor(response: Scan) {
-    close()
-    scan.value = response
-    focusedName.value = ''
-    pendingChoice.value = null
-    running.value = true
-    // Poll through api() so progress requests carry the configured Bearer token.
-    poll = window.setInterval(() => void refresh(), 1200)
-    void refresh()
-}
+function monitor(response: Scan) { focusedName.value = ''; pendingChoice.value = null; session.monitor(response) }
 
 async function retest() {
   if (!scan.value || !candidate.value || configLocked.value) return
@@ -218,36 +234,6 @@ async function retest() {
     notice.value = '正在复测此节点；完成后请检查新结果并再次确认选择。'
   } catch (error) { failure.value = error instanceof Error ? error.message : '复测失败' }
   finally { starting.value = false }
-}
-
-async function refresh() {
-  if (!scan.value) return
-  // Coalesce polling. Concurrent responses must not replace a
-  // newer ranking with an older snapshot or reopen a completed scan.
-  if (refreshPending) { refreshAgain = true; return }
-  refreshPending = true
-  const id = scan.value.id
-  try {
-    const response = await api<Scan>('/scans/' + encodeURIComponent(id))
-    if (scan.value?.id !== id) return
-    scan.value = response
-    if (response.status !== 'running') {
-      running.value = false
-      close()
-      void preflight()
-      if (response.status === 'cancelled') notice.value = '扫描已停止；保留实时排名，选择操作已锁定。'
-      else if (response.status === 'failed') failure.value = response.error || '扫描失败'
-	  else if (response.request.nodes?.length) notice.value = '复测已完成，请检查新结果并再次确认选择。'
-    }
-  } catch (error) {
-    failure.value = error instanceof Error ? error.message : '无法更新扫描结果'
-  } finally {
-    refreshPending = false
-    if (refreshAgain) {
-      refreshAgain = false
-      if (running.value) void refresh()
-    }
-  }
 }
 
 async function stop(after: boolean) {
@@ -263,6 +249,7 @@ function selectionReason(result?: NodeResult) {
   if (starting.value || scan.value?.status !== 'complete') return '扫描完成后可选择'
   if (loading.value || !discoveryValid.value) return '请先刷新并连接 Controller'
   if (!current.value) return '扫描目标策略组已失效'
+  if (history.value.some(item => item.group === current.value?.name && (['pending','unknown'].includes(item.status) || !item.audit_persisted))) return '该组有待核对切换，请先在选择历史中核对结果'
   if (!result) return '等待节点结果'
   if (expired(result, now.value)) return '结果已过期，请复测此节点'
   if (result.selection_reason) return result.selection_reason
@@ -283,23 +270,30 @@ async function confirmChoice() {
   switching.value = true
   failure.value = ''
   try {
-    const event = await api<SwitchEvent>('/scans/' + encodeURIComponent(scan.value.id) + '/select', {method: 'POST', body: JSON.stringify({node: result.name})})
-    groups.value = groups.value.map(item => item.name === event.group ? {...item, now: event.selected} : item)
-    history.value = [event, ...history.value]
-    notice.value = '已切换到 ' + event.selected
+    const event = await api<SwitchEvent>('/scans/' + encodeURIComponent(scan.value.id) + '/select', {method: 'POST', body: JSON.stringify({node: result.name, request_id: selectionKey(sessionStorage,scan.value.id,result.name)})})
+    if (event.status === 'confirmed') groups.value = groups.value.map(item => item.name === event.group ? {...item, now: event.selected} : item)
+    history.value = [event, ...history.value.filter(item => item.id !== event.id)]
+    notice.value = operationMessage(event)
+	 noticeWarning.value = event.status !== 'confirmed' || !event.audit_persisted
+    if (event.audit_persisted && ['confirmed','failed'].includes(event.status)) sessionStorage.removeItem('mss-selection-request')
     pendingChoice.value = null
   } catch (error) {
-    failure.value = error instanceof Error ? error.message : '切换失败'
+    failure.value = error instanceof Error ? error.message + '；请检查选择历史，重试会沿用同一次请求。' : '响应未确认，请核对选择历史'
     await refresh()
     pendingChoice.value = null
   } finally { switching.value = false }
 }
 
-function close() {
-  if (poll !== undefined) {
-    clearInterval(poll)
-    poll = undefined
-  }
+async function reconcile(item: SwitchEvent) {
+  switching.value = true
+  try {
+    const result = await api<SwitchEvent>('/history/' + item.id + '/reconcile', {method:'POST'})
+    history.value = history.value.map(event => event.id === result.id ? result : event)
+    notice.value = operationMessage(result)
+	 noticeWarning.value = result.status !== 'confirmed' || !result.audit_persisted
+    if (result.audit_persisted && ['confirmed','failed'].includes(result.status)) sessionStorage.removeItem('mss-selection-request')
+  } catch (error) { failure.value = error instanceof Error ? error.message : '无法核对结果' }
+  finally { switching.value = false; void load() }
 }
 
 function regionLabel(code?: string) {
@@ -367,9 +361,10 @@ function probeKind(value: 'reachability' | 'strict') {
       </header>
 
       <div v-if="failure" class="notice error" role="alert">{{ failure }}</div>
-      <div v-if="notice" class="notice" role="status">{{ notice }}</div>
+      <div v-if="notice" :class="['notice', {warning: noticeWarning}]" role="status">{{ notice }}</div>
 
       <section v-if="page === 'scan'">
+        <label v-if="recent.length" class="profile-scope">活动 / 最近扫描<select :value="scan?.id" :disabled="starting || switching" @change="openRecent"><option v-for="item in recent" :key="item.id" :value="item.id">{{ item.request.target_group }} · {{ item.status }} · {{ new Date(item.started_at).toLocaleString() }}</option></select></label>
         <div class="scan-config">
         <fieldset class="command" :disabled="configLocked || loading">
           <legend class="sr-only">扫描配置</legend>
@@ -505,10 +500,11 @@ function probeKind(value: 'reachability' | 'strict') {
         <div class="nodegrid"><section class="panel scroll"><table><thead><tr><th>节点</th><th>地区</th><th>Provider</th><th>协议</th></tr></thead><tbody><tr v-for="node in visibleNodes" :key="node.name" @click="selected = node"><td>{{ node.name }}</td><td>{{ regionLabel(node.inferred_region) }}</td><td>{{ node.provider || '—' }}</td><td>{{ node.protocol || '—' }}</td></tr></tbody></table></section><aside class="panel"><h2>节点详情</h2><template v-if="selected"><b>{{ selected.name }}</b><p>{{ regionLabel(selected.inferred_region) }} · {{ selected.region_source }}</p><p>Provider：{{ selected.provider || '—' }}</p><p>协议：{{ selected.protocol || '—' }}</p></template><p v-else>选择节点查看地区推断。</p></aside></div>
       </section>
 
-      <section v-else-if="page === 'history'" class="panel"><h2>手动切换记录</h2><article v-for="item in history" :key="item.id"><small>{{ new Date(item.created_at).toLocaleString() }}</small><b>{{ item.previous || '—' }} → {{ item.selected }}</b><span>{{ item.group }}</span></article><p v-if="!history.length">尚无手动切换记录。</p></section>
+      <section v-else-if="page === 'history'" class="panel"><h2>手动切换记录</h2><article v-for="item in history" :key="item.id"><small>{{ new Date(item.created_at).toLocaleString() }}</small><b>{{ item.previous || '—' }} → {{ item.selected }}</b><span>{{ item.group }} · {{ operationLabel(item.status) }}</span><p>{{ item.reason }}</p><button v-if="['pending','unknown'].includes(item.status) || !item.audit_persisted" :disabled="switching" @click="reconcile(item)">核对结果</button></article><p v-if="!history.length">尚无手动切换记录。</p></section>
 
       <section v-else>
         <SettingsPanel :locked="configLocked" :groups="groups" :profiles="services?.profiles || []" @saved="load()"/>
+		<StoragePanel :locked="configLocked"/>
         <div class="settings">
         <div class="panel"><h2>外观</h2><p>主题偏好保存在当前浏览器。</p><button class="primary" @click="theme = theme === 'light' ? 'dark' : 'light'">切换主题</button></div>
         <div class="panel"><h2>扫描安全</h2><p>可达性与时延扫描不切换业务选择器。严格状态/正文验证默认关闭，只有配置独立的探测选择器和本地代理后才会运行。</p></div>

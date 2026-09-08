@@ -67,6 +67,9 @@ footer.offline { color: var(--red); }
 .theme { display: flex; align-items: center; gap: 8px; color: var(--muted); border-color: transparent; background: transparent; white-space: nowrap; }
 .notice { margin: 0 0 14px; padding: 12px 16px; border-radius: 8px; background: var(--good-bg); color: var(--green); font-size: 14px; }
 .notice.error { background: var(--bad-bg); color: var(--red); }
+.notice.warning { background: var(--soft); color: var(--text); border-left: 4px solid #c58918; }
+.panel article > p { grid-column: 1 / -1; margin: 0; overflow-wrap: anywhere; }
+.panel article > button { justify-self: start; }
 .scan-config { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 0 18px; }
 .command { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; margin: 0; padding: 22px 0; border: 0; min-width: 0; }
 .command > label { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }

@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"strings"
 	"time"
 
@@ -64,6 +65,55 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) route(writer http.ResponseWriter, request *http.Request) {
 	switch {
+	case request.URL.Path == "/api/v1/scans" && request.Method == http.MethodGet:
+		items, err := s.manager.Recent(request.Context())
+		if err != nil {
+			writeError(writer, 500, "could not read recent scans")
+			return
+		}
+		writeJSON(writer, 200, items)
+	case request.URL.Path == "/api/v1/storage" && request.Method == http.MethodGet:
+		stats, err := s.manager.Storage(request.Context())
+		if err != nil {
+			writeError(writer, 500, "could not read storage stats")
+			return
+		}
+		writeJSON(writer, 200, stats)
+	case request.URL.Path == "/api/v1/storage/cleanup" && request.Method == http.MethodPost:
+		var payload struct {
+			Confirm  bool `json:"confirm"`
+			Revision int  `json:"revision"`
+		}
+		if !decodeJSON(writer, request, &payload) {
+			return
+		}
+		if !payload.Confirm {
+			writeError(writer, 400, "cleanup confirmation required")
+			return
+		}
+		result, err := s.manager.Cleanup(request.Context(), payload.Revision)
+		if err != nil {
+			writeError(writer, 409, err.Error())
+			return
+		}
+		writeJSON(writer, 200, result)
+	case strings.HasPrefix(request.URL.Path, "/api/v1/history/") && request.Method == http.MethodPost:
+		parts := strings.Split(strings.TrimPrefix(request.URL.Path, "/api/v1/history/"), "/")
+		if len(parts) != 2 || parts[1] != "reconcile" {
+			writeError(writer, 404, "history route not found")
+			return
+		}
+		id, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			writeError(writer, 400, "invalid operation id")
+			return
+		}
+		result, err := s.manager.ReconcileSwitch(request.Context(), id)
+		if err != nil {
+			writeError(writer, 409, err.Error())
+			return
+		}
+		writeJSON(writer, 200, result)
 	case request.URL.Path == "/api/v1/settings" && request.Method == http.MethodGet:
 		writeJSON(writer, http.StatusOK, s.manager.Settings())
 	case request.URL.Path == "/api/v1/settings" && request.Method == http.MethodPut:
@@ -249,12 +299,19 @@ func (s *Server) getScan(writer http.ResponseWriter, request *http.Request, id s
 
 func (s *Server) selectNode(writer http.ResponseWriter, request *http.Request, id string) {
 	var payload struct {
-		Node string `json:"node"`
+		Node      string `json:"node"`
+		RequestID string `json:"request_id"`
 	}
 	if !decodeJSON(writer, request, &payload) {
 		return
 	}
-	event, err := s.manager.Select(request.Context(), id, payload.Node)
+	var event model.SwitchEvent
+	var err error
+	if payload.RequestID == "" {
+		event, err = s.manager.Select(request.Context(), id, payload.Node)
+	} else {
+		event, err = s.manager.SelectRequest(request.Context(), id, payload.Node, payload.RequestID)
+	}
 	if err != nil {
 		writeError(writer, http.StatusConflict, err.Error())
 		return

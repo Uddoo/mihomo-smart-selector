@@ -15,7 +15,8 @@ import (
 )
 
 type Store struct {
-	db *sql.DB
+	db   *sql.DB
+	path string
 }
 
 func Open(path string) (*Store, error) {
@@ -26,7 +27,8 @@ func Open(path string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open SQLite database: %w", err)
 	}
-	store := &Store{db: db}
+	db.SetMaxOpenConns(1)
+	store := &Store{db: db, path: path}
 	if err := store.migrate(context.Background()); err != nil {
 		db.Close()
 		return nil, err
@@ -44,6 +46,7 @@ func (s *Store) Close() error {
 func (s *Store) migrate(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx, `
 PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS scans (
   id TEXT PRIMARY KEY,
   status TEXT NOT NULL,
@@ -83,7 +86,18 @@ CREATE TABLE IF NOT EXISTS runtime_settings (
 	if err != nil {
 		return fmt.Errorf("migrate SQLite database: %w", err)
 	}
-	return s.ensureColumn(ctx, "scans", "profile_json", "TEXT NOT NULL DEFAULT '{}'")
+	for _, column := range []struct{ table, name, definition string }{
+		{"scans", "profile_json", "TEXT NOT NULL DEFAULT '{}'"},
+		{"scans", "progress_json", "TEXT NOT NULL DEFAULT '{}'"},
+		{"switch_events", "status", "TEXT NOT NULL DEFAULT 'confirmed'"},
+		{"switch_events", "request_id", "TEXT NOT NULL DEFAULT ''"},
+	} {
+		if err := s.ensureColumn(ctx, column.table, column.name, column.definition); err != nil {
+			return err
+		}
+	}
+	_, err = s.db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS idx_switch_request ON switch_events(request_id) WHERE request_id <> ''; CREATE INDEX IF NOT EXISTS idx_scans_started ON scans(started_at DESC);`)
+	return err
 }
 
 func (s *Store) ensureColumn(ctx context.Context, table, column, definition string) error {
@@ -105,6 +119,9 @@ func (s *Store) ensureColumn(ctx context.Context, table, column, definition stri
 	}
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("iterate %s columns: %w", table, err)
+	}
+	if err := rows.Close(); err != nil {
+		return err
 	}
 	if _, err := s.db.ExecContext(ctx, `ALTER TABLE `+table+` ADD COLUMN `+column+` `+definition); err != nil {
 		return fmt.Errorf("add %s.%s: %w", table, column, err)
@@ -138,13 +155,17 @@ func (s *Store) CompleteScan(ctx context.Context, scan model.Scan) error {
 	}
 	defer transaction.Rollback()
 
+	progress, err := json.Marshal(scan.Progress)
+	if err != nil {
+		return err
+	}
 	var completedAt any
 	if scan.CompletedAt != nil {
 		completedAt = timestamp(*scan.CompletedAt)
 	}
 	if _, err := transaction.ExecContext(ctx,
-		`UPDATE scans SET status = ?, completed_at = ?, error = ? WHERE id = ?`,
-		scan.Status, completedAt, scan.Error, scan.ID,
+		`UPDATE scans SET status = ?, completed_at = ?, error = ?, progress_json = ? WHERE id = ?`,
+		scan.Status, completedAt, scan.Error, progress, scan.ID,
 	); err != nil {
 		return fmt.Errorf("update scan: %w", err)
 	}
@@ -172,10 +193,10 @@ func (s *Store) CompleteScan(ctx context.Context, scan model.Scan) error {
 func (s *Store) GetScan(ctx context.Context, id string) (model.Scan, error) {
 	var scan model.Scan
 	var status string
-	var requestJSON, profileJSON, startedAt, completedAt, errorText sql.NullString
+	var requestJSON, profileJSON, startedAt, completedAt, errorText, progressJSON sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT status, request_json, profile_json, started_at, completed_at, error FROM scans WHERE id = ?`, id,
-	).Scan(&status, &requestJSON, &profileJSON, &startedAt, &completedAt, &errorText)
+		`SELECT status, request_json, profile_json, started_at, completed_at, error, progress_json FROM scans WHERE id = ?`, id,
+	).Scan(&status, &requestJSON, &profileJSON, &startedAt, &completedAt, &errorText, &progressJSON)
 	if err == sql.ErrNoRows {
 		return model.Scan{}, fmt.Errorf("scan %q not found", id)
 	}
@@ -185,6 +206,9 @@ func (s *Store) GetScan(ctx context.Context, id string) (model.Scan, error) {
 	scan.ID = id
 	scan.Status = model.ScanStatus(status)
 	scan.Error = errorText.String
+	if err := json.Unmarshal([]byte(progressJSON.String), &scan.Progress); err != nil {
+		return model.Scan{}, err
+	}
 	if err := json.Unmarshal([]byte(requestJSON.String), &scan.Request); err != nil {
 		return model.Scan{}, fmt.Errorf("decode scan request: %w", err)
 	}
@@ -229,9 +253,12 @@ func (s *Store) GetScan(ctx context.Context, id string) (model.Scan, error) {
 }
 
 func (s *Store) RecordSwitch(ctx context.Context, event model.SwitchEvent) (model.SwitchEvent, error) {
+	if event.Status == "" {
+		event.Status = "confirmed"
+	}
 	result, err := s.db.ExecContext(ctx,
-		`INSERT INTO switch_events(scan_id, group_name, previous_member, selected_member, reason, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		event.ScanID, event.Group, event.Previous, event.Selected, event.Reason, timestamp(event.CreatedAt),
+		`INSERT INTO switch_events(scan_id, group_name, previous_member, selected_member, reason, created_at, status, request_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		event.ScanID, event.Group, event.Previous, event.Selected, event.Reason, timestamp(event.CreatedAt), event.Status, event.RequestID,
 	)
 	if err != nil {
 		return model.SwitchEvent{}, fmt.Errorf("store switch event: %w", err)
@@ -241,12 +268,15 @@ func (s *Store) RecordSwitch(ctx context.Context, event model.SwitchEvent) (mode
 		return model.SwitchEvent{}, fmt.Errorf("read switch event ID: %w", err)
 	}
 	event.ID = id
+	event.AuditPersisted = true
 	return event, nil
 }
 
 func (s *Store) ListSwitches(ctx context.Context, limit int) ([]model.SwitchEvent, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, scan_id, group_name, previous_member, selected_member, reason, created_at FROM switch_events ORDER BY id DESC LIMIT ?`,
+		`SELECT id, scan_id, group_name, previous_member, selected_member, reason, created_at, status, request_id FROM switch_events
+ WHERE status IN ('pending','unknown') OR id IN (SELECT id FROM switch_events WHERE status NOT IN ('pending','unknown') ORDER BY id DESC LIMIT ?)
+ ORDER BY CASE WHEN status IN ('pending','unknown') THEN 0 ELSE 1 END, id DESC`,
 		limit,
 	)
 	if err != nil {
@@ -257,7 +287,7 @@ func (s *Store) ListSwitches(ctx context.Context, limit int) ([]model.SwitchEven
 	for rows.Next() {
 		var event model.SwitchEvent
 		var createdAt string
-		if err := rows.Scan(&event.ID, &event.ScanID, &event.Group, &event.Previous, &event.Selected, &event.Reason, &createdAt); err != nil {
+		if err := rows.Scan(&event.ID, &event.ScanID, &event.Group, &event.Previous, &event.Selected, &event.Reason, &createdAt, &event.Status, &event.RequestID); err != nil {
 			return nil, fmt.Errorf("read switch event: %w", err)
 		}
 		parsed, err := parseTimestamp(createdAt)
@@ -265,6 +295,7 @@ func (s *Store) ListSwitches(ctx context.Context, limit int) ([]model.SwitchEven
 			return nil, err
 		}
 		event.CreatedAt = parsed
+		event.AuditPersisted = true
 		events = append(events, event)
 	}
 	return events, rows.Err()

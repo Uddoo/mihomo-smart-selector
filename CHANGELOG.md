@@ -22,6 +22,17 @@ versioned releases begin.
 
 ### Added
 
+- Startup recovery marks unfinished scans as interrupted and pending switches
+  as unknown; active/recent scans can be restored after a browser reload.
+- Durable switch intents, idempotent request IDs, Controller readback and an
+  explicit reconciliation action for unknown outcomes; audit write failures
+  after switching are distinguished from a failed switch.
+- Configurable scan/audit retention with storage-size reporting, hourly
+  maintenance and confirmed manual cleanup. Unresolved operations and their
+  scans are retained.
+- A global probe concurrency budget, a concurrent-scan limit and duplicate-group
+  admission checks; graceful shutdown cancels scans and waits for their cleanup.
+
 - Two-stage stable scans: screen all eligible nodes, then refine the top K and
   the eligible current member, with explicit sample evidence and timestamps.
 - Result expiry and a single-node retest action that requires a new manual
@@ -56,6 +67,10 @@ versioned releases begin.
   screenshots.
 
 ### Changed
+
+- Probe execution, isolated verification, selection and lifecycle management
+  have dedicated backend modules; frontend scan sessions and discovery are
+  separated from the workbench view.
 
 - Strict verification now checks the highest-ranked candidates within its
   budget instead of skipping the entire scan when the budget is exceeded.

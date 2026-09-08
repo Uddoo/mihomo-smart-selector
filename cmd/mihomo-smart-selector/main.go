@@ -35,11 +35,15 @@ func main() {
 		log.Fatalf("storage error: %v", err)
 	}
 	defer store.Close()
+	if err := store.RecoverInterrupted(context.Background()); err != nil {
+		log.Fatalf("recovery error: %v", err)
+	}
 
 	manager := scan.NewManager(cfg, controller, store)
 	if err := manager.LoadSettings(context.Background()); err != nil {
 		log.Fatalf("runtime settings error: %v", err)
 	}
+	manager.StartMaintenance()
 	apiServer, err := api.New(cfg.HTTP, manager, controller)
 	if err != nil {
 		log.Fatalf("HTTP server configuration error: %v", err)
@@ -62,9 +66,12 @@ func main() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	<-signals
-	context, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	if err := server.Shutdown(context); err != nil {
+	if err := manager.Shutdown(shutdownCtx); err != nil {
+		log.Printf("scan shutdown error: %v", err)
+	}
+	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("HTTP server shutdown error: %v", err)
 	}
 }

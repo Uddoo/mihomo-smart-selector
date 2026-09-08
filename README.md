@@ -147,13 +147,14 @@ flowchart LR
         decide{"User selects a node?"}
         allowed{"Scan / membership<br/>checks pass?"}
         switch["PUT the selected member<br/>to the business Selector"]
-        audit["On switch success,<br/>record the audit event"]
+        intent["Persist pending switch intent"]
+        audit["Read back Controller state<br/>Update outcome and audit status"]
         keep["Keep current node<br/>Report rejection if applicable"]
 
         decide -->|"Yes"| allowed
         decide -->|"No"| keep
         allowed -->|"No"| keep
-        allowed -->|"Yes"| switch --> audit
+        allowed -->|"Yes"| intent --> switch --> audit
     end
 
     scanning -->|"Completed and persisted scan only"| selection

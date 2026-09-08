@@ -19,9 +19,16 @@ mihomo:
   request_timeout_seconds: 8
 
 storage:
+  retention:
+    scan_days: 30
+    max_scans: 200
+    audit_days: 180
+    max_audit: 1000
   path: data/selector.db
 
 scanner:
+  # Concurrency is shared across scans; duplicate groups are rejected.
+  max_active_scans: 2
   # Stable mode: screen all nodes, then refine top K plus the eligible current node.
   refine_top_k: 10
   # Measured results expire before selection; retest and confirm again.

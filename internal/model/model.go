@@ -5,11 +5,12 @@ import "time"
 type ScanStatus string
 
 const (
-	ScanPending   ScanStatus = "pending"
-	ScanRunning   ScanStatus = "running"
-	ScanComplete  ScanStatus = "complete"
-	ScanCancelled ScanStatus = "cancelled"
-	ScanFailed    ScanStatus = "failed"
+	ScanInterrupted ScanStatus = "interrupted"
+	ScanPending     ScanStatus = "pending"
+	ScanRunning     ScanStatus = "running"
+	ScanComplete    ScanStatus = "complete"
+	ScanCancelled   ScanStatus = "cancelled"
+	ScanFailed      ScanStatus = "failed"
 )
 
 type ScanRequest struct {
@@ -162,11 +163,14 @@ type Scan struct {
 }
 
 type SwitchEvent struct {
-	ID        int64     `json:"id"`
-	ScanID    string    `json:"scan_id"`
-	Group     string    `json:"group"`
-	Previous  string    `json:"previous,omitempty"`
-	Selected  string    `json:"selected"`
-	Reason    string    `json:"reason"`
-	CreatedAt time.Time `json:"created_at"`
+	Status         string    `json:"status"`
+	RequestID      string    `json:"request_id,omitempty"`
+	AuditPersisted bool      `json:"audit_persisted"`
+	ID             int64     `json:"id"`
+	ScanID         string    `json:"scan_id"`
+	Group          string    `json:"group"`
+	Previous       string    `json:"previous,omitempty"`
+	Selected       string    `json:"selected"`
+	Reason         string    `json:"reason"`
+	CreatedAt      time.Time `json:"created_at"`
 }

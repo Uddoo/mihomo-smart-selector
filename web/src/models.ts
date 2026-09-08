@@ -6,6 +6,8 @@ export interface Health {
 }
 
 export interface RuntimeSettings {
+ max_active_scans: number
+ retention: {scan_days: number; max_scans: number; audit_days: number; max_audit: number}
 	refine_top_k: number
 	result_max_age_seconds: number
   revision: number
@@ -133,7 +135,7 @@ export interface NodeResult {
 
 export interface Scan {
   id: string
-  status: 'running' | 'complete' | 'failed' | 'cancelled'
+  status: 'running' | 'complete' | 'failed' | 'cancelled' | 'interrupted'
   request: {
 	nodes?: string[]
     target_group: string
@@ -186,6 +188,9 @@ export interface NodeSummary {
 }
 
 export interface SwitchEvent {
+ status: string
+ request_id?: string
+ audit_persisted: boolean
   id: number
   scan_id: string
   group: string

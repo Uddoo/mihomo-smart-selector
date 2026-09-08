@@ -6,12 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
-	"net/url"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -44,14 +39,18 @@ type candidate struct {
 }
 
 type Manager struct {
-	proxyCache       discoveryCache[map[string]mihomo.Proxy]
-	providerCache    discoveryCache[[]mihomo.Provider]
-	cfg              atomic.Pointer[config.Config]
-	settingsMu       sync.Mutex
-	settingsRevision int
-	client           mihomo.Client
-	classifier       *regions.Classifier
-	store            *history.Store
+	probeSlots        chan struct{}
+	workers           sync.WaitGroup
+	stopping          bool
+	maintenanceCancel context.CancelFunc
+	proxyCache        discoveryCache[map[string]mihomo.Proxy]
+	providerCache     discoveryCache[[]mihomo.Provider]
+	cfg               atomic.Pointer[config.Config]
+	settingsMu        sync.Mutex
+	settingsRevision  int
+	client            mihomo.Client
+	classifier        *regions.Classifier
+	store             *history.Store
 
 	mu             sync.Mutex
 	active         map[string]*model.Scan
@@ -62,7 +61,8 @@ type Manager struct {
 
 func NewManager(cfg config.Config, client mihomo.Client, store *history.Store) *Manager {
 	m := &Manager{
-		client: client, store: store, classifier: regions.New(cfg),
+		probeSlots: make(chan struct{}, cfg.Scanner.Concurrency),
+		client:     client, store: store, classifier: regions.New(cfg),
 		active: map[string]*model.Scan{}, cancels: map[string]context.CancelFunc{}, stopAfterBatch: map[string]bool{}, subscribers: map[string]map[chan Event]struct{}{},
 	}
 	m.cfg.Store(&cfg)
@@ -78,6 +78,9 @@ func (m *Manager) Start(request model.ScanRequest) (model.Scan, error) {
 		return model.Scan{}, err
 	}
 	cfg := m.currentConfig()
+	if m.stopping {
+		return model.Scan{}, fmt.Errorf("服务正在停止")
+	}
 	if (cfg.EgressVerification.Enabled || cfg.Scanner.StrictVerification.Enabled) && m.hasRunningScan() {
 		return model.Scan{}, fmt.Errorf("验证使用共享探测组，请等待当前扫描结束")
 	}
@@ -90,6 +93,9 @@ func (m *Manager) Start(request model.ScanRequest) (model.Scan, error) {
 	if err != nil {
 		return model.Scan{}, err
 	}
+	if err := m.admitScan(request.TargetGroup); err != nil {
+		return model.Scan{}, err
+	}
 	// Freeze the resolved service so later binding edits cannot change this scan.
 	request.ProfileID = profile.ID
 	now := time.Now().UTC()
@@ -100,7 +106,8 @@ func (m *Manager) Start(request model.ScanRequest) (model.Scan, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	m.setActiveWithCancel(scan, cancel)
 	m.publish(scan.ID, Event{Kind: "started", Message: "scan queued", At: now})
-	go m.run(ctx, scan)
+	m.workers.Add(1)
+	go func() { defer m.workers.Done(); defer cancel(); m.run(ctx, scan) }()
 	return scan, nil
 }
 
@@ -305,67 +312,6 @@ func (m *Manager) History(ctx context.Context, limit int) ([]model.SwitchEvent, 
 	return m.store.ListSwitches(ctx, limit)
 }
 
-func (m *Manager) Select(ctx context.Context, scanID, requestedNode string) (model.SwitchEvent, error) {
-	m.settingsMu.Lock()
-	defer m.settingsMu.Unlock()
-	scan, err := m.store.GetScan(ctx, scanID)
-	if err != nil {
-		return model.SwitchEvent{}, err
-	}
-	if scan.Status != model.ScanComplete {
-		return model.SwitchEvent{}, fmt.Errorf("scan %q is not complete", scanID)
-	}
-	var selected *model.NodeResult
-	for index := range scan.Results {
-		if requestedNode == "" && scan.Results[index].Rank == 1 {
-			selected = &scan.Results[index]
-			break
-		}
-		if requestedNode != "" && scan.Results[index].Name == requestedNode {
-			selected = &scan.Results[index]
-			break
-		}
-	}
-	if selected == nil {
-		return model.SwitchEvent{}, fmt.Errorf("requested node is not a result of scan %q", scanID)
-	}
-	profile, err := m.currentConfig().ProbeProfileByID(scan.Request.ProfileID)
-	if err != nil {
-		return model.SwitchEvent{}, fmt.Errorf("服务模板已失效，请重新扫描")
-	}
-	if reason := m.selectionReason(scan, *selected, profile, time.Now()); reason != "" {
-		return model.SwitchEvent{}, fmt.Errorf("%s", reason)
-	}
-	proxies, err := m.client.ListProxies(ctx)
-	if err != nil {
-		return model.SwitchEvent{}, err
-	}
-	group, exists := proxies[scan.Request.TargetGroup]
-	if !exists || !strings.EqualFold(group.Type, "Selector") {
-		return model.SwitchEvent{}, fmt.Errorf("target group %q is no longer a selector", scan.Request.TargetGroup)
-	}
-	if !contains(group.All, selected.Name) {
-		return model.SwitchEvent{}, fmt.Errorf("node %q is no longer a member of target group", selected.Name)
-	}
-	// Fresh discovery can take time; enforce expiry again immediately before PUT.
-	if reason := m.selectionReason(scan, *selected, profile, time.Now()); reason != "" {
-		return model.SwitchEvent{}, fmt.Errorf("%s", reason)
-	}
-	if err := m.client.Select(ctx, group.Name, selected.Name); err != nil {
-		return model.SwitchEvent{}, err
-	}
-	m.invalidateCatalog()
-	event := model.SwitchEvent{
-		ScanID: scan.ID, Group: group.Name, Previous: group.Now, Selected: selected.Name,
-		Reason: "manual selection from completed scan", CreatedAt: time.Now().UTC(),
-	}
-	stored, err := m.store.RecordSwitch(ctx, event)
-	if err == nil {
-		m.publish(scan.ID, Event{Kind: "selected", Message: "selector changed", At: stored.CreatedAt})
-	}
-	return stored, err
-}
-
 func (m *Manager) Subscribe(scanID string) (<-chan Event, func()) {
 	channel := make(chan Event, 16)
 	m.mu.Lock()
@@ -513,363 +459,6 @@ func normaliseRequest(request model.ScanRequest) (model.ScanRequest, error) {
 	request.Regions = normaliseCodes(request.Regions)
 	request.Providers = normaliseStrings(request.Providers)
 	return request, nil
-}
-
-func (m *Manager) probeBatch(parent context.Context, scan model.Scan, profile config.ProbeProfile, candidates []candidate) []model.NodeResult {
-	jobs := make(chan candidate)
-	results := make(chan model.NodeResult, len(candidates))
-	var workers sync.WaitGroup
-	for worker := 0; worker < m.currentConfig().Scanner.Concurrency; worker++ {
-		workers.Add(1)
-		go func() {
-			defer workers.Done()
-			for item := range jobs {
-				results <- m.probeCandidate(parent, item, profile, scan.Request.Mode)
-			}
-		}()
-	}
-	go func() {
-		defer func() {
-			close(jobs)
-			workers.Wait()
-			close(results)
-		}()
-		for _, item := range candidates {
-			select {
-			case <-parent.Done():
-				return
-			case jobs <- item:
-			}
-		}
-	}()
-
-	batchResults := make([]model.NodeResult, 0, len(candidates))
-	for result := range results {
-		copy, progress := m.recordCandidate(scan.ID, result, profile)
-		m.publish(scan.ID, Event{Kind: "candidate-complete", Message: "candidate tested: " + result.Name, At: time.Now().UTC(), Result: &copy, Progress: &progress})
-		batchResults = append(batchResults, result)
-	}
-	return batchResults
-}
-
-func (m *Manager) filterCandidates(group mihomo.Proxy, proxies map[string]mihomo.Proxy, providerByNode map[string]string, request model.ScanRequest) []candidate {
-	seen := map[string]bool{}
-	items := make([]candidate, 0, len(group.All))
-	for _, name := range group.All {
-		if len(request.Nodes) > 0 && !contains(request.Nodes, name) {
-			continue
-		}
-		if seen[name] {
-			continue
-		}
-		seen[name] = true
-		proxy, exists := proxies[name]
-		if !exists {
-			continue
-		}
-		if isPolicyGroup(proxy.Type) {
-			continue
-		}
-		provider := proxy.ProviderName
-		if provider == "" {
-			provider = providerByNode[name]
-		}
-		region := m.classifier.Classify(name)
-		if len(request.Regions) > 0 && !contains(request.Regions, region.Code) {
-			continue
-		}
-		if len(request.Providers) > 0 && !contains(request.Providers, provider) {
-			continue
-		}
-		items = append(items, candidate{Name: name, Provider: provider, Region: region})
-	}
-	return items
-}
-
-func (m *Manager) probeCandidate(parent context.Context, item candidate, profile config.ProbeProfile, mode string) model.NodeResult {
-	result := model.NodeResult{
-		Name: item.Name, Provider: item.Provider, InferredRegion: item.Region.Code, RegionSource: item.Region.Source, Stage: "screened",
-	}
-	samples := max(2, m.currentConfig().Scanner.Samples)
-	if mode == "refine" {
-		samples--
-	}
-	if mode == "quick" {
-		samples = 1
-	}
-sampling:
-	for _, probe := range profile.Probes {
-		for sample := 0; sample < samples; sample++ {
-			if parent.Err() != nil {
-				break sampling
-			}
-			ctx, cancel := context.WithTimeout(parent, time.Duration(m.currentConfig().Scanner.TimeoutMS+500)*time.Millisecond)
-			delay, err := m.client.Delay(ctx, item.Name, item.Provider, probe, m.currentConfig().Scanner.TimeoutMS)
-			cancel()
-			entry := model.ProbeSample{Probe: probe.Name, DelayMS: delay}
-			if err != nil {
-				entry.DelayMS = 0
-				entry.Error = err.Error()
-			}
-			result.Samples = append(result.Samples, entry)
-		}
-	}
-	result.MeasuredAt = time.Now().UTC()
-	result.ScreeningSamples = len(result.Samples)
-	if mode == "refine" {
-		result.Stage = "refined"
-		result.ScreeningSamples = 0
-		result.RefinementSamples = len(result.Samples)
-	}
-	calculateMetrics(&result, m.currentConfig().Scanner)
-	assessResult(&result, profile, m.currentConfig().Scanner.StrictVerification.Enabled)
-	return result
-}
-
-func (m *Manager) verifyEgress(ctx context.Context, proxies map[string]mihomo.Proxy, results []model.NodeResult, scanID string) {
-	probeSelector, exists := proxies[m.currentConfig().EgressVerification.SelectorGroup]
-	if !exists || !strings.EqualFold(probeSelector.Type, "Selector") {
-		for index := range results {
-			results[index].EgressError = "configured probe selector is unavailable"
-		}
-		return
-	}
-	defer m.restoreProbeSelector(probeSelector.Name, probeSelector.Now)
-	proxyURL, err := url.Parse(m.currentConfig().EgressVerification.ProxyURL)
-	if err != nil {
-		for index := range results {
-			results[index].EgressError = "configured probe listener URL is invalid"
-		}
-		return
-	}
-	httpClient := &http.Client{
-		Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS+1000) * time.Millisecond,
-		Transport: &http.Transport{
-			DisableKeepAlives: true,
-			Proxy:             http.ProxyURL(proxyURL),
-			DialContext:       (&net.Dialer{Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS) * time.Millisecond}).DialContext,
-		},
-	}
-	defer httpClient.CloseIdleConnections()
-	for index := range results {
-		if ctx.Err() != nil {
-			return
-		}
-		if !contains(probeSelector.All, results[index].Name) {
-			results[index].EgressError = "candidate is not a member of configured probe selector"
-			continue
-		}
-		if err := m.client.Select(ctx, probeSelector.Name, results[index].Name); err != nil {
-			results[index].EgressError = "could not select candidate in probe selector"
-			continue
-		}
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, m.currentConfig().EgressVerification.TraceURL, nil)
-		if err != nil {
-			results[index].EgressError = "could not create egress probe request"
-			continue
-		}
-		response, err := httpClient.Do(request)
-		if err != nil {
-			results[index].EgressError = "egress trace request failed"
-			continue
-		}
-		body, readErr := io.ReadAll(io.LimitReader(response.Body, 64<<10))
-		response.Body.Close()
-		if readErr != nil || response.StatusCode != http.StatusOK {
-			results[index].EgressError = "egress trace response was not usable"
-			continue
-		}
-		for _, line := range strings.Split(string(body), "\n") {
-			key, value, found := strings.Cut(line, "=")
-			if found && key == "loc" && len(value) == 2 {
-				results[index].VerifiedRegion = strings.ToUpper(value)
-			}
-		}
-		if results[index].VerifiedRegion == "" {
-			results[index].EgressError = "egress trace did not include a country code"
-		}
-		copy := results[index]
-		m.publish(scanID, Event{Kind: "egress-verified", Message: "egress verification completed: " + results[index].Name, At: time.Now().UTC(), Result: &copy})
-	}
-}
-
-// verifyStrict performs status-code and optional body checks through a
-// dedicated, user-configured selector. The target business selector is never
-// changed. Disabling this feature is the default because a router must first
-// provide an isolated probe selector and local proxy listener.
-func (m *Manager) verifyStrict(ctx context.Context, proxies map[string]mihomo.Proxy, profile config.ProbeProfile, results []model.NodeResult, scanID string) {
-	if len(profile.StrictProbes) == 0 {
-		return
-	}
-	verification := m.currentConfig().Scanner.StrictVerification
-	if !verification.Enabled {
-		for index := range results {
-			results[index].StrictVerificationStatus = "not_configured"
-			results[index].RestrictionStatus = "not_checked"
-		}
-		return
-	}
-	rankNodes(results)
-	for index := verification.MaxCandidates; index < len(results); index++ {
-		results[index].StrictVerificationStatus = "not_run_limit"
-		results[index].RestrictionStatus = "not_checked"
-	}
-	results = results[:min(len(results), verification.MaxCandidates)]
-	probeSelector, exists := proxies[verification.SelectorGroup]
-	if !exists || !strings.EqualFold(probeSelector.Type, "Selector") {
-		for index := range results {
-			results[index].StrictVerificationStatus = "probe_selector_unavailable"
-			results[index].RestrictionStatus = "not_checked"
-		}
-		return
-	}
-	proxyURL, err := url.Parse(verification.ProxyURL)
-	if err != nil {
-		for index := range results {
-			results[index].StrictVerificationStatus = "probe_proxy_invalid"
-			results[index].RestrictionStatus = "not_checked"
-		}
-		return
-	}
-	transport := &http.Transport{
-		Proxy:             http.ProxyURL(proxyURL),
-		DisableKeepAlives: true,
-		DialContext:       (&net.Dialer{Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS) * time.Millisecond}).DialContext,
-	}
-	client := &http.Client{Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS+1000) * time.Millisecond, Transport: transport}
-	defer transport.CloseIdleConnections()
-	if probeSelector.Now != "" {
-		defer m.restoreProbeSelector(probeSelector.Name, probeSelector.Now)
-	}
-	for index := range results {
-		result := &results[index]
-		if ctx.Err() != nil {
-			return
-		}
-		if !contains(probeSelector.All, result.Name) {
-			result.StrictVerificationStatus = "candidate_not_in_probe_selector"
-			result.RestrictionStatus = "not_checked"
-			continue
-		}
-		if err := m.client.Select(ctx, probeSelector.Name, result.Name); err != nil {
-			result.StrictVerificationStatus = "probe_selector_switch_failed"
-			result.RestrictionStatus = "not_checked"
-			continue
-		}
-		for _, probe := range profile.StrictProbes {
-			if ctx.Err() != nil {
-				return
-			}
-			result.StrictChecks = append(result.StrictChecks, m.runStrictCheck(ctx, client, probe))
-		}
-		applyStrictOutcome(result)
-		copy := *result
-		m.publish(scanID, Event{Kind: "strict-verified", Message: "strict service verification completed: " + result.Name, At: time.Now().UTC(), Result: &copy})
-	}
-}
-
-func (m *Manager) runStrictCheck(parent context.Context, client *http.Client, probe config.StrictProbe) model.StrictCheck {
-	check := model.StrictCheck{Probe: probe.Name, ExpectedStatus: probe.ExpectedStatus, Status: "failed"}
-	ctx, cancel := context.WithTimeout(parent, time.Duration(m.currentConfig().Scanner.TimeoutMS+500)*time.Millisecond)
-	defer cancel()
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, probe.URL, nil)
-	if err != nil {
-		check.Error = "could not create strict probe request"
-		return check
-	}
-	response, err := client.Do(request)
-	if err != nil {
-		check.Error = "strict probe request failed"
-		return check
-	}
-	body, readErr := io.ReadAll(io.LimitReader(response.Body, 64<<10))
-	response.Body.Close()
-	check.ObservedStatus = response.StatusCode
-	if readErr != nil {
-		check.Error = "could not read strict probe response"
-		return check
-	}
-	expected, _ := strconv.Atoi(probe.ExpectedStatus)
-	if containsStatus(probe.RestrictedStatusCodes, response.StatusCode) {
-		check.Status = "restricted"
-		return check
-	}
-	if response.StatusCode != expected {
-		check.Error = fmt.Sprintf("expected HTTP %d, received %d", expected, response.StatusCode)
-		return check
-	}
-	if probe.BodyContains != "" {
-		matched := strings.Contains(string(body), probe.BodyContains)
-		check.BodyMatched = &matched
-		if !matched {
-			check.Error = "expected response content was not present"
-			return check
-		}
-	}
-	check.Status = "passed"
-	return check
-}
-
-func (m *Manager) restoreProbeSelector(groupName, previous string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	_ = m.client.Select(ctx, groupName, previous)
-}
-
-func applyStrictOutcome(result *model.NodeResult) {
-	if len(result.StrictChecks) == 0 {
-		return
-	}
-	passed := true
-	for _, check := range result.StrictChecks {
-		if check.Status == "restricted" {
-			result.StrictVerificationStatus = "restricted"
-			result.RestrictionStatus = "restricted"
-			return
-		}
-		if check.Status != "passed" {
-			passed = false
-		}
-	}
-	if passed {
-		result.StrictVerificationStatus = "passed"
-		result.RestrictionStatus = "not_restricted"
-		return
-	}
-	result.StrictVerificationStatus = "failed"
-	result.RestrictionStatus = "unknown"
-}
-
-func assessResult(result *model.NodeResult, profile config.ProbeProfile, strictEnabled bool) {
-	switch {
-	case result.SuccessRate >= 1:
-		result.ReachabilityStatus = "available"
-	case result.SuccessRate > 0:
-		result.ReachabilityStatus = "partial"
-	default:
-		result.ReachabilityStatus = "unavailable"
-	}
-	if len(profile.StrictProbes) == 0 {
-		result.StrictVerificationStatus = "not_requested"
-		result.RestrictionStatus = "not_checked"
-	} else if !strictEnabled && result.StrictVerificationStatus == "" {
-		result.StrictVerificationStatus = "not_configured"
-		result.RestrictionStatus = "not_checked"
-	}
-	if len(profile.ExpectedRegions) == 0 {
-		result.RegionVerificationStatus = "not_configured"
-	} else if result.VerifiedRegion == "" {
-		result.RegionVerificationStatus = "unverified"
-	} else if containsFold(profile.ExpectedRegions, result.VerifiedRegion) {
-		result.RegionVerificationStatus = "matched"
-	} else {
-		result.RegionVerificationStatus = "mismatch"
-	}
-	if profile.TransportScope == "" {
-		result.TransportStatus = "latency_only"
-	} else {
-		result.TransportStatus = profile.TransportScope
-	}
 }
 
 func (m *Manager) publish(scanID string, event Event) {
