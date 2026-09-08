@@ -97,7 +97,10 @@ CREATE TABLE IF NOT EXISTS runtime_settings (
 		}
 	}
 	_, err = s.db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS idx_switch_request ON switch_events(request_id) WHERE request_id <> ''; CREATE INDEX IF NOT EXISTS idx_scans_started ON scans(started_at DESC);`)
-	return err
+	if err != nil {
+		return err
+	}
+	return s.migrateMonitor(ctx)
 }
 
 func (s *Store) ensureColumn(ctx context.Context, table, column, definition string) error {

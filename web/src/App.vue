@@ -8,9 +8,10 @@ import {discover} from './discovery'
 import {selectionKey, operationLabel, operationMessage} from './selectionState'
 import SettingsPanel from './SettingsPanel.vue'
 import StoragePanel from './StoragePanel.vue'
+import MonitoringPage from './MonitoringPage.vue'
 import type {Group, Health, NodeResult, NodeSummary, ProbeProfileSummary, Provider, Region, Scan, ScanPreview, SwitchEvent, ServiceCatalog, RuntimeSettings} from './models'
 
-type Page = 'scan' | 'nodes' | 'history' | 'settings'
+type Page = 'scan' | 'nodes' | 'history' | 'settings' | 'monitor'
 
 const page = ref<Page>('scan')
 const health = ref<Health | null>(null)
@@ -296,6 +297,11 @@ async function reconcile(item: SwitchEvent) {
   finally { switching.value = false; void load() }
 }
 
+function openMonitorScan(target: string, profileID: string) {
+  if (configLocked.value) return
+  group.value = target; serviceID.value = profileID; areas.value = []; providerSet.value = []; mode.value = 'stable'; page.value = 'scan'
+}
+
 function regionLabel(code?: string) {
   const region = regions.value.find(item => item.code === code)
   const labels: Record<string, string> = {JP: '日本', US: '美国', KR: '韩国', HK: '香港', TW: '台湾', SG: '新加坡'}
@@ -344,17 +350,18 @@ function probeKind(value: 'reachability' | 'strict') {
       <div class="brand"><Network :size="36" :stroke-width="1.5"/><div>Mihomo <small>Smart Selector</small></div></div>
       <nav aria-label="主导航">
         <button :class="{active: page === 'scan'}" :aria-current="page === 'scan' ? 'page' : undefined" @click="page = 'scan'"><ScanLine/>扫描工作台</button>
+        <button :class="{active: page === 'monitor'}" :aria-current="page === 'monitor' ? 'page' : undefined" @click="page = 'monitor'"><Radio/>持续监控</button>
         <button :class="{active: page === 'nodes'}" :aria-current="page === 'nodes' ? 'page' : undefined" @click="page = 'nodes'"><List/>节点目录</button>
         <button :class="{active: page === 'history'}" :aria-current="page === 'history' ? 'page' : undefined" @click="page = 'history'"><History/>选择历史</button>
         <button :class="{active: page === 'settings'}" :aria-current="page === 'settings' ? 'page' : undefined" @click="page = 'settings'"><Settings/>偏好设置</button>
       </nav>
-      <footer :class="{offline: !health?.mihomo_connected}"><span class="connection-dot"></span>{{ health?.mihomo_connected ? 'Controller 已连接' : 'Controller 不可用' }}<small>手动选择 · 不自动切换</small></footer>
+      <footer :class="{offline: !health?.mihomo_connected}"><span class="connection-dot"></span>{{ health?.mihomo_connected ? 'Controller 已连接' : 'Controller 不可用' }}<small>扫描手动选择 · 监控可自动切换</small></footer>
     </aside>
 
     <section class="work">
       <header>
         <div>
-          <h1>{{ page === 'scan' ? '扫描工作台' : page === 'nodes' ? '节点目录' : page === 'history' ? '选择历史' : '偏好设置' }}</h1>
+          <h1>{{ page === 'scan' ? '扫描工作台' : page === 'nodes' ? '节点目录' : page === 'history' ? '选择历史' : page === 'monitor' ? '持续监控' : '偏好设置' }}</h1>
           <p>{{ page === 'scan' ? '为所选服务找到更稳定的节点' : 'Mihomo Smart Selector' }}</p>
         </div>
         <button class="theme" @click="theme = theme === 'light' ? 'dark' : 'light'"><Moon v-if="theme === 'light'" :size="17"/><Sun v-else :size="17"/>{{ theme === 'light' ? '深色' : '明亮' }}主题</button>
@@ -500,7 +507,8 @@ function probeKind(value: 'reachability' | 'strict') {
         <div class="nodegrid"><section class="panel scroll"><table><thead><tr><th>节点</th><th>地区</th><th>Provider</th><th>协议</th></tr></thead><tbody><tr v-for="node in visibleNodes" :key="node.name" @click="selected = node"><td>{{ node.name }}</td><td>{{ regionLabel(node.inferred_region) }}</td><td>{{ node.provider || '—' }}</td><td>{{ node.protocol || '—' }}</td></tr></tbody></table></section><aside class="panel"><h2>节点详情</h2><template v-if="selected"><b>{{ selected.name }}</b><p>{{ regionLabel(selected.inferred_region) }} · {{ selected.region_source }}</p><p>Provider：{{ selected.provider || '—' }}</p><p>协议：{{ selected.protocol || '—' }}</p></template><p v-else>选择节点查看地区推断。</p></aside></div>
       </section>
 
-      <section v-else-if="page === 'history'" class="panel"><h2>手动切换记录</h2><article v-for="item in history" :key="item.id"><small>{{ new Date(item.created_at).toLocaleString() }}</small><b>{{ item.previous || '—' }} → {{ item.selected }}</b><span>{{ item.group }} · {{ operationLabel(item.status) }}</span><p>{{ item.reason }}</p><button v-if="['pending','unknown'].includes(item.status) || !item.audit_persisted" :disabled="switching" @click="reconcile(item)">核对结果</button></article><p v-if="!history.length">尚无手动切换记录。</p></section>
+      <MonitoringPage v-else-if="page === 'monitor'" :groups="groups" :services="services" :scan-locked="configLocked" @open-scan="openMonitorScan"/>
+      <section v-else-if="page === 'history'" class="panel"><h2>节点切换记录</h2><article v-for="item in history" :key="item.id"><small>{{ new Date(item.created_at).toLocaleString() }} · {{ item.scan_id.startsWith('monitor:') ? '监控自动切换' : '手动选择' }}</small><b>{{ item.previous || '—' }} → {{ item.selected }}</b><span>{{ item.group }} · {{ operationLabel(item.status) }}</span><p>{{ item.reason }}</p><button v-if="['pending','unknown'].includes(item.status) || !item.audit_persisted" :disabled="switching" @click="reconcile(item)">核对结果</button></article><p v-if="!history.length">尚无节点切换记录。</p></section>
 
       <section v-else>
         <SettingsPanel :locked="configLocked" :groups="groups" :profiles="services?.profiles || []" @saved="load()"/>

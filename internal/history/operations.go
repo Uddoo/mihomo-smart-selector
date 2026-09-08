@@ -24,6 +24,10 @@ func (s *Store) SwitchByRequest(ctx context.Context, key string) (model.SwitchEv
 func (s *Store) SwitchByID(ctx context.Context, id int64) (model.SwitchEvent, error) {
 	return s.switchWhere(ctx, "id=?", id)
 }
+
+func (s *Store) LatestGroupSwitch(ctx context.Context, group string) (model.SwitchEvent, error) {
+	return s.switchWhere(ctx, "group_name=? ORDER BY id DESC LIMIT 1", group)
+}
 func (s *Store) UnresolvedSwitch(ctx context.Context, group string) (bool, error) {
 	var id int64
 	err := s.db.QueryRowContext(ctx, `SELECT id FROM switch_events WHERE group_name=? AND status IN ('pending','unknown') LIMIT 1`, group).Scan(&id)

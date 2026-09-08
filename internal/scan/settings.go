@@ -69,6 +69,9 @@ func (m *Manager) SaveSettings(ctx context.Context, s config.RuntimeSettings) (c
 	if err != nil {
 		return s, err
 	}
+	if next.Scanner.Concurrency != cap(m.probeSlots) && len(m.probeSlots) > 0 {
+		return s, fmt.Errorf("后台监控正在探测，请稍后重试更改并发数，或先暂停监控")
+	}
 	for _, v := range []struct {
 		enabled bool
 		group   string
@@ -94,7 +97,9 @@ func (m *Manager) SaveSettings(ctx context.Context, s config.RuntimeSettings) (c
 		return s, fmt.Errorf("无法保存运行设置")
 	}
 	m.cfg.Store(&next)
-	m.probeSlots = make(chan struct{}, next.Scanner.Concurrency)
+	if cap(m.probeSlots) != next.Scanner.Concurrency {
+		m.probeSlots = make(chan struct{}, next.Scanner.Concurrency)
+	}
 	m.settingsRevision = s.Revision
 	return s, nil
 }

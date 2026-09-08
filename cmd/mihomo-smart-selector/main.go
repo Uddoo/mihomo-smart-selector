@@ -15,6 +15,7 @@ import (
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
 	"github.com/Uddoo/mihomo-smart-selector/internal/history"
 	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
+	"github.com/Uddoo/mihomo-smart-selector/internal/monitor"
 	"github.com/Uddoo/mihomo-smart-selector/internal/scan"
 )
 
@@ -44,10 +45,16 @@ func main() {
 		log.Fatalf("runtime settings error: %v", err)
 	}
 	manager.StartMaintenance()
+	monitoring, err := monitor.New(store, manager)
+	if err != nil {
+		log.Fatalf("monitor recovery error: %v", err)
+	}
 	apiServer, err := api.New(cfg.HTTP, manager, controller)
 	if err != nil {
 		log.Fatalf("HTTP server configuration error: %v", err)
 	}
+	apiServer.WithMonitor(monitoring)
+	monitoring.Start()
 	server := &http.Server{
 		Addr:              cfg.HTTP.Listen,
 		Handler:           apiServer.Handler(),
@@ -68,6 +75,9 @@ func main() {
 	<-signals
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
+	if err := monitoring.Shutdown(shutdownCtx); err != nil {
+		log.Printf("monitor shutdown error: %v", err)
+	}
 	if err := manager.Shutdown(shutdownCtx); err != nil {
 		log.Printf("scan shutdown error: %v", err)
 	}
