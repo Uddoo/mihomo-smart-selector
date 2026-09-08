@@ -57,6 +57,8 @@ onMounted(reload)
           <label>每批节点数<input v-model.number="draft.batch_size" type="number" min="1" max="100" required></label>
           <label>候选节点上限<input v-model.number="draft.max_candidates" type="number" min="1" max="1000" required></label>
           <label>稳定模式采样次数<input v-model.number="draft.samples" type="number" min="1" max="10" required></label>
+		  <label>初筛后复测前 K 名<input v-model.number="draft.refine_top_k" type="number" min="1" max="1000" required></label>
+		  <label>结果有效期（秒）<input v-model.number="draft.result_max_age_seconds" type="number" min="30" max="86400" required></label>
           <label>探测超时（毫秒）<input v-model.number="draft.timeout_ms" type="number" min="100" max="60000" required></label>
           <label>最低切换成功率（0–1）<input v-model.number="draft.min_success_rate" type="number" min="0" max="1" step="0.01" required></label>
           <label>P50 评分阈值（毫秒）<input v-model.number="draft.median_target_ms" type="number" min="1" required></label>
@@ -64,7 +66,7 @@ onMounted(reload)
           <label>抖动评分阈值（毫秒）<input v-model.number="draft.jitter_target_ms" type="number" min="1" required></label>
           <label>默认测试服务<select v-model="draft.default_profile"><option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.label }}</option></select></label>
         </div>
-        <p class="settings-note">快速模式始终每个地址采样一次。阈值用于计算性能分；已有扫描结果保持原分数。</p>
+        <p class="settings-note">快速模式每个地址采样一次。稳定模式先全量初筛，再对前 K 名及筛选范围内的当前节点补足采样（每个地址至少两次）；只有完成复测的节点可选择。结果过期后需要复测并再次确认。</p>
       </section>
       <section class="panel">
         <h2>真实出口地区验证</h2>
@@ -86,7 +88,7 @@ onMounted(reload)
           <label>严格验证代理入口<input v-model.trim="draft.strict.proxy_url" type="url" placeholder="http://127.0.0.1:17890" :required="draft.strict.enabled"></label>
           <label>严格验证节点上限<input v-model.number="draft.strict.max_candidates" type="number" min="1" :max="draft.max_candidates" :required="draft.strict.enabled" :disabled="!draft.strict.enabled"></label>
         </div>
-        <p class="settings-note">严格验证不等于帐号登录或完整流媒体解锁。</p>
+        <p class="settings-note">按排名验证预算内的前 K 个节点，其余标记为未验证。严格验证不等于帐号登录或完整流媒体解锁。</p>
       </section>
       <div class="panel">
         <h2>探测组与代理入口</h2>

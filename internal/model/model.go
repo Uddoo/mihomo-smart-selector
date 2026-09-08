@@ -13,6 +13,7 @@ const (
 )
 
 type ScanRequest struct {
+	Nodes       []string `json:"nodes,omitempty"`
 	TargetGroup string   `json:"target_group"`
 	ProfileID   string   `json:"profile_id,omitempty"`
 	Regions     []string `json:"regions"`
@@ -34,14 +35,15 @@ type ServiceCatalog struct {
 }
 
 type ScanPreview struct {
-	CandidateCount int                 `json:"candidate_count"`
-	BatchSize      int                 `json:"batch_size"`
-	BatchCount     int                 `json:"batch_count"`
-	SamplesPerNode int                 `json:"samples_per_node"`
-	ProbeRequests  int                 `json:"probe_requests"`
-	Profile        ProbeProfileSummary `json:"profile"`
-	Ready          bool                `json:"ready"`
-	Reason         string              `json:"reason,omitempty"`
+	RefineCandidates int                 `json:"refine_candidates"`
+	CandidateCount   int                 `json:"candidate_count"`
+	BatchSize        int                 `json:"batch_size"`
+	BatchCount       int                 `json:"batch_count"`
+	SamplesPerNode   int                 `json:"samples_per_node"`
+	ProbeRequests    int                 `json:"probe_requests"`
+	Profile          ProbeProfileSummary `json:"profile"`
+	Ready            bool                `json:"ready"`
+	Reason           string              `json:"reason,omitempty"`
 }
 
 type ProbeTargetSummary struct {
@@ -56,6 +58,8 @@ type ProbeTargetSummary struct {
 // profile can point at a private Emby hostname, which must remain hidden from
 // unauthenticated LAN browsers while still describing its test semantics.
 type ProbeProfileSummary struct {
+	RequireStrict               bool                 `json:"require_strict"`
+	RequireRegion               bool                 `json:"require_region"`
 	ID                          string               `json:"id"`
 	Label                       string               `json:"label"`
 	Description                 string               `json:"description"`
@@ -70,17 +74,18 @@ type ProbeProfileSummary struct {
 }
 
 type ScanProgress struct {
-	Completed                 int  `json:"completed"`
-	Total                     int  `json:"total"`
-	CurrentBatch              int  `json:"current_batch"`
-	TotalBatches              int  `json:"total_batches"`
-	BatchCompleted            int  `json:"batch_completed"`
-	BatchTotal                int  `json:"batch_total"`
-	Succeeded                 int  `json:"succeeded"`
-	Failed                    int  `json:"failed"`
-	ElapsedSeconds            int  `json:"elapsed_seconds"`
-	EstimatedRemainingSeconds int  `json:"estimated_remaining_seconds"`
-	StopAfterCurrentBatch     bool `json:"stop_after_current_batch"`
+	Stage                     string `json:"stage,omitempty"`
+	Completed                 int    `json:"completed"`
+	Total                     int    `json:"total"`
+	CurrentBatch              int    `json:"current_batch"`
+	TotalBatches              int    `json:"total_batches"`
+	BatchCompleted            int    `json:"batch_completed"`
+	BatchTotal                int    `json:"batch_total"`
+	Succeeded                 int    `json:"succeeded"`
+	Failed                    int    `json:"failed"`
+	ElapsedSeconds            int    `json:"elapsed_seconds"`
+	EstimatedRemainingSeconds int    `json:"estimated_remaining_seconds"`
+	StopAfterCurrentBatch     bool   `json:"stop_after_current_batch"`
 }
 
 type ProbeSample struct {
@@ -108,6 +113,12 @@ type ScoreBreakdown struct {
 }
 
 type NodeResult struct {
+	ScreeningSamples         int            `json:"screening_samples"`
+	RefinementSamples        int            `json:"refinement_samples"`
+	Stage                    string         `json:"stage,omitempty"`
+	MeasuredAt               time.Time      `json:"measured_at,omitzero"`
+	ExpiresAt                time.Time      `json:"expires_at,omitzero"`
+	SelectionReason          string         `json:"selection_reason,omitempty"`
 	Rank                     int            `json:"rank"`
 	Name                     string         `json:"name"`
 	Provider                 string         `json:"provider,omitempty"`

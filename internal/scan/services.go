@@ -60,13 +60,13 @@ func (m *Manager) SetBinding(ctx context.Context, item model.ServiceBinding) err
 			return err
 		}
 		item.ProfileID = profile.ID
-		groups, err := m.Groups(ctx)
+		groups, err := m.client.ListProxies(ctx)
 		if err != nil {
 			return err
 		}
 		found := false
 		for _, group := range groups {
-			if group.Name == item.Group {
+			if group.Name == item.Group && strings.EqualFold(group.Type, "Selector") {
 				found = true
 				break
 			}

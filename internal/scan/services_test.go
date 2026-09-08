@@ -104,6 +104,8 @@ func TestServicesAdaptDifferentGroupNamesAndPreserveBindings(t *testing.T) {
 				t.Fatalf("controller isolation: %+v %v", otherCatalog, err)
 			}
 			delete(fake.proxies, name)
+			// Catalog discovery is intentionally cached for two seconds.
+			manager.invalidateCatalog()
 			catalog, err = manager.Services(ctx)
 			if err != nil || catalog.Bindings[0].Status != "group_missing" {
 				t.Fatalf("missing group: %+v %v", catalog, err)

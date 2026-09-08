@@ -34,7 +34,7 @@ func (m *Manager) LoadSettings(ctx context.Context) error {
 	if err != nil || len(data) == 0 {
 		return err
 	}
-	var s config.RuntimeSettings
+	s := m.currentConfig().RuntimeSettings()
 	if err := json.Unmarshal(data, &s); err != nil {
 		return err
 	}

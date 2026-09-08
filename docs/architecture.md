@@ -130,11 +130,34 @@ Only leaf proxies are candidates: nested `Selector`, `URLTest`, `Fallback`,
 that a displayed result is a direct member that the requested selector can
 legally choose. A broad request is split into sequential batches of 60 by
 default, while each batch keeps the controller probe concurrency bounded. Scan
-polling and SSE expose completed/total candidates and current/total batch for
+authenticated polling (with SSE available to API clients) exposes completed/total node-testing tasks and current/total batch for
 the UI progress bar. A separate `max_total_candidates` limit (500 by default)
 still fails an unexpectedly huge request before it generates traffic. Quick
-mode performs one sample per endpoint, while stable mode uses the configured
-sample count.
+mode performs one sample per endpoint. Stable mode screens all candidates once,
+then refines the top `scanner.refine_top_k` (default 10) plus the current member
+if it survives the filters. Refined nodes receive `max(2, scanner.samples)`
+samples per endpoint in total. Failed screening candidates are omitted unless
+they are the current member or explicitly requested for a single-node retest.
+Refined results rank before screening-only results. Stable selection requires
+refinement. `screening_samples`, `refinement_samples`, `measured_at`, and
+`expires_at` describe the evidence; `selection_reason` explains server-side gates.
+Small-sample P95 is empirical evidence, not a long-term reliability claim.
+
+Strict verification checks the highest-ranked candidates within `max_candidates`;
+remaining candidates are marked `not_run_limit`. Its budget is independent of
+refinement, and egress verification still covers the full candidate set.
+
+Results expire `scanner.result_max_age_seconds` after their latency measurement
+(default 600 seconds, allowed 30..86400). Expired results cannot switch traffic.
+`POST /api/v1/scans/{id}/retest` with `{"node":"member"}` creates a new stable
+scan restricted to that member. The caller must inspect its results and issue
+a separate selection request. Older results without measurement timestamps use
+the scan completion time; older stable results without refinement evidence must
+be retested. Settings saved before these fields existed inherit YAML defaults.
+
+Catalog endpoints share two-second proxies/provider snapshots and coalesce
+concurrent reads. Scans, binding writes and selection membership checks bypass
+this cache. A successful switch invalidates the proxy catalog.
 
 ### 4.1 Service probe profiles and verification boundaries
 

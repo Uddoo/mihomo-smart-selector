@@ -22,6 +22,10 @@ storage:
   path: data/selector.db
 
 scanner:
+  # Stable mode: screen all nodes, then refine top K plus the eligible current node.
+  refine_top_k: 10
+  # Measured results expire before selection; retest and confirm again.
+  result_max_age_seconds: 600
   # Custom profiles are added to the built-ins. Bind any Selector to a service
   # in the UI; group names do not need to match a built-in service name.
   # See docs/service-adaptation.md for a complete custom profile example.

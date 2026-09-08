@@ -7,27 +7,31 @@ import (
 
 // RuntimeSettings contains only user-facing scan controls, never credentials or listeners.
 type RuntimeSettings struct {
-	Revision       int                      `json:"revision"`
-	Concurrency    int                      `json:"concurrency"`
-	BatchSize      int                      `json:"batch_size"`
-	MaxCandidates  int                      `json:"max_candidates"`
-	Samples        int                      `json:"samples"`
-	TimeoutMS      int                      `json:"timeout_ms"`
-	MinSuccessRate float64                  `json:"min_success_rate"`
-	MedianTargetMS int                      `json:"median_target_ms"`
-	P95TargetMS    int                      `json:"p95_target_ms"`
-	JitterTargetMS int                      `json:"jitter_target_ms"`
-	DefaultProfile string                   `json:"default_profile"`
-	Egress         EgressConfig             `json:"egress"`
-	Strict         StrictVerificationConfig `json:"strict"`
+	RefineTopK          int                      `json:"refine_top_k"`
+	ResultMaxAgeSeconds int                      `json:"result_max_age_seconds"`
+	Revision            int                      `json:"revision"`
+	Concurrency         int                      `json:"concurrency"`
+	BatchSize           int                      `json:"batch_size"`
+	MaxCandidates       int                      `json:"max_candidates"`
+	Samples             int                      `json:"samples"`
+	TimeoutMS           int                      `json:"timeout_ms"`
+	MinSuccessRate      float64                  `json:"min_success_rate"`
+	MedianTargetMS      int                      `json:"median_target_ms"`
+	P95TargetMS         int                      `json:"p95_target_ms"`
+	JitterTargetMS      int                      `json:"jitter_target_ms"`
+	DefaultProfile      string                   `json:"default_profile"`
+	Egress              EgressConfig             `json:"egress"`
+	Strict              StrictVerificationConfig `json:"strict"`
 }
 
 func (c Config) RuntimeSettings() RuntimeSettings {
 	s := c.Scanner
-	return RuntimeSettings{Concurrency: s.Concurrency, BatchSize: s.BatchSize, MaxCandidates: s.MaxTotalCandidates, Samples: s.Samples, TimeoutMS: s.TimeoutMS, MinSuccessRate: s.MinSuccessRate, MedianTargetMS: s.MedianTargetMS, P95TargetMS: s.P95TargetMS, JitterTargetMS: s.JitterTargetMS, DefaultProfile: s.DefaultProbeProfile, Egress: c.EgressVerification, Strict: s.StrictVerification}
+	return RuntimeSettings{RefineTopK: s.RefineTopK, ResultMaxAgeSeconds: s.ResultMaxAgeSeconds, Concurrency: s.Concurrency, BatchSize: s.BatchSize, MaxCandidates: s.MaxTotalCandidates, Samples: s.Samples, TimeoutMS: s.TimeoutMS, MinSuccessRate: s.MinSuccessRate, MedianTargetMS: s.MedianTargetMS, P95TargetMS: s.P95TargetMS, JitterTargetMS: s.JitterTargetMS, DefaultProfile: s.DefaultProbeProfile, Egress: c.EgressVerification, Strict: s.StrictVerification}
 }
 
 func (c Config) WithRuntimeSettings(s RuntimeSettings) (Config, error) {
+	c.Scanner.RefineTopK = s.RefineTopK
+	c.Scanner.ResultMaxAgeSeconds = s.ResultMaxAgeSeconds
 	c.Scanner.Concurrency = s.Concurrency
 	c.Scanner.BatchSize = s.BatchSize
 	c.Scanner.MaxTotalCandidates = s.MaxCandidates

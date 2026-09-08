@@ -45,6 +45,8 @@ type StorageConfig struct {
 }
 
 type ScannerConfig struct {
+	RefineTopK            int                             `yaml:"refine_top_k"`
+	ResultMaxAgeSeconds   int                             `yaml:"result_max_age_seconds"`
 	Concurrency           int                             `yaml:"concurrency"`
 	BatchSize             int                             `yaml:"batch_size"`
 	MaxTotalCandidates    int                             `yaml:"max_total_candidates"`
@@ -80,6 +82,8 @@ type StrictProbe struct {
 }
 
 type ProbeProfile struct {
+	RequireStrict         bool          `yaml:"require_strict"`
+	RequireRegion         bool          `yaml:"require_region"`
 	ID                    string        `yaml:"id"`
 	Label                 string        `yaml:"label"`
 	Description           string        `yaml:"description"`
@@ -97,6 +101,8 @@ type ProbeProfile struct {
 // other profile. Pointer fields preserve the distinction between an omitted
 // value and an intentional false value (notably Emby's setup requirement).
 type ProbeProfileOverride struct {
+	RequireStrict         *bool         `yaml:"require_strict"`
+	RequireRegion         *bool         `yaml:"require_region"`
 	Label                 string        `yaml:"label"`
 	Description           string        `yaml:"description"`
 	Probes                []Probe       `yaml:"probes"`
@@ -145,6 +151,7 @@ func Defaults() Config {
 		},
 		Storage: StorageConfig{Path: "data/selector.db"},
 		Scanner: ScannerConfig{
+			RefineTopK: 10, ResultMaxAgeSeconds: 600,
 			Concurrency: 4, BatchSize: 60, MaxTotalCandidates: 500, Samples: 3, TimeoutMS: 5000, MinSuccessRate: 0.95,
 			MedianTargetMS: 300, P95TargetMS: 800, JitterTargetMS: 200,
 			Probes: []Probe{
@@ -210,6 +217,12 @@ func (c *Config) applyProbeProfileOverrides() error {
 			if len(override.StrictProbes) > 0 {
 				profile.StrictProbes = append([]StrictProbe(nil), override.StrictProbes...)
 			}
+			if override.RequireStrict != nil {
+				profile.RequireStrict = *override.RequireStrict
+			}
+			if override.RequireRegion != nil {
+				profile.RequireRegion = *override.RequireRegion
+			}
 			if len(override.ExpectedRegions) > 0 {
 				profile.ExpectedRegions = append([]string(nil), override.ExpectedRegions...)
 			}
@@ -272,6 +285,12 @@ func (c Config) Validate() error {
 	}
 	if c.Scanner.MaxTotalCandidates < 1 || c.Scanner.MaxTotalCandidates > 1000 {
 		return fmt.Errorf("scanner.max_total_candidates must be in 1..1000")
+	}
+	if c.Scanner.RefineTopK < 1 || c.Scanner.RefineTopK > 1000 {
+		return fmt.Errorf("scanner.refine_top_k must be in 1..1000")
+	}
+	if c.Scanner.ResultMaxAgeSeconds < 30 || c.Scanner.ResultMaxAgeSeconds > 86400 {
+		return fmt.Errorf("scanner.result_max_age_seconds must be in 30..86400")
 	}
 	if c.Scanner.Samples < 1 || c.Scanner.Samples > 10 {
 		return fmt.Errorf("scanner.samples must be in 1..10")
@@ -357,6 +376,12 @@ func (c Config) validateProbeProfiles() error {
 		}
 		if err := validateStrictProbes(profile); err != nil {
 			return err
+		}
+		if profile.RequireStrict && len(profile.StrictProbes) == 0 {
+			return fmt.Errorf("profile %q requires strict probes for require_strict", profile.ID)
+		}
+		if profile.RequireRegion && len(profile.ExpectedRegions) == 0 {
+			return fmt.Errorf("profile %q requires expected_regions for require_region", profile.ID)
 		}
 		for _, group := range profile.GroupNames {
 			groupKey := normaliseGroupName(group)

@@ -22,6 +22,13 @@ versioned releases begin.
 
 ### Added
 
+- Two-stage stable scans: screen all eligible nodes, then refine the top K and
+  the eligible current member, with explicit sample evidence and timestamps.
+- Result expiry and a single-node retest action that requires a new manual
+  confirmation before switching; optional per-service strict/region gates.
+- A two-second shared discovery cache for catalog reads; scans, binding writes,
+  and selector membership validation continue to use fresh Controller data.
+
 - Project logo in both READMEs and a simplified radar-and-node browser favicon.
 - MaaEnd-inspired community configuration: bilingual issue entry points,
   troubleshooting guidance, an Other issue form, EditorConfig, issue label
@@ -49,6 +56,11 @@ versioned releases begin.
   screenshots.
 
 ### Changed
+
+- Strict verification now checks the highest-ranked candidates within its
+  budget instead of skipping the entire scan when the budget is exceeded.
+- Stable rankings put refined candidates before screening-only results;
+  screening-only candidates require a retest before selection.
 
 - Redesigned the scan workbench with compact configuration, live sorted rankings,
   persistent candidate details, and per-node selection with explicit confirmation.

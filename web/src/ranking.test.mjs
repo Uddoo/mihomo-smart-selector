@@ -1,6 +1,20 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {rankResults, hasJitterEvidence} from './ranking.ts'
+import {rankResults, hasJitterEvidence, evidence, expired} from './ranking.ts'
+
+test('refined results precede single-sample screening results', () => {
+  const screened = {...node('screened', 90), stage:'screened'}
+  const refined = {...node('refined', 60), stage:'refined'}
+  assert.deepEqual(rankResults([screened,refined]).map(r=>r.name),['refined','screened'])
+})
+
+test('sample evidence and expiry remain explicit', () => {
+  const r={...node('a',60),stage:'refined',samples:[{probe:'a',delay_ms:10},{probe:'a',error:'timeout'}],expires_at:'2026-09-08T00:00:00Z'}
+  assert.match(evidence(r),/1 \/ 2 次成功/)
+  assert.match(evidence(r),/样本较少/)
+  assert.equal(expired(r,Date.parse(r.expires_at)),true)
+  assert.equal(expired(r,Date.parse(r.expires_at)-1),false)
+})
 
 test('jitter evidence requires two successful samples of the same probe', () => {
   const a = {probe: 'a', delay_ms: 100}

@@ -44,6 +44,8 @@ type candidate struct {
 }
 
 type Manager struct {
+	proxyCache       discoveryCache[map[string]mihomo.Proxy]
+	providerCache    discoveryCache[[]mihomo.Provider]
 	cfg              atomic.Pointer[config.Config]
 	settingsMu       sync.Mutex
 	settingsRevision int
@@ -135,14 +137,23 @@ func (m *Manager) Preflight(ctx context.Context, request model.ScanRequest) (mod
 	if len(candidates) > m.currentConfig().Scanner.MaxTotalCandidates {
 		return model.ScanPreview{}, fmt.Errorf("%d candidates exceed scanner.max_total_candidates (%d); narrow regions or providers", len(candidates), m.currentConfig().Scanner.MaxTotalCandidates)
 	}
-	samples := m.currentConfig().Scanner.Samples
+	samples := max(2, m.currentConfig().Scanner.Samples)
 	if request.Mode == "quick" {
 		samples = 1
 	}
+	refineCount := 0
+	if request.Mode == "stable" {
+		refineCount = min(len(candidates), m.currentConfig().Scanner.RefineTopK+1)
+		if len(request.Nodes) > 0 {
+			refineCount = len(candidates)
+		}
+	}
+	batchSize := m.currentConfig().Scanner.BatchSize
 	return model.ScanPreview{
-		CandidateCount: len(candidates), BatchSize: m.currentConfig().Scanner.BatchSize,
-		BatchCount:     (len(candidates) + m.currentConfig().Scanner.BatchSize - 1) / m.currentConfig().Scanner.BatchSize,
-		SamplesPerNode: samples, ProbeRequests: len(candidates) * len(profile.Probes) * samples,
+		RefineCandidates: refineCount,
+		CandidateCount:   len(candidates), BatchSize: m.currentConfig().Scanner.BatchSize,
+		BatchCount:     (len(candidates)+batchSize-1)/batchSize + (refineCount+batchSize-1)/batchSize,
+		SamplesPerNode: samples, ProbeRequests: (len(candidates) + refineCount*(samples-1)) * len(profile.Probes),
 		Profile: m.profileSummary(profile), Ready: true,
 	}, nil
 }
@@ -170,14 +181,18 @@ func (m *Manager) Get(ctx context.Context, id string) (model.Scan, error) {
 	if active, exists := m.active[id]; exists {
 		snapshot := cloneScan(*active)
 		m.mu.Unlock()
-		return snapshot, nil
+		return m.decorateScan(snapshot), nil
 	}
 	m.mu.Unlock()
-	return m.store.GetScan(ctx, id)
+	stored, err := m.store.GetScan(ctx, id)
+	if err != nil {
+		return stored, err
+	}
+	return m.decorateScan(stored), nil
 }
 
 func (m *Manager) Groups(ctx context.Context) ([]mihomo.Proxy, error) {
-	proxies, err := m.client.ListProxies(ctx)
+	proxies, err := m.catalogProxies(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +207,7 @@ func (m *Manager) Groups(ctx context.Context) ([]mihomo.Proxy, error) {
 }
 
 func (m *Manager) Providers(ctx context.Context) ([]mihomo.Provider, error) {
-	providers, err := m.client.ListProviders(ctx)
+	providers, err := m.catalogProviders(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -237,6 +252,7 @@ func (m *Manager) profileSummary(profile config.ProbeProfile) model.ProbeProfile
 		}
 	}
 	return model.ProbeProfileSummary{
+		RequireStrict: profile.RequireStrict, RequireRegion: profile.RequireRegion,
 		ID: profile.ID, Label: profile.Label, Description: profile.Description,
 		ProbeCount: len(profile.Probes), StrictProbeCount: len(profile.StrictProbes),
 		StrictVerificationAvailable: len(profile.StrictProbes) > 0 && m.currentConfig().Scanner.StrictVerification.Enabled,
@@ -247,11 +263,11 @@ func (m *Manager) profileSummary(profile config.ProbeProfile) model.ProbeProfile
 }
 
 func (m *Manager) Nodes(ctx context.Context) ([]model.NodeSummary, error) {
-	proxies, err := m.client.ListProxies(ctx)
+	proxies, err := m.catalogProxies(ctx)
 	if err != nil {
 		return nil, err
 	}
-	providers, err := m.client.ListProviders(ctx)
+	providers, err := m.catalogProviders(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -313,8 +329,12 @@ func (m *Manager) Select(ctx context.Context, scanID, requestedNode string) (mod
 	if selected == nil {
 		return model.SwitchEvent{}, fmt.Errorf("requested node is not a result of scan %q", scanID)
 	}
-	if selected.SuccessRate < m.currentConfig().Scanner.MinSuccessRate {
-		return model.SwitchEvent{}, fmt.Errorf("node %q is below min_success_rate", selected.Name)
+	profile, err := m.currentConfig().ProbeProfileByID(scan.Request.ProfileID)
+	if err != nil {
+		return model.SwitchEvent{}, fmt.Errorf("服务模板已失效，请重新扫描")
+	}
+	if reason := m.selectionReason(scan, *selected, profile, time.Now()); reason != "" {
+		return model.SwitchEvent{}, fmt.Errorf("%s", reason)
 	}
 	proxies, err := m.client.ListProxies(ctx)
 	if err != nil {
@@ -327,9 +347,14 @@ func (m *Manager) Select(ctx context.Context, scanID, requestedNode string) (mod
 	if !contains(group.All, selected.Name) {
 		return model.SwitchEvent{}, fmt.Errorf("node %q is no longer a member of target group", selected.Name)
 	}
+	// Fresh discovery can take time; enforce expiry again immediately before PUT.
+	if reason := m.selectionReason(scan, *selected, profile, time.Now()); reason != "" {
+		return model.SwitchEvent{}, fmt.Errorf("%s", reason)
+	}
 	if err := m.client.Select(ctx, group.Name, selected.Name); err != nil {
 		return model.SwitchEvent{}, err
 	}
+	m.invalidateCatalog()
 	event := model.SwitchEvent{
 		ScanID: scan.ID, Group: group.Name, Previous: group.Now, Selected: selected.Name,
 		Reason: "manual selection from completed scan", CreatedAt: time.Now().UTC(),
@@ -415,27 +440,11 @@ func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult
 		return nil, fmt.Errorf("%d candidates exceed scanner.max_total_candidates (%d); narrow regions or providers", len(candidates), m.currentConfig().Scanner.MaxTotalCandidates)
 	}
 
-	totalBatches := (len(candidates) + m.currentConfig().Scanner.BatchSize - 1) / m.currentConfig().Scanner.BatchSize
-	m.setProgress(scan.ID, model.ScanProgress{Total: len(candidates), TotalBatches: totalBatches})
-	allResults := make([]model.NodeResult, 0, len(candidates))
-	for batchIndex, start := 1, 0; start < len(candidates); batchIndex, start = batchIndex+1, start+m.currentConfig().Scanner.BatchSize {
-		end := min(start+m.currentConfig().Scanner.BatchSize, len(candidates))
-		progress := m.progressSnapshot(scan.ID)
-		progress.Total = len(candidates)
-		progress.CurrentBatch = batchIndex
-		progress.TotalBatches = totalBatches
-		progress.BatchCompleted = 0
-		progress.BatchTotal = end - start
-		m.setProgress(scan.ID, progress)
-		m.publish(scan.ID, Event{Kind: "batch-started", Message: fmt.Sprintf("batch %d of %d started", batchIndex, totalBatches), At: time.Now().UTC(), Progress: &progress})
-		allResults = append(allResults, m.probeBatch(ctx, scan, profile, candidates[start:end])...)
-		if ctx.Err() != nil {
-			return allResults, ctx.Err()
-		}
-		if m.stopRequested(scan.ID) {
-			return allResults, errScanStopped
-		}
+	allResults, err := m.stagedProbes(ctx, scan, profile, candidates, proxies[scan.Request.TargetGroup].Now)
+	if err != nil {
+		return allResults, err
 	}
+	rankNodes(allResults)
 
 	if m.currentConfig().EgressVerification.Enabled {
 		m.verifyEgress(ctx, proxies, allResults, scan.ID)
@@ -450,18 +459,7 @@ func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult
 	for index := range allResults {
 		assessResult(&allResults[index], profile, m.currentConfig().Scanner.StrictVerification.Enabled)
 	}
-	sort.SliceStable(allResults, func(left, right int) bool {
-		if allResults[left].Score != allResults[right].Score {
-			return allResults[left].Score > allResults[right].Score
-		}
-		if allResults[left].SuccessRate != allResults[right].SuccessRate {
-			return allResults[left].SuccessRate > allResults[right].SuccessRate
-		}
-		return allResults[left].P95MS < allResults[right].P95MS
-	})
-	for index := range allResults {
-		allResults[index].Rank = index + 1
-	}
+	rankNodes(allResults)
 	return allResults, nil
 }
 
@@ -511,6 +509,7 @@ func normaliseRequest(request model.ScanRequest) (model.ScanRequest, error) {
 	if request.Mode != "stable" && request.Mode != "quick" {
 		return model.ScanRequest{}, fmt.Errorf("mode must be stable or quick")
 	}
+	request.Nodes = normaliseStrings(request.Nodes)
 	request.Regions = normaliseCodes(request.Regions)
 	request.Providers = normaliseStrings(request.Providers)
 	return request, nil
@@ -546,8 +545,7 @@ func (m *Manager) probeBatch(parent context.Context, scan model.Scan, profile co
 
 	batchResults := make([]model.NodeResult, 0, len(candidates))
 	for result := range results {
-		progress := m.recordCandidate(scan.ID, result)
-		copy := result
+		copy, progress := m.recordCandidate(scan.ID, result, profile)
 		m.publish(scan.ID, Event{Kind: "candidate-complete", Message: "candidate tested: " + result.Name, At: time.Now().UTC(), Result: &copy, Progress: &progress})
 		batchResults = append(batchResults, result)
 	}
@@ -558,6 +556,9 @@ func (m *Manager) filterCandidates(group mihomo.Proxy, proxies map[string]mihomo
 	seen := map[string]bool{}
 	items := make([]candidate, 0, len(group.All))
 	for _, name := range group.All {
+		if len(request.Nodes) > 0 && !contains(request.Nodes, name) {
+			continue
+		}
 		if seen[name] {
 			continue
 		}
@@ -587,9 +588,12 @@ func (m *Manager) filterCandidates(group mihomo.Proxy, proxies map[string]mihomo
 
 func (m *Manager) probeCandidate(parent context.Context, item candidate, profile config.ProbeProfile, mode string) model.NodeResult {
 	result := model.NodeResult{
-		Name: item.Name, Provider: item.Provider, InferredRegion: item.Region.Code, RegionSource: item.Region.Source,
+		Name: item.Name, Provider: item.Provider, InferredRegion: item.Region.Code, RegionSource: item.Region.Source, Stage: "screened",
 	}
-	samples := m.currentConfig().Scanner.Samples
+	samples := max(2, m.currentConfig().Scanner.Samples)
+	if mode == "refine" {
+		samples--
+	}
 	if mode == "quick" {
 		samples = 1
 	}
@@ -609,6 +613,13 @@ sampling:
 			}
 			result.Samples = append(result.Samples, entry)
 		}
+	}
+	result.MeasuredAt = time.Now().UTC()
+	result.ScreeningSamples = len(result.Samples)
+	if mode == "refine" {
+		result.Stage = "refined"
+		result.ScreeningSamples = 0
+		result.RefinementSamples = len(result.Samples)
 	}
 	calculateMetrics(&result, m.currentConfig().Scanner)
 	assessResult(&result, profile, m.currentConfig().Scanner.StrictVerification.Enabled)
@@ -698,13 +709,12 @@ func (m *Manager) verifyStrict(ctx context.Context, proxies map[string]mihomo.Pr
 		}
 		return
 	}
-	if len(results) > verification.MaxCandidates {
-		for index := range results {
-			results[index].StrictVerificationStatus = "not_run_limit"
-			results[index].RestrictionStatus = "not_checked"
-		}
-		return
+	rankNodes(results)
+	for index := verification.MaxCandidates; index < len(results); index++ {
+		results[index].StrictVerificationStatus = "not_run_limit"
+		results[index].RestrictionStatus = "not_checked"
 	}
+	results = results[:min(len(results), verification.MaxCandidates)]
 	probeSelector, exists := proxies[verification.SelectorGroup]
 	if !exists || !strings.EqualFold(probeSelector.Type, "Selector") {
 		for index := range results {
@@ -917,11 +927,25 @@ func (m *Manager) progressSnapshot(scanID string) model.ScanProgress {
 	return model.ScanProgress{}
 }
 
-func (m *Manager) recordCandidate(scanID string, result model.NodeResult) model.ScanProgress {
+func (m *Manager) recordCandidate(scanID string, result model.NodeResult, profile config.ProbeProfile) (model.NodeResult, model.ScanProgress) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if active, exists := m.active[scanID]; exists {
-		active.Results = append(active.Results, result)
+		replaced := false
+		for i := range active.Results {
+			if active.Results[i].Name == result.Name {
+				result.ScreeningSamples = active.Results[i].ScreeningSamples
+				result.Samples = append(append([]model.ProbeSample(nil), active.Results[i].Samples...), result.Samples...)
+				calculateMetrics(&result, m.currentConfig().Scanner)
+				assessResult(&result, profile, m.currentConfig().Scanner.StrictVerification.Enabled)
+				active.Results[i] = result
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			active.Results = append(active.Results, result)
+		}
 		active.Progress.Completed++
 		active.Progress.BatchCompleted++
 		if result.SuccessRate > 0 {
@@ -934,9 +958,9 @@ func (m *Manager) recordCandidate(scanID string, result model.NodeResult) model.
 			remaining := active.Progress.Total - active.Progress.Completed
 			active.Progress.EstimatedRemainingSeconds = active.Progress.ElapsedSeconds * remaining / active.Progress.Completed
 		}
-		return active.Progress
+		return result, active.Progress
 	}
-	return model.ScanProgress{}
+	return result, model.ScanProgress{}
 }
 
 func (m *Manager) stopRequested(scanID string) bool {
@@ -947,6 +971,7 @@ func (m *Manager) stopRequested(scanID string) bool {
 
 func cloneScan(input model.Scan) model.Scan {
 	output := input
+	output.Request.Nodes = append([]string(nil), input.Request.Nodes...)
 	output.Request.Regions = append([]string(nil), input.Request.Regions...)
 	output.Request.Providers = append([]string(nil), input.Request.Providers...)
 	output.Results = make([]model.NodeResult, len(input.Results))

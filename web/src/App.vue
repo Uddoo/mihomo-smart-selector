@@ -2,7 +2,7 @@
 import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {Network, ScanLine, List, History, Settings, Moon, Sun, RefreshCw, ChevronDown, CheckCircle2, Radio, ArrowRight} from '@lucide/vue'
 import {APIError, api, setAPIToken} from './api'
-import {rankResults, hasJitterEvidence} from './ranking'
+import {rankResults, hasJitterEvidence, evidence, expired} from './ranking'
 import SettingsPanel from './SettingsPanel.vue'
 import type {Group, Health, NodeResult, NodeSummary, ProbeProfileSummary, Provider, Region, Scan, ScanPreview, SwitchEvent, ServiceCatalog, RuntimeSettings} from './models'
 
@@ -42,6 +42,8 @@ const choiceDialog = ref<HTMLDialogElement | null>(null)
 const switching = ref(false)
 const starting = ref(false)
 const showProfile = ref(false)
+const now = ref(Date.now())
+let ageTimer: number | undefined
 let poll: number | undefined
 let refreshPending = false
 let refreshAgain = false
@@ -52,7 +54,7 @@ const results = computed(() => rankResults(scan.value?.results || []))
 const best = computed(() => results.value[0])
 const candidate = computed(() => results.value.find(x => x.name === focusedName.value) || best.value)
 const currentResult = computed(() => results.value.find(x => x.name === current.value?.now))
-const scanLabel = computed(() => scan.value?.status === 'complete' ? '扫描完成' : scan.value?.status === 'cancelled' ? '扫描已停止' : scan.value?.status === 'failed' ? '扫描失败' : running.value ? '扫描进行中' : '准备就绪')
+const scanLabel = computed(() => scan.value?.status === 'complete' ? '扫描完成' : scan.value?.status === 'cancelled' ? '扫描已停止' : scan.value?.status === 'failed' ? '扫描失败' : running.value ? (scan.value?.progress.stage === 'refining' ? '复测进行中' : '初筛进行中') : '准备就绪')
 const configLocked = computed(() => running.value || starting.value || switching.value || savingBinding.value)
 const progress = computed(() => scan.value?.progress)
 const percent = computed(() => progress.value?.total ? Math.round(progress.value.completed * 100 / progress.value.total) : 0)
@@ -80,13 +82,14 @@ watch(pendingChoice, value => {
 }, {flush: 'post'})
 
 onMounted(() => {
+  ageTimer = window.setInterval(() => { now.value = Date.now() }, 1000)
   setAPIToken(token.value)
   void load()
   discoveryPoll = window.setInterval(() => {
     if (!configLocked.value && !access.value && !document.hidden) void load()
   }, 30000)
 })
-onBeforeUnmount(() => { close(); window.clearInterval(discoveryPoll); ++previewRevision })
+onBeforeUnmount(() => { window.clearInterval(ageTimer); close(); window.clearInterval(discoveryPoll); ++previewRevision })
 
 async function load() {
   if (loading.value || configLocked.value) return
@@ -186,6 +189,15 @@ async function start() {
   starting.value = true
   try {
     const response = await api<Scan>('/scans', {method: 'POST', body: JSON.stringify(body())})
+    monitor(response)
+  } catch (error) {
+    failure.value = error instanceof Error ? error.message : '无法开始扫描'
+  } finally {
+    starting.value = false
+  }
+}
+
+function monitor(response: Scan) {
     close()
     scan.value = response
     focusedName.value = ''
@@ -194,11 +206,18 @@ async function start() {
     // Poll through api() so progress requests carry the configured Bearer token.
     poll = window.setInterval(() => void refresh(), 1200)
     void refresh()
-  } catch (error) {
-    failure.value = error instanceof Error ? error.message : '无法开始扫描'
-  } finally {
-    starting.value = false
-  }
+}
+
+async function retest() {
+  if (!scan.value || !candidate.value || configLocked.value) return
+  starting.value = true
+  failure.value = ''
+  try {
+    const response = await api<Scan>('/scans/' + encodeURIComponent(scan.value.id) + '/retest', {method:'POST', body:JSON.stringify({node:candidate.value.name})})
+    monitor(response)
+    notice.value = '正在复测此节点；完成后请检查新结果并再次确认选择。'
+  } catch (error) { failure.value = error instanceof Error ? error.message : '复测失败' }
+  finally { starting.value = false }
 }
 
 async function refresh() {
@@ -218,6 +237,7 @@ async function refresh() {
       void preflight()
       if (response.status === 'cancelled') notice.value = '扫描已停止；保留实时排名，选择操作已锁定。'
       else if (response.status === 'failed') failure.value = response.error || '扫描失败'
+	  else if (response.request.nodes?.length) notice.value = '复测已完成，请检查新结果并再次确认选择。'
     }
   } catch (error) {
     failure.value = error instanceof Error ? error.message : '无法更新扫描结果'
@@ -244,6 +264,8 @@ function selectionReason(result?: NodeResult) {
   if (loading.value || !discoveryValid.value) return '请先刷新并连接 Controller'
   if (!current.value) return '扫描目标策略组已失效'
   if (!result) return '等待节点结果'
+  if (expired(result, now.value)) return '结果已过期，请复测此节点'
+  if (result.selection_reason) return result.selection_reason
   if (!current.value.all?.includes(result.name)) return '节点已不属于扫描目标策略组'
   if (result.success_rate < minimumSuccessRate.value) return `成功率低于 ${Math.round(minimumSuccessRate.value * 100)}%`
   return ''
@@ -268,6 +290,7 @@ async function confirmChoice() {
     pendingChoice.value = null
   } catch (error) {
     failure.value = error instanceof Error ? error.message : '切换失败'
+    await refresh()
     pendingChoice.value = null
   } finally { switching.value = false }
 }
@@ -401,14 +424,15 @@ function probeKind(value: 'reachability' | 'strict') {
             </ul>
           </section>
           <p v-if="profile.requires_configuration" class="profile-hint">{{ profile.setup_hint }}</p>
-          <p v-else class="profile-scope">评分衡量此服务的可达性、时延与稳定性；除非“严格验证”已通过，否则不把结果视为登录、解锁或播放证明。</p>
+          <p v-if="profile.require_strict || profile.require_region" class="profile-scope">切换条件：{{ profile.require_strict ? '严格验证通过；' : '' }}{{ profile.require_region ? '出口地区匹配；' : '' }}</p>
+          <p v-if="!profile.requires_configuration" class="profile-scope">评分衡量此服务的可达性、时延与稳定性；除非“严格验证”已通过，否则不把结果视为登录、解锁或播放证明。</p>
         </section>
         </div>
 
         <div v-if="!running && !groupMissing && discoveryValid && !profile?.requires_configuration && !preview?.ready" class="preflight warning"><b>当前不可扫描</b><span>{{ !group ? '未发现可选择的 Selector 策略组。' : preview?.reason || failure || '正在加载预检。' }}</span></div>
 
         <div v-if="running" class="progress">
-          <div><b>已完成 {{ progress?.completed || 0 }} / {{ progress?.total || 0 }} · 第 {{ progress?.current_batch || 0 }} / {{ progress?.total_batches || 0 }} 批</b><strong>{{ percent }}%</strong></div>
+          <div><b>{{ progress?.stage === 'refining' ? '复测阶段' : '初筛阶段' }} · 已完成探测任务 {{ progress?.completed || 0 }} / {{ progress?.total || 0 }} · 第 {{ progress?.current_batch || 0 }} / {{ progress?.total_batches || 0 }} 批</b><strong>{{ percent }}%</strong></div>
           <div class="progress-track" role="progressbar" aria-label="扫描进度" :aria-valuenow="percent" :aria-valuemin="0" :aria-valuemax="100"><span :style="{width: percent + '%'}"></span></div>
           <section><span>成功 <b>{{ progress?.succeeded || 0 }}</b></span><span>失败 <b>{{ progress?.failed || 0 }}</b></span><span>耗时 <b>{{ clock(progress?.elapsed_seconds) }}</b></span><span>预计剩余 <b>{{ clock(progress?.estimated_remaining_seconds) }}</b></span></section>
           <p><button @click="stop(true)">本批结束后停止</button><button class="danger" @click="stop(false)">立即停止</button></p>
@@ -419,7 +443,7 @@ function probeKind(value: 'reachability' | 'strict') {
         <div class="grid">
           <section class="ranking panel">
             <div class="head">
-              <div><h2>实时排名</h2><p>{{ scan?.status === 'complete' ? '性能满分 90 · 可选择任意符合条件的节点' : '结果返回即排序 · 扫描完成后可选择' }}</p></div>
+              <div><h2>实时排名</h2><p>{{ scan?.status === 'complete' ? '复测节点优先 · 性能满分 90 · 仅可选择符合条件的节点' : '结果返回即排序 · 扫描完成后可选择' }}</p></div>
             </div>
             <div class="scroll">
               <table aria-label="节点实时排名">
@@ -429,7 +453,7 @@ function probeKind(value: 'reachability' | 'strict') {
                     <td class="rank">{{ result.rank }}</td>
                     <td>
                       <div class="node-name"><button class="node-focus" :aria-label="'查看 ' + result.name + ' 详情'" :aria-pressed="candidate?.name === result.name" @click.stop="focusedName = result.name">{{ result.name }}</button><span v-if="current?.now === result.name" class="current-tag">当前</span></div><small>{{ result.provider }}</small>
-                      <div class="state-row">
+                      <div class="state-row"><span class="state">{{ result.stage === 'refined' ? '已复测' : '仅初筛' }}</span>
                         <span :class="['state', statusTone(result.reachability_status)]">{{ statusLabel(result.reachability_status) }}</span>
                         <span v-if="statusTone(result.restriction_status) === 'bad'" class="state bad">{{ statusLabel(result.restriction_status) }}</span>
                         <span v-if="statusTone(result.strict_verification_status) === 'bad'" class="state bad">严格 · {{ statusLabel(result.strict_verification_status) }}</span>
@@ -455,6 +479,10 @@ function probeKind(value: 'reachability' | 'strict') {
               <div class="candidate-score"><div><b>性能评分</b><span><strong>{{ candidate.score.toFixed(1) }}</strong> / 90</span></div><meter min="0" max="90" :value="candidate.score" aria-label="候选性能评分"/></div>
               <div class="current-node"><span>当前节点</span><b>{{ current?.now || '—' }}</b></div>
               <table class="comparison-table" aria-label="当前与候选指标"><thead><tr><th></th><th>当前</th><th>候选</th></tr></thead><tbody><tr><th>P95 时延</th><td>{{ currentResult ? latency(currentResult.p95_ms) : '本次未测' }}</td><td>{{ latency(candidate.p95_ms) }}</td></tr><tr><th>成功率</th><td>{{ currentResult ? percentLabel(currentResult.success_rate) : '本次未测' }}</td><td>{{ percentLabel(candidate.success_rate) }}</td></tr></tbody></table>
+              <p class="settings-note">{{ evidence(candidate) }}</p>
+              <p class="settings-note">采样时间：{{ candidate.measured_at ? new Date(candidate.measured_at).toLocaleString() : '历史记录未提供' }}<br>有效至：{{ candidate.expires_at ? new Date(candidate.expires_at).toLocaleTimeString() : '—' }}</p>
+              <p v-if="currentResult" class="settings-note">与当前节点比较：{{ currentResult.name === candidate.name ? '当前正在使用此节点' : `P95 ${((candidate.p95_ms ?? 0) - (currentResult.p95_ms ?? 0)) > 0 ? '增加' : '降低'} ${Math.abs((candidate.p95_ms ?? 0) - (currentResult.p95_ms ?? 0))} ms；成功率差 ${((candidate.success_rate - currentResult.success_rate) * 100).toFixed(1)} 个百分点` }}。当前节点 {{ evidence(currentResult) }}。</p>
+              <p v-else class="settings-note">当前节点不在本次结果中，暂无同轮比较依据。</p>
               <section class="assessment"><h3>服务验证</h3><dl>
                 <div><dt>可达性</dt><dd :class="statusTone(candidate.reachability_status)">{{ statusLabel(candidate.reachability_status) }}</dd></div>
                 <div><dt>严格验证</dt><dd :class="statusTone(candidate.strict_verification_status)">{{ statusLabel(candidate.strict_verification_status) }}</dd></div>
@@ -462,12 +490,13 @@ function probeKind(value: 'reachability' | 'strict') {
                 <div><dt>服务限制</dt><dd :class="statusTone(candidate.restriction_status)">{{ statusLabel(candidate.restriction_status) }}</dd></div>
               </dl></section>
               <details class="score-details"><summary>性能得分拆解<ChevronDown :size="15"/></summary><dl class="breakdown"><div><dt>可靠性</dt><dd>{{ points(candidate.score_breakdown?.reliability) }} / 40</dd></div><div><dt>P50</dt><dd>{{ points(candidate.score_breakdown?.p50) }} / 15</dd></div><div><dt>P95</dt><dd>{{ points(candidate.score_breakdown?.p95) }} / 20</dd></div><div><dt>抖动</dt><dd>{{ hasJitterEvidence(candidate) ? points(candidate.score_breakdown?.jitter) + ' / 10' : '样本不足 · 0 / 10' }}</dd></div><div><dt>地区</dt><dd>{{ points(candidate.score_breakdown?.region) }} / 5</dd></div></dl><p>传输范围：{{ candidate.transport_status }}</p></details>
-              <div class="candidate-action"><button class="primary" :disabled="!!selectionReason(candidate)" @click="choose()">选择此节点<ArrowRight :size="16"/></button><p>{{ selectionReason(candidate) || '确认后切换，不自动切换' }}</p></div>
+              <div class="candidate-action"><button v-if="scan?.status === 'complete'" :disabled="configLocked || loading" @click="retest">复测此节点</button><button class="primary" :disabled="!!selectionReason(candidate)" @click="choose()">选择此节点<ArrowRight :size="16"/></button><p>{{ selectionReason(candidate) || '确认后切换，不自动切换' }}</p></div>
             </template>
             <p v-else class="empty-detail">{{ running ? '等待第一个节点完成检测，结果将实时出现。' : '开始扫描，或点击排名中的节点查看详情。' }}</p>
           </aside>
         </div>
         </div>
+        <p v-if="preview && !running" class="scope-note">预计最多 {{ preview.probe_requests }} 次延迟请求；初筛 {{ preview.candidate_count }} 个节点，复测最多 {{ preview.refine_candidates }} 个（含当前节点预留名额）。</p>
         <p class="scope-note">评分反映可达性、时延与稳定性，不代表登录、解锁或播放验证通过。</p>
       </section>
 

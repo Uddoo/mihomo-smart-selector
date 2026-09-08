@@ -132,7 +132,7 @@ flowchart LR
         direction TB
         choose["Choose service and filters<br/>Quick / stable mode"]
         preflight["Match profile; discover and filter<br/>Leaf members only; enforce limits"]
-        probe["Probe in bounded batches<br/>Quick: 1 sample; stable: N"]
+        probe["Probe in bounded batches<br/>Screen all; stable refines top K and current node"]
         verify["Aggregate timings and metrics<br/>Optional isolated verification"]
         rank["Finalize score and rank<br/>Persist results; show verification"]
         stop["Error / cancellation<br/>No business node switch"]

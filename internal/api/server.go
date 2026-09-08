@@ -216,6 +216,21 @@ func (s *Server) scanRoute(writer http.ResponseWriter, request *http.Request) {
 		s.selectNode(writer, request, parts[0])
 		return
 	}
+	if len(parts) == 2 && parts[1] == "retest" && request.Method == http.MethodPost {
+		var payload struct {
+			Node string `json:"node"`
+		}
+		if !decodeJSON(writer, request, &payload) {
+			return
+		}
+		result, err := s.manager.Retest(request.Context(), parts[0], payload.Node)
+		if err != nil {
+			writeError(writer, http.StatusConflict, err.Error())
+			return
+		}
+		writeJSON(writer, http.StatusAccepted, result)
+		return
+	}
 	if len(parts) == 2 && parts[1] == "stop" && request.Method == http.MethodPost {
 		s.stopScan(writer, request, parts[0])
 		return

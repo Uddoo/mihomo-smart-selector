@@ -6,6 +6,8 @@ export interface Health {
 }
 
 export interface RuntimeSettings {
+	refine_top_k: number
+	result_max_age_seconds: number
   revision: number
   concurrency: number
   batch_size: number
@@ -77,6 +79,8 @@ export interface ScoreBreakdown {
 }
 
 export interface ProbeProfileSummary {
+	require_strict?: boolean
+	require_region?: boolean
   id: string
   label: string
   description: string
@@ -99,6 +103,12 @@ export interface ProbeTargetSummary {
 }
 
 export interface NodeResult {
+	screening_samples?: number
+	refinement_samples?: number
+	stage?: 'screened' | 'refined'
+	measured_at?: string
+	expires_at?: string
+	selection_reason?: string
   rank: number
   name: string
   provider?: string
@@ -125,6 +135,7 @@ export interface Scan {
   id: string
   status: 'running' | 'complete' | 'failed' | 'cancelled'
   request: {
+	nodes?: string[]
     target_group: string
     profile_id?: string
     regions: string[]
@@ -140,6 +151,7 @@ export interface Scan {
 }
 
 export interface ScanProgress {
+ stage?: string
   completed: number
   total: number
   current_batch: number
@@ -154,6 +166,7 @@ export interface ScanProgress {
 }
 
 export interface ScanPreview {
+ refine_candidates: number
   candidate_count: number
   batch_size: number
   batch_count: number
