@@ -1,5 +1,27 @@
 # Project branding
 
+## GitHub sharing
+
+- `social-preview.png`: 1280 × 640 PNG, below 1 MiB, ready for GitHub's Social
+  preview setting. It uses the existing logo and a real UI crop with mock data.
+- `social-preview.html`: editable source for the cover, rendered with Playwright.
+  Relative image references keep the source portable inside the repository.
+- Regeneration and screenshot provenance: [showcase assets](../screenshots/README.md).
+
+Suggested repository description:
+
+> 按服务评估 Mihomo 节点，复测前列候选、对比当前节点，并手动确认切换。面向 Mihomo / OpenClash。
+
+English equivalent:
+
+> Service-aware node evaluation for Mihomo and OpenClash. Refine candidates, compare with your current node, and confirm the switch.
+
+The file is ready to upload under repository **Settings → Social preview**.
+Committing it does not automatically change GitHub's repository metadata or
+social preview setting.
+
+## Existing identity
+
 - `logo.png`: the user's selected fourth candidate, copied unchanged for both READMEs (1254 × 1254).
 - `favicon-source.png`: the simplified radar, pointer, and selected-node artwork, edited with built-in image_gen (1254 × 1254).
 - `../../../web/public/favicon-32.png`: 32 × 32 browser PNG, exported from the simplified source.

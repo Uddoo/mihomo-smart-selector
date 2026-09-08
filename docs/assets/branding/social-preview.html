@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mihomo Smart Selector · Social preview</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:1280px;height:640px;overflow:hidden}
+body{font-family:Inter,"Segoe UI","Microsoft YaHei",sans-serif;background:#0b1c34;color:#f1f6ff}
+.canvas{position:relative;width:1280px;height:640px;padding:54px 62px;background:radial-gradient(ellipse at 90% 5%,#123b61 0%,transparent 54%)}
+.orbit{position:absolute;width:630px;height:630px;border:1px solid #214465;border-radius:50%;right:-180px;top:-250px;opacity:.55}
+.orbit:after{content:"";position:absolute;inset:85px;border:1px solid #285778;border-radius:50%}
+.brand{display:flex;align-items:center;gap:16px;font-weight:600;font-size:15px;letter-spacing:2px;color:#a4c3de}
+.brand img{width:58px;height:58px;border-radius:14px;border:1px solid #234560}
+h1{position:relative;font-size:64px;line-height:1.06;letter-spacing:-2.8px;margin:36px 0 22px;font-weight:750}
+h1 span{display:block;color:#65ddbe}
+.tagline{font-size:24px;line-height:1.5;color:#e1edfa;margin:0 0 12px;letter-spacing:.2px}
+.subtitle{font-size:17px;color:#9eb6d0;margin:0;line-height:1.65}
+.steps{display:flex;gap:14px;align-items:center;margin-top:30px;font-size:13px;font-weight:600;letter-spacing:1.5px;color:#c0d4e9}
+.steps b{display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px;border:1px solid #365670;border-radius:50%;color:#67debf;margin-right:8px}
+.steps i{font-style:normal;color:#4b6884}
+.repo{position:absolute;bottom:34px;left:62px;color:#829ab4;font-size:14px}
+.card{position:absolute;right:56px;top:72px;width:490px;height:524px;border:1px solid #40607b;border-radius:16px;background:#fff;overflow:hidden;box-shadow:0 22px 65px #0005}
+.card-head{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;background:#f0f5fb;color:#34516e;font-size:11px;letter-spacing:1.3px;font-weight:700}
+.dots{color:#2dbe98;letter-spacing:4px;font-size:14px}.card img{display:block;width:490px;height:auto}
+.footnote{position:absolute;right:70px;bottom:21px;font-size:11px;color:#8da9c4;letter-spacing:.4px}
+</style>
+<main class="canvas">
+  <div class="orbit"></div>
+  <div class="brand"><img src="logo.png" alt="Mihomo Smart Selector logo">MIHOMO / OPENCLASH</div>
+  <h1>Mihomo<span>Smart Selector</span></h1>
+  <p class="tagline">让每次节点切换，都有依据。</p>
+  <p class="subtitle">Choose your next node with evidence.<br>Service-aware scans. You decide when to switch.</p>
+  <div class="steps"><span><b>1</b>SCAN</span><i>→</i><span><b>2</b>COMPARE</span><i>→</i><span><b>3</b>CONFIRM</span></div>
+  <div class="repo">github.com/Uddoo/mihomo-smart-selector</div>
+  <div class="card"><div class="card-head"><span class="dots">● ● ●</span><span>REAL APP · DEMO DATA</span></div><img src="../screenshots/node-comparison.png" alt="Actual application comparing current and candidate node metrics using simulated data"></div>
+  <div class="footnote">Self-hosted · Single binary · Manual confirmation</div>
+</main>
+</html>

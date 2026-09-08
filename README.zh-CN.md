@@ -1,359 +1,185 @@
 <p align="center">
-  <img src="docs/assets/branding/logo.png" width="180" height="180" alt="Mihomo Smart Selector 标识：指针选中绿色网络节点" />
+  <img src="docs/assets/branding/logo.png" width="88" height="88" alt="Mihomo Smart Selector 标识" />
+</p>
+<h1 align="center">Mihomo Smart Selector</h1>
+<p align="center"><strong>按服务选节点，让每次切换都有依据。</strong></p>
+<p align="center">面向 Mihomo / OpenClash 的节点评估工作台。<br>全量初筛、重点复测、对比当前节点，再由你确认切换。</p>
+<p align="center">
+  <a href="#quick-start"><strong>快速开始</strong></a> ·
+  <a href="#showcase">看看使用效果</a> ·
+  <a href="deploy/openwrt/README.md">部署到路由器</a> ·
+  <a href="README.md">English</a>
+</p>
+<p align="center">
+  <a href="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml"><img src="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 状态" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT 许可证" /></a>
+  <a href="#compatibility"><img src="https://img.shields.io/badge/status-pre--release-f0b44c" alt="预发布状态" /></a>
 </p>
 
-# Mihomo Smart Selector
+![扫描完成后的五节点排名、样本依据与当前节点对比](docs/assets/screenshots/workbench-results.png)
+<p align="center"><sub>真实运行界面 · 本地模拟数据。图中数值用于展示使用流程，不代表真实网络性能。</sub></p>
+<p align="center"><strong>单文件部署 · 按服务探测 · 手动确认切换</strong></p>
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+## 它能帮你做什么？
 
-[![CI](https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml)
-[![许可证：MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+| 你想知道的 | 工作台提供的依据 |
+| --- | --- |
+| **这个服务该用哪个节点？** | 选择 ChatGPT、YouTube、GitHub 或自定义探测模板，并保存策略组与服务的绑定。 |
+| **这个候选值得切换吗？** | 全量初筛后，复测前 K 名与当前节点；并排查看 P95、成功次数与采样依据。 |
+| **刚才的切换成功了吗？** | 手动确认后回读 Controller，展示操作与审计状态；结果未知时可以核对。 |
 
-`Mihomo Smart Selector` 是一个小型自托管服务，用于针对特定网络服务，
-从 Mihomo `Selector` 的成员中选择更稳定的节点。它面向 OpenClash/iStoreOS，
-但不会替代 OpenClash，也不会把 Mihomo Controller secret 暴露给浏览器。
+服务与 Mihomo / OpenClash 配合运行。扫描不修改订阅，也不切换正在评估的业务策略组；
+可选的严格验证与出口检查使用独立探测组。Controller 密钥始终保留在后端。
 
-> **支持已验证环境、仍在开发中的自托管工具。**
-> 当前运行验证覆盖 Windows 本地模拟 Controller，以及 NanoPi R5S LTS 上的
-> iStoreOS 24.10.8 / ARM64 和 Mihomo `alpha-smart-86ece76`。
-> CI 验证 Linux ARM64、AMD64 构建；构建通过不代表所有路由器和 OpenClash 版本均已实机验证。
->
-> **预发布状态：** 当前还没有稳定安装包或公开 Release。在 `v1.0.0` 前，
-> 配置和 API 兼容性仍可能变化。当前仪表盘以简体中文为主，英文 UI 本地化
-> 尚未完成。
+<a id="quick-start"></a>
+## 先在本机体验
 
-当前预发布版本提供：
+**可以从仓库自带的演示环境开始。** 准备 **Go 1.27.x** 和两个终端即可。
+Go 构建会嵌入仓库现有的 Vue 页面资源；只有重新构建前端时才需要 Node.js 和 pnpm。
 
-- 嵌入单个 Go 二进制的 Vue 3 仪表盘；
-- 通过本地 Mihomo Controller API 发现 Selector、Provider 和可用成员；
-- 可配置的地区分类和节点覆盖规则；
-- 独立选择策略组与测试服务，保存服务绑定，并通过 YAML 添加自定义探测模板；
-- 自动刷新策略组，显示删除、改名或模板缺失导致的失效绑定；
-- 多次采样，以及中位数、P95、抖动、成功率和可解释的 90 分性能评分；
-- 把可达性、严格 HTTP/正文验证、服务限制、地区验证和传输范围分别展示，
-  不会把一次 HTTP 200 描述成登录、播放或地区解锁证明；
-- 基于 SQLite 的扫描和切换历史；
-- 必须由操作者确认的 **选择最佳节点** 操作；
-- 通过显式配置的本地 Mihomo listener 串行执行的可选真实出口检查；
-- 使用隔离 Mihomo Selector 和本地代理 listener 的严格验证路径，不使用被
-  评分的业务 Selector。
+终端 1：
 
-服务默认监听 `127.0.0.1:8788`。在配置好身份认证和 LAN 限制之前，请保持
-loopback 默认值。不同组名、私有服务和密钥文件的配置见
-[适配不同的 OpenClash / Mihomo 配置](docs/service-adaptation.md)。
-
-## 截图
-
-以下为实机运行截图，展示扫描工作台、节点目录、选择历史和偏好设置。
-
-### 扫描工作台
-
-![扫描工作台中的节点排名与候选详情](docs/assets/screenshots/scan-workbench.png)
-
-### 节点目录
-
-![节点目录中的地区、Provider 和协议](docs/assets/screenshots/node-catalog.png)
-
-### 选择历史
-
-![手动节点切换历史](docs/assets/screenshots/selection-history.png)
-
-### 偏好设置
-
-![扫描参数、真实出口地区验证和严格验证的持久化设置](docs/assets/screenshots/preferences.png)
-
-工作台截图展示未启动扫描的预检状态；节点目录与选择历史截图经维护者确认，保留真实使用信息。
-
-运行参数与验证开关可以在“偏好设置”中修改，保存后在服务端持久化，覆盖 YAML 中对应的默认值，
-用于后续扫描。服务模板、Controller 密钥和监听访问控制仍由服务器配置管理。
-详见[配置与持久化说明](docs/service-adaptation.md)。
-
-## 项目架构
-
-Vue 工作台由 Go 二进制内嵌提供。浏览器只访问本项目服务，Mihomo Controller
-secret 仅由 Go 后端持有。
-
-```mermaid
-flowchart TB
-    browser["浏览器 · Vue 3 工作台"]
-
-    subgraph selector["Go 服务"]
-        api["内嵌 Web 资源 + HTTP API<br/>访问控制 · REST · SSE"]
-        manager["扫描管理器<br/>预检 · 分批 · 进度 · 节点选择"]
-        rules["Probe Profile + 地区分类器<br/>服务匹配 · 手工覆盖 · 筛选"]
-        metrics["指标计算与排名<br/>成功率 · P50 · P95 · 抖动"]
-        client["Mihomo 客户端<br/>Controller secret 保留在服务端"]
-        store[("SQLite<br/>扫描结果 + 切换历史")]
-
-        api --> manager
-        manager --> rules
-        manager --> metrics
-        manager --> client
-        manager <--> store
-    end
-
-    subgraph mihomo["Mihomo 运行时"]
-        controller["Controller API<br/>发现 · 探测 · 选择节点"]
-        listener["独立探测 Selector + 本地监听器<br/>可选的严格验证 / 出口验证"]
-        outbound["代理节点 / 出站连接"]
-        controller --> outbound
-        listener --> outbound
-    end
-
-    targets["服务探测端点 / 出口追踪端点"]
-    browser <-->|"页面资源 · REST / 轮询 · SSE"| api
-    client -->|"Controller 请求"| controller
-    manager -.->|"可选隔离验证 · 默认关闭"| listener
-    outbound --> targets
-```
-
-Mihomo 可由 OpenClash 管理或独立运行。常规扫描使用其 delay 或 Provider
-healthcheck 接口。可选的严格 HTTP
-状态码/正文验证与真实出口验证通过独立探测 Selector 和本地代理监听器执行，
-不会切换正在评估的业务 Selector。当前阶段未实现后台调度或自主切换。
-
-## 工作原理
-
-```mermaid
-flowchart LR
-    subgraph scanning["1 · 扫描与评估"]
-        direction TB
-        choose["选择服务与筛选条件<br/>快速 / 稳定模式"]
-        preflight["匹配 Profile，发现并筛选成员<br/>仅保留叶子节点，检查数量上限"]
-        probe["分批探测，限制并发<br/>全量初筛；稳定模式复测前 K 名及当前节点"]
-        verify["汇总延迟与指标<br/>按配置执行可选隔离验证"]
-        rank["完成评分与排名<br/>结果落库，展示验证状态"]
-        stop["错误 / 取消<br/>不切换业务节点"]
-
-        choose --> preflight --> probe --> verify --> rank
-        preflight -.->|"未通过"| stop
-        probe -.->|"失败 / 停止"| stop
-    end
-
-    subgraph selection["2 · 显式选择"]
-        direction TB
-        decide{"用户选择节点？"}
-        allowed{"扫描记录与成员<br/>校验通过？"}
-        switch["通过 PUT 将业务 Selector<br/>切换到所选成员"]
-        intent["先保存待执行审计"]
-        audit["回读 Controller<br/>更新操作结果与审计状态"]
-        keep["保持当前节点<br/>如被拒绝则说明原因"]
-
-        decide -->|"是"| allowed
-        decide -->|"否"| keep
-        allowed -->|"否"| keep
-        allowed -->|"是"| intent --> switch --> audit
-    end
-
-    scanning -->|"仅限已完成并持久化的扫描"| selection
-```
-
-性能评分满分 **90 分**：成功率 40 分、P95 20 分、P50 15 分、抖动 10 分，
-真实出口与名称推断地区一致时另计 5 分。最终依次按评分、成功率和更低的 P95
-排序。严格验证、服务限制和服务地区验证分别展示，不额外计分，也不等于登录、
-播放或地区解锁证明。扫描期间可以查看实时结果，选择节点则要求扫描已完成并落库。
-切换前会重新检查扫描结果、最低成功率门槛，以及节点是否仍属于目标 Selector。
-
-完整 API、配置与验证边界见[架构与部署设计](docs/architecture.md)。
-
-## 5 分钟快速上手
-
-### 1. 从源码运行
-
-```powershell
-git clone https://github.com/Uddoo/mihomo-smart-selector.git
-Set-Location mihomo-smart-selector
-Copy-Item config.example.yaml config.yaml
-$env:MIHOMO_SECRET = '<controller secret>'
-go mod download
-pnpm --dir web install --frozen-lockfile
-go vet ./...
-go test ./...
-go build -o bin/mihomo-smart-selector.exe ./cmd/mihomo-smart-selector
-./bin/mihomo-smart-selector.exe -config config.yaml
-```
-
-进程启动后打开 `http://127.0.0.1:8788` 使用控制台。
-
-```bash
+```sh
 git clone https://github.com/Uddoo/mihomo-smart-selector.git
 cd mihomo-smart-selector
-cp config.example.yaml config.yaml
-export MIHOMO_SECRET='<controller secret>'
-go mod download
-pnpm --dir web install --frozen-lockfile
-go build -o bin/mihomo-smart-selector ./cmd/mihomo-smart-selector
-./bin/mihomo-smart-selector -config config.yaml
+go run ./cmd/mihomo-mock
 ```
 
-### 2. OpenWrt/iStoreOS 部署验证
+终端 2，在同一个仓库目录运行：
 
-部署步骤和已审计模板见：
-
-- [OpenWrt/iStoreOS 部署指南](deploy/openwrt/README.md)
-- [架构与部署设计](docs/architecture.md)
-
-当前仓库尚未对外发布稳定版本包。
-
-## 配置快速参考
-
-复制 `config.example.yaml` 为 `config.yaml` 后按实际环境修改，且不要将敏感信息写进文件。
-
-重点配置项示例：
-
-```yaml
-http:
-  # 默认只监听 loopback，除非你明确需要并配置 token + CIDR 白名单
-  listen: 127.0.0.1:8788
-  api_token: ""
-  api_token_env: MSS_API_TOKEN
-  allowed_cidrs: []
-
-mihomo:
-  # 对应本机/路由器上的 Mihomo Controller
-  controller: http://127.0.0.1:9090
-  # 秘钥从环境变量读取，不要写死
-  secret_env: MIHOMO_SECRET
-  request_timeout_seconds: 8
-
-storage:
-  path: data/selector.db
-
-scanner:
-  # 按路由器能力调整
-  concurrency: 4
-  batch_size: 60
-  max_total_candidates: 500
-  samples: 3
-  timeout_ms: 5000
-  min_success_rate: 0.95
-  median_target_ms: 300
-  p95_target_ms: 800
-  jitter_target_ms: 200
-  probe_profile_overrides:
-    emby.example.com:
-      url: https://emby.example.com
-      expected_status: "200"
-
-egress_verification:
-  enabled: false
-  selector_group: __SMART_PROBE__
-  proxy_url: http://127.0.0.1:17890
-  trace_url: https://chatgpt.com/cdn-cgi/trace
+```sh
+go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 ```
 
-- 将 `http.listen` 改为非 loopback 时，必须配置有效 `api_token`。
-- `http.listen` 非 loopback 时，必须配置 `allowed_cidrs`。
-- 私有服务的可达性请用 `scanner.probe_profile_overrides`，不要改写所有内置
-  Profile。
-- `probe_profile_overrides` 为可选配置，在默认配置中不出现。
-- 严格验证和出口验证仅在确认独立 Probe Selector 与 loopback 代理 listener
-  后再开启。
+打开 **[localhost:8788](http://127.0.0.1:8788)**，选择“稳定”模式并开始扫描。
+模拟 Controller 只运行在本机，返回演示节点的模拟时延，无需订阅或真实 Controller 密钥。
+以上命令同时适用于 PowerShell 和 POSIX shell；首次运行会下载 Go 依赖，结束时分别按 Ctrl+C。
+需要确保本机 9090 和 8788 端口未被占用。
 
-如果你还需要 `auto_switch`、严格验证、或更多扫描参数（如 `median_target_ms`、
-`p95_target_ms`、`jitter_target_ms`），请优先对照
-[`config.example.yaml`](config.example.yaml) 的完整字段。
+### 接入你自己的 Mihomo
 
+| 使用位置 | 下一步 |
+| --- | --- |
+| **电脑本机** | 将 `config.example.yaml` 复制为 `config.yaml`，设置 Controller 地址，通过 `MIHOMO_SECRET` 或 `mihomo.secret_file` 提供密钥，再运行 `go run ./cmd/mihomo-smart-selector -config config.yaml`。[配置说明 →](docs/service-adaptation.md) |
+| **OpenClash 路由器** | 确认 CPU 架构，构建程序并安装服务，步骤见[路由部署指南 →](deploy/openwrt/README.md)。 |
+
+本机使用保持默认 loopback 监听；标准 LAN 部署需要 token 与可信 CIDR 白名单。
+严格验证、出口验证还需要事先配置独立的探测 Selector 和本机代理入口。
+**当前为预发布阶段，从源码运行，尚未提供稳定版下载包。**
+
+<a id="showcase"></a>
+## 看清依据，再做选择
+
+### 01 · 和当前节点放在一起比较
+
+当前节点与候选节点同时可见。成功数、采样次数和测量时间帮助你判断排名有多少依据；
+结果过期后，需要复测并再次确认。
+
+<p align="center"><img src="docs/assets/screenshots/node-comparison.png" width="430" alt="候选详情特写：模拟场景中当前节点 P95 为 188 ms，候选为 109 ms，三次采样均成功" /></p>
+
+### 02 · 切换之后，核对实际结果
+
+每次切换都会先保存待执行记录，再回读 Controller，区分已确认、失败或未知结果。
+同一次请求重试不会重复切换；未确认操作会持续保留，供你核对。
+
+![模拟 Controller 上通过真实确认流程生成的两条已确认切换记录](docs/assets/screenshots/switch-audit.png)
+
+*以上三张展示图均使用仓库内置 mock 和真实应用流程，不作为帐号登录、流媒体解锁或生产网络时延的证明。*
+
+<details>
+<summary><strong>更多界面：节点目录与偏好设置</strong></summary>
+
+下面是较早版本的实机部署截图，部分布局可能早于最近更新；其中的真实使用信息已获维护者允许保留。
+
+![按 Provider、协议和推断地区查看节点目录](docs/assets/screenshots/node-catalog.png)
+
+![扫描参数和可选验证设置](docs/assets/screenshots/preferences.png)
+
+</details>
+
+## 也考虑到了长期使用
+
+- **刷新后接着看：** 页面重载会恢复活动扫描，服务重启后可以查看已中断任务。
+- **探测有预算：** 扫描共享全局并发，同组防重复，并限制同时运行的任务数量。
+- **历史有边界：** 扫描与审计分别设置保留策略，查看存储占用，并在确认后手动清理。
+- **切换有条件：** 检查结果有效期与可选服务条件，先保存操作意图，再回读确认结果。
+
+这些能力由一个 Go 服务、内嵌 Vue 界面和 SQLite 存储提供。当前不会自主切换节点或定时发起扫描。
+[运行维护与恢复说明 →](docs/operations.md)
+
+<a id="compatibility"></a>
+## 已验证环境与项目状态
+
+| 验证类型 | 范围 |
+| --- | --- |
+| **本地运行** | Windows，使用内置 mock Controller 和浏览器流程测试。 |
+| **路由器运行** | NanoPi R5S LTS / ARM64，iStoreOS 24.10.8，Mihomo `alpha-smart-86ece76`。 |
+| **构建验证** | CI 配置覆盖 Linux ARM64、AMD64；当前结果以顶部实时 CI 徽章为准。构建成功不等同于所有设备均已实机验证。 |
+
+项目仍在开发中，`v1.0.0` 前配置和 API 兼容性可能变化。当前界面以简体中文为主，英文 UI 尚未完成。
+HTTP 可达不等于登录、播放或地区解锁成功；严格验证和出口验证独立展示，不混同于性能评分。
+
+<a id="docs"></a>
+## 按需查阅文档
+
+| 我想…… | 文档 |
+| --- | --- |
+| 使用自己的组名、服务或私有地址 | [服务适配与持久化设置](docs/service-adaptation.md) |
+| 安装到路由器 | [部署、预检与回滚](deploy/openwrt/README.md) |
+| 了解评分、隔离方式或 API | [架构与验证边界](docs/architecture.md) |
+| 了解重启恢复、审计状态或清理规则 | [长期运行与异常恢复](docs/operations.md) |
+| 排查问题或反馈 Bug | [排障与反馈指南](docs/troubleshooting.md) |
+| 查看最近变化 | [更新记录](CHANGELOG.md) |
+
+<a id="faq"></a>
 ## 常见问题
 
-### 为什么连接不到 Controller？
+**扫描会切换我正在使用的业务节点吗？** 不会，业务组只在你明确确认选择后切换。
+可选验证会临时调整独立探测组，并在结束时尝试恢复。
 
-请先确认 `mihomo.controller` 与 `mihomo.secret_env` 指向的是正在运行的
-Controller，且该 Controller 与本服务可互通。
+**为什么分数更高的节点有时排在后面？** 稳定模式优先展示已复测节点。
+同一阶段内按评分、成功率、较低 P95 排序；仅初筛的候选可以先单独复测再选择。
 
-### 为什么页面显示“无可切换节点”？
+**为什么不能选择某个节点？** 操作旁会显示原因，例如扫描未完成、结果已过期、
+节点已移出策略组、成功率不足、未满足服务条件，或之前的切换仍待核对。
 
-常见原因是 `Selector` 未在当前 Controller 中注册、配置文件中的过滤条件过
-严、或对应服务探测 URL 不可达。先在 UI 与配置中确认对应 Selector 与
-Probe Profile。
+**某个服务一直探测失败怎么办？** 先检查 Controller 连接和探测模板。
+私有服务需要通过 Profile 覆盖规则填写实际服务地址。[排障指南 →](docs/troubleshooting.md)
 
-### 本机访问 127.0.0.1:8788 但前端无法显示？
+<a id="development"></a>
+<details>
+<summary><strong>构建、测试与参与贡献</strong></summary>
 
-先确认前端静态资源已重新构建（`pnpm --dir web build`）并且在启动时未报
-静态文件嵌入校验错误。
+前端开发除 Go 1.27.x 外，还需要 Node.js ≥22.12、pnpm 11.19.x。
+项目局部 Go 工具链可以放在 `.tools/go`；该目录不包含在新 clone 中。
 
-### 如何避免暴露 Controller secret？
-
-请使用 `api_token` 与 `allowed_cidrs` 组合，并通过环境变量传递 `MIHOMO_SECRET`，
-或通过权限为 `0600` 的 `mihomo.secret_file` 提供密钥；配置文件方式优先。
-避免在日志和 issue 里贴明文配置、Provider URL、订阅地址或私有服务地址。
-
-## 本地开发
-
-环境要求：
-
-- `go.mod` 声明的 Go 1.27.x；
-- Node.js 22.12 或更高；
-- pnpm 11.19.x。
-
-你可以把项目局部 Go 工具链放在 `.tools/go`，但该目录不会进入 Git，干净
-clone 中也不存在。下面的标准命令使用 `PATH` 中的工具链：
-
-```powershell
+```sh
 go mod download
 pnpm --dir web install --frozen-lockfile
 pnpm --dir web build
 go vet ./...
 go test ./...
-go build -o bin/mihomo-smart-selector.exe ./cmd/mihomo-smart-selector
-Copy-Item config.example.yaml config.yaml
-$env:MIHOMO_SECRET = '<controller secret>'
-./bin/mihomo-smart-selector.exe -config config.yaml
+go build -o bin/mihomo-smart-selector ./cmd/mihomo-smart-selector
 ```
 
-只有在本地 mock 或 Mihomo Controller 已经运行后，才打开
-`http://127.0.0.1:8788`。Controller 不可达时，服务会返回明确的降级健康状态。
-
-仓库级验证入口：
+Windows 下将构建输出路径改为 `bin/mihomo-smart-selector.exe`。
+仓库验证使用 PowerShell：
 
 ```powershell
 ./tools/verify.ps1
 ./tools/smoke-test.ps1
 ```
 
-`verify.ps1` 会检查格式、Go module 一致性、Go 测试与 vet、前端 frozen
-install、TypeScript、内嵌 Web 资产的可复现性、shell 语法、依赖漏洞，以及
-Git 历史和当前工作树的 secret。`-SkipSecurity` 只适合更快的本地内循环；
-CI 会在 Ubuntu 上运行包含 Go race detector 的完整合同。
+验证覆盖格式、模块、测试、前端资源、工作流与 shell 语法、依赖漏洞和密钥检查。
+`-SkipSecurity` 用于更快的本地迭代；CI 配置包含 Go race detector。
+进程级 smoke test 使用隔离的本地 mock，并在结束后清理测试进程。
 
-smoke test 会在临时目录构建并启动 `mihomo-mock` 和真实服务，使用临时
-loopback 端口验证发现、预检、扫描、排名、选择、Controller 状态和 SQLite
-历史，然后清理测试进程和文件。
+参与前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)、[行为准则](CODE_OF_CONDUCT.md)
+和[维护者配置说明](docs/open-source-setup.md)。密钥、订阅地址和私有服务信息不应进入提交或公开反馈；
+敏感问题按 [SECURITY.md](SECURITY.md) 的流程报告。
 
-配置私有服务（例如 Emby）时，应使用
-`scanner.probe_profile_overrides`，不要替换所有内置 Profile。只有在独立的
-`__SMART_PROBE__` 风格 Selector 和 loopback 代理 listener 已安装并验证后，
-才能启用严格检查。参见[架构与部署设计](docs/architecture.md)。
+</details>
 
-## 路由部署
+---
 
-部署是独立的验证阶段。复制文件前，先确认目标路由器的私有 LAN/Tailnet
-地址、SSH host key、CPU 架构、Mihomo 版本、剩余空间、可信客户端 CIDR，
-并审核当前 OpenClash 配置。示例只是模板，不是某台路由器的预批准参数。
-
-参见 [OpenWrt/iStoreOS 部署指南](deploy/openwrt/README.md)和
-[架构与部署设计](docs/architecture.md)。
-
-公开的路由器配置示例默认同时要求生成的 Bearer token 和可信 CIDR
-allow-list。无密码 LAN 模式是高风险显式选项，不是默认值。不要添加 WAN
-端口转发。
-
-## 安全
-
-不要把 Controller secret、API token、Provider URL、节点凭据、私有服务地址、
-完整代理配置或构建二进制放入源码仓库。发现疑似漏洞时，按照
-[安全政策](SECURITY.md)报告，不要在公开 Issue 中提交敏感证据。
-
-## 参与贡献
-
-使用疑问或问题反馈，请先阅读[排障与反馈指南](docs/troubleshooting.md)。
-维护者可在[开源协作配置说明](docs/open-source-setup.md)查看参考项目的适配关系和托管端设置边界。
-
-提交 Pull Request 前，请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)，并运行完整
-验证和 process-level smoke 合同。公开 Issue 与日志必须按照
-[SECURITY.md](SECURITY.md)脱敏。项目变更记录在 [CHANGELOG.md](CHANGELOG.md)，
-社区参与遵循[行为准则](CODE_OF_CONDUCT.md)。
-
-## 许可证
-
-Mihomo Smart Selector 使用 [MIT License](LICENSE)。
+[MIT 许可证](LICENSE) · [反馈问题](https://github.com/Uddoo/mihomo-smart-selector/issues/new/choose) · [English](README.md)

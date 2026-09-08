@@ -1,391 +1,206 @@
 <p align="center">
-  <img src="docs/assets/branding/logo.png" width="180" height="180" alt="Mihomo Smart Selector logo: a pointer selecting a green network node" />
+  <img src="docs/assets/branding/logo.png" width="88" height="88" alt="Mihomo Smart Selector logo" />
+</p>
+<h1 align="center">Mihomo Smart Selector</h1>
+<p align="center"><strong>Choose your next node with evidence.</strong></p>
+<p align="center">Service-aware node evaluation for Mihomo and OpenClash.<br>Screen all candidates, refine the shortlist, compare with your current node — then confirm the switch.</p>
+<p align="center">
+  <a href="#quick-start"><strong>Quick start</strong></a> ·
+  <a href="#showcase">See it in action</a> ·
+  <a href="deploy/openwrt/README.md">Router deployment</a> ·
+  <a href="README.zh-CN.md">简体中文</a>
+</p>
+<p align="center">
+  <a href="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml"><img src="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license" /></a>
+  <a href="#compatibility"><img src="https://img.shields.io/badge/status-pre--release-f0b44c" alt="Pre-release" /></a>
 </p>
 
-# Mihomo Smart Selector
+![Completed scan: five ranked nodes, sample evidence, and a current-versus-candidate comparison](docs/assets/screenshots/workbench-results.png)
+<p align="center"><sub>Actual application, local mock data. The interface is currently in Simplified Chinese. Shown timings illustrate the workflow, not a network benchmark.</sub></p>
+<p align="center"><strong>Single binary · Service-specific probes · Manual confirmation</strong></p>
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+## Why try it?
 
-[![CI](https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+| Your question | What the workbench gives you |
+| --- | --- |
+| **Which node should I use for this service?** | Choose a ChatGPT, YouTube, GitHub or custom probe profile and save its group binding. |
+| **Is the candidate worth a closer look?** | Screen every eligible node, then refine the top K and your current node. Inspect P95, success counts and sample evidence side by side. |
+| **What happened when I switched?** | Confirm explicitly, then check the Controller readback and audit status. Unknown outcomes have a reconciliation action. |
 
-`Mihomo Smart Selector` is a small, self-hosted service for choosing a stable
-Mihomo selector member for a particular internet service. It is designed for
-OpenClash/iStoreOS, but it does not replace OpenClash and does not expose the
-Mihomo controller secret to a browser.
+The service works alongside Mihomo / OpenClash. It leaves subscriptions and the
+business Selector unchanged during scans; optional strict/egress checks use a
+separate probe Selector. The Controller secret stays on the backend.
 
-> **A self-hosted tool under active development, with support scoped to verified environments.**
-> Runtime validation currently covers Windows with a local mock Controller and
-> a NanoPi R5S LTS running iStoreOS 24.10.8 / ARM64 with Mihomo
-> `alpha-smart-86ece76`. CI verifies Linux builds for ARM64 and AMD64; a passing
-> build does not establish runtime support for every router or OpenClash version.
->
-> **Pre-release:** no stable package or public release has been published yet.
-> Configuration and API compatibility may change before `v1.0.0`. The current
-> dashboard UI is Simplified Chinese; English UI localization is not complete.
+<a id="quick-start"></a>
+## Try it locally
 
-The current pre-release build provides:
+**Start with the included demo.** You need **Go 1.27.x** and two terminals.
+The Vue dashboard is already embedded in the repository's Go build; Node.js
+and pnpm are needed only when rebuilding the frontend.
 
-- a Vue 3 dashboard embedded into one Go binary;
-- discovery of selector groups, providers, and eligible members through the
-  local Mihomo Controller API;
-- configurable region classification and node overrides;
-- independently selected service profiles, persistent group bindings and
-  additive custom YAML templates ([adaptation guide](docs/service-adaptation.md));
-- periodic group refresh and visible stale group/profile bindings;
-- multi-sample scans with median, P95, jitter, success rate, and a transparent
-  90-point performance score with an independent score breakdown;
-- separate reachability, strict HTTP/body verification, restriction,
-  region-verification and transport-scope states, so a 200 response is never
-  presented as proof of login, streaming or regional unlock;
-- SQLite-backed scan and switch history;
-- a deliberate, manual **Select best node** action; and
-- an optional, serialized actual-egress check through an explicitly configured
-  local Mihomo listener; and
-- an opt-in strict-verification route that uses an isolated Mihomo selector and
-  local proxy listener, never the business selector being scored.
+In terminal 1:
 
-The service binds to `127.0.0.1:8788` by default. Keep that default until an
-authenticated, LAN-restricted access path has been configured.
-
-## Screenshots
-
-The following screenshots were captured from a real deployment and show the
-scan workbench, node catalog, selection history, and preferences.
-
-### Scan workbench
-
-![Scan workbench with node rankings and candidate details](docs/assets/screenshots/scan-workbench.png)
-
-### Node catalog
-
-![Node catalog with regions, providers, and protocols](docs/assets/screenshots/node-catalog.png)
-
-### Selection history
-
-![Manual node selection history](docs/assets/screenshots/selection-history.png)
-
-### Preferences
-
-![Persistent scan parameters, egress verification and strict verification settings](docs/assets/screenshots/preferences.png)
-
-The workbench image shows a preflight without starting a scan. Existing node
-catalog and selection-history images retain real usage information with the
-maintainer's permission.
-
-Runtime scan parameters and verification controls can be changed in Settings.
-Saved values persist on the server and override the corresponding YAML defaults
-for subsequent scans. Service templates, Controller credentials and listener
-access controls remain server configuration. See the
-[configuration and persistence guide](docs/service-adaptation.md).
-
-## Architecture
-
-The Vue dashboard is served from the Go binary. The browser calls the selector
-service; only the Go backend holds the Mihomo Controller secret.
-
-```mermaid
-flowchart TB
-    browser["Browser · Vue 3 dashboard"]
-
-    subgraph selector["Go service"]
-        api["Embedded web assets + HTTP API<br/>Access control · REST · SSE"]
-        manager["Scan manager<br/>Preflight · batches · progress · selection"]
-        rules["Probe Profiles + region classifier<br/>Service matching · overrides · filters"]
-        metrics["Metrics + ranking<br/>Success rate · P50 · P95 · jitter"]
-        client["Mihomo client<br/>Controller secret stays on the server"]
-        store[("SQLite<br/>Scan results + switch history")]
-
-        api --> manager
-        manager --> rules
-        manager --> metrics
-        manager --> client
-        manager <--> store
-    end
-
-    subgraph mihomo["Mihomo runtime"]
-        controller["Controller API<br/>Discover · probe · select"]
-        listener["Dedicated probe Selector + local listener<br/>Optional strict / egress verification"]
-        outbound["Proxy nodes / outbound connections"]
-        controller --> outbound
-        listener --> outbound
-    end
-
-    targets["Service probe endpoints / egress trace"]
-    browser <-->|"Web assets · REST / polling · SSE"| api
-    client -->|"Controller requests"| controller
-    manager -.->|"Optional isolated verification · off by default"| listener
-    outbound --> targets
-```
-
-Mihomo may be managed by OpenClash or run separately. The normal scan uses its
-delay or provider healthcheck endpoint. Optional
-strict HTTP/body and actual-egress checks use a dedicated probe Selector and
-local proxy listener; they do not switch the business Selector being evaluated.
-The current milestone has no background scheduler or autonomous switching.
-
-## How it works
-
-```mermaid
-flowchart LR
-    subgraph scanning["1 · Scan and evaluate"]
-        direction TB
-        choose["Choose service and filters<br/>Quick / stable mode"]
-        preflight["Match profile; discover and filter<br/>Leaf members only; enforce limits"]
-        probe["Probe in bounded batches<br/>Screen all; stable refines top K and current node"]
-        verify["Aggregate timings and metrics<br/>Optional isolated verification"]
-        rank["Finalize score and rank<br/>Persist results; show verification"]
-        stop["Error / cancellation<br/>No business node switch"]
-
-        choose --> preflight --> probe --> verify --> rank
-        preflight -.->|"Rejected"| stop
-        probe -.->|"Failed / stopped"| stop
-    end
-
-    subgraph selection["2 · Explicit selection"]
-        direction TB
-        decide{"User selects a node?"}
-        allowed{"Scan / membership<br/>checks pass?"}
-        switch["PUT the selected member<br/>to the business Selector"]
-        intent["Persist pending switch intent"]
-        audit["Read back Controller state<br/>Update outcome and audit status"]
-        keep["Keep current node<br/>Report rejection if applicable"]
-
-        decide -->|"Yes"| allowed
-        decide -->|"No"| keep
-        allowed -->|"No"| keep
-        allowed -->|"Yes"| intent --> switch --> audit
-    end
-
-    scanning -->|"Completed and persisted scan only"| selection
-```
-
-The performance score has a maximum of **90 points**: success rate 40, P95 20,
-P50 15, jitter 10, and verified egress matching the name-inferred region 5.
-Final ordering uses score, then success rate, then lower P95. Strict verification,
-restrictions, and service-region checks remain separate facts, not extra score
-components or proof of login, playback, or regional unlock. Live results may be
-viewed while scanning; selection requires a completed, persisted scan.
-Before switching, the service rechecks the scan result, minimum success rate,
-and whether the node is still a member of the target Selector.
-
-See [the architecture and deployment design](docs/architecture.md) for API
-routes, configuration details, and verification boundaries.
-
-## Quick start (5 minutes)
-
-### 1. Build from source
-
-```powershell
-git clone https://github.com/Uddoo/mihomo-smart-selector.git
-Set-Location mihomo-smart-selector
-Copy-Item config.example.yaml config.yaml
-$env:MIHOMO_SECRET = '<controller secret>'
-go mod download
-pnpm --dir web install --frozen-lockfile
-go vet ./...
-go test ./...
-go build -o bin/mihomo-smart-selector.exe ./cmd/mihomo-smart-selector
-./bin/mihomo-smart-selector.exe -config config.yaml
-```
-
-Open `http://127.0.0.1:8788` after the process starts and shows the service.
-
-```bash
+```sh
 git clone https://github.com/Uddoo/mihomo-smart-selector.git
 cd mihomo-smart-selector
-cp config.example.yaml config.yaml
-export MIHOMO_SECRET='<controller secret>'
-go mod download
-pnpm --dir web install --frozen-lockfile
-go build -o bin/mihomo-smart-selector ./cmd/mihomo-smart-selector
-./bin/mihomo-smart-selector -config config.yaml
+go run ./cmd/mihomo-mock
 ```
 
-### 2. Optional: OpenWrt/iStoreOS release validation
+In terminal 2, from the same repository directory:
 
-Deployment guide steps and reviewed templates are in:
-
-- [OpenWrt/iStoreOS deployment guide](deploy/openwrt/README.md)
-- [architecture and deployment design](docs/architecture.md)
-
-At the moment, no stable published release artifacts are available.
-
-## Configuration quick reference
-
-Copy `config.example.yaml` to `config.yaml` and keep secrets out of the file.
-
-Minimum fields to know:
-
-```yaml
-http:
-  # Keep on loopback until you intentionally expose with token + allow-list
-  listen: 127.0.0.1:8788
-  api_token: "" # prefer API token in config
-  api_token_env: MSS_API_TOKEN # or read token from env
-  allowed_cidrs: []
-
-mihomo:
-  # Controller URL used for discovery and safe selector writes
-  controller: http://127.0.0.1:9090
-  # Secret is read from env only
-  secret_env: MIHOMO_SECRET
-  request_timeout_seconds: 8
-
-storage:
-  path: data/selector.db
-
-scanner:
-  # Tune these to your device and usage window
-  concurrency: 4
-  batch_size: 60
-  max_total_candidates: 500
-  samples: 3
-  timeout_ms: 5000
-  min_success_rate: 0.95
-  median_target_ms: 300
-  p95_target_ms: 800
-  jitter_target_ms: 200
-  probe_profile_overrides:
-    emby.example.com:
-      url: https://emby.example.com
-      expected_status: "200"
-
-egress_verification:
-  enabled: false
-  selector_group: __SMART_PROBE__
-  proxy_url: http://127.0.0.1:17890
-  trace_url: https://chatgpt.com/cdn-cgi/trace
+```sh
+go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 ```
 
-- If you change `http.listen` away from loopback, set a strong `api_token`.
-- If you set `http.listen` outside loopback, also set `allowed_cidrs`.
-- Use `scanner.probe_profile_overrides` for private services instead of changing
-  built-in public profiles.
-- `probe_profile_overrides` is optional and omitted in the default file.
-- Keep strict and egress verification disabled until you explicitly provision a
-  dedicated selector and loopback proxy listener.
+Open **[localhost:8788](http://127.0.0.1:8788)**, select **稳定** (stable), and start a
+scan. The mock runs entirely on loopback, returns simulated node timings and
+requires no subscription or real Controller secret. Both commands work in
+PowerShell and a POSIX shell. First run downloads Go dependencies; Ctrl+C stops
+each process. Ports 9090 and 8788 must be available.
 
-For additional tunables such as `auto_switch`, `auto_switch.*`, and strict
-verification profiles, use the full [`config.example.yaml`](config.example.yaml).
+### Connect your own Mihomo
 
-## Frequently asked questions
+| Where you want to run it | Next step |
+| --- | --- |
+| **On your computer** | Copy `config.example.yaml` to `config.yaml`, set the Controller address and provide its secret through `MIHOMO_SECRET` or `mihomo.secret_file`. Run `go run ./cmd/mihomo-smart-selector -config config.yaml`. [Configuration guide →](docs/service-adaptation.md) |
+| **On an OpenClash router** | Identify the CPU architecture, build the binary and install the service using the [router deployment guide →](deploy/openwrt/README.md). |
 
-### Why can’t the service connect to the Controller?
+Keep the loopback listener for local use. LAN access requires a token and a
+trusted-CIDR allow-list in the standard deployment configuration. Dedicated
+strict/egress validation requires a separately configured probe Selector and
+loopback listener. **Pre-release: installation is currently from source; no
+stable download package is published.**
 
-Check that `mihomo.controller` points to the running Mihomo Controller, that the
-service can reach it, and that the secret environment variable is set (`MIHOMO_SECRET`
-by default). If `mihomo.secret_file` is configured, it takes precedence: verify
-the private file is readable and contains the active secret on one line.
+<a id="showcase"></a>
+## A closer look
 
-### Why is the scan page empty?
+### 01 · Compare before switching
 
-The selector list can be empty when no Selector is eligible, the configured scope
-is too strict, or required upstream probe endpoints are blocked in your network.
-Review the logs, the selected Selector, and probe profile settings.
+The current member and candidate stay visible together. Sample counts and
+measurement times explain how much evidence is behind the ranking. Expired
+results need a retest and a new confirmation.
 
-### The web page shows assets or build errors.
+<p align="center"><img src="docs/assets/screenshots/node-comparison.png" width="430" alt="Candidate detail showing the current node at 188 ms P95, candidate at 109 ms, and three successful simulated samples" /></p>
 
-Re-run `pnpm --dir web install --frozen-lockfile` and `pnpm --dir web build`,
-then restart the service so the embedded frontend digest is regenerated.
+### 02 · Check the outcome
 
-### What changes do I need for LAN access?
+Every switch starts with a durable pending intent. Controller readback records
+a confirmed, failed or unknown outcome; retrying the same request does not
+repeat the switch. Unknown outcomes remain available for reconciliation.
 
-When exposing beyond loopback, set `http.api_token`, `http.allowed_cidrs`, and a
-strict token policy. Prefer keeping `MIHOMO_SECRET` and Controller secrets out of
-publicly shared config files.
+![Two manual switches with confirmed Controller readback, captured against the local mock](docs/assets/screenshots/switch-audit.png)
 
-### How do I report a security concern?
+*All three showcase images use the built-in mock and actual application flows.
+They are not evidence of streaming unlock, account access or production latency.*
 
-Follow [SECURITY.md](SECURITY.md), and use a private report path for any
-issue that includes secrets, provider URLs, node credentials, or sensitive node
-topology.
+<details>
+<summary><strong>More views: node catalog and preferences</strong></summary>
 
-## Local development
+These earlier deployment screenshots show additional views. Their layout may
+predate recent updates; real usage information was retained with the
+maintainer's permission.
 
-Prerequisites:
+![Node catalog with providers, protocols and inferred regions](docs/assets/screenshots/node-catalog.png)
 
-- Go 1.27.x, as declared by `go.mod`;
-- Node.js 22.12 or newer; and
-- pnpm 11.19.x.
+![Preferences for scan settings and optional verification](docs/assets/screenshots/preferences.png)
 
-A project-local Go toolchain may be placed under `.tools/go`, but that directory
-is intentionally ignored and is not present in a fresh clone. The standard
-commands below use the toolchains available on `PATH`.
+</details>
 
-```powershell
+## Ready for longer sessions
+
+- **Resume your view:** reload the page to reconnect to an active scan; interrupted tasks remain visible after a service restart.
+- **Bound the work:** scans share a global concurrency budget, with same-group duplication checks and a simultaneous-scan limit.
+- **Keep history manageable:** separate scan/audit retention limits, storage-size reporting and confirmed manual cleanup.
+- **Keep selection deliberate:** result expiry, optional per-service strict/region gates, durable intents and Controller readback.
+
+These controls run in a single Go service with an embedded Vue interface and
+SQLite storage. There is no autonomous node switching or scheduled scanning.
+[Operation and recovery details →](docs/operations.md)
+
+<a id="compatibility"></a>
+## Verified environments & project status
+
+| Evidence | Scope |
+| --- | --- |
+| **Local runtime** | Windows, using the included mock Controller and browser workflow tests. |
+| **Router runtime** | NanoPi R5S LTS / ARM64, iStoreOS 24.10.8, Mihomo `alpha-smart-86ece76`. |
+| **Build validation** | CI is configured to build Linux ARM64 and AMD64; use the live CI badge for the current result. Build success is not runtime validation on every device. |
+
+The project is under active development. Configuration and API compatibility
+may change before `v1.0.0`. The dashboard is in Simplified Chinese; English UI
+localization is not complete. HTTP reachability does not prove login, playback
+or regional unlock. Strict checks and egress verification are reported
+separately from performance scoring.
+
+<a id="docs"></a>
+## Documentation
+
+| I want to… | Read |
+| --- | --- |
+| Use my own group names, services or private endpoints | [Service adaptation & persistent settings](docs/service-adaptation.md) |
+| Install on a router | [Deployment, preflight and rollback](deploy/openwrt/README.md) |
+| Understand scores, isolation or the API | [Architecture & verification boundaries](docs/architecture.md) |
+| Understand restart recovery, audit states or cleanup | [Long-running operation](docs/operations.md) |
+| Diagnose a problem | [Troubleshooting & reporting](docs/troubleshooting.md) |
+| See what changed | [Changelog](CHANGELOG.md) |
+
+<a id="faq"></a>
+## Common questions
+
+**Will scanning switch my current business node?** No. Only an explicit selection
+changes that group. Optional verification may temporarily change its dedicated
+probe Selector, then attempts to restore it.
+
+**Why can a higher-scoring node appear below another?** Stable scans put refined
+nodes first. Within the same stage, ranking uses score, then success rate, then
+lower P95. A screening-only candidate can be retested before selection.
+
+**Why is selection unavailable?** Check the explanation beside the action: the
+scan may be incomplete, its result expired, the node removed, its success rate
+below the threshold, a service gate unmet, or an earlier switch unresolved.
+
+**Why is a service failing?** First check the Controller connection and selected
+profile. For a private service, configure its actual endpoint using a profile
+override. [Troubleshooting →](docs/troubleshooting.md)
+
+<a id="development"></a>
+<details>
+<summary><strong>Building, testing and contributing</strong></summary>
+
+Frontend development needs Node.js ≥22.12 and pnpm 11.19.x in addition to Go
+1.27.x. A project-local Go toolchain may live in `.tools/go`; it is not included
+in a fresh clone.
+
+```sh
 go mod download
 pnpm --dir web install --frozen-lockfile
 pnpm --dir web build
 go vet ./...
 go test ./...
-go build -o bin/mihomo-smart-selector.exe ./cmd/mihomo-smart-selector
-Copy-Item config.example.yaml config.yaml
-$env:MIHOMO_SECRET = '<controller secret>'
-./bin/mihomo-smart-selector.exe -config config.yaml
+go build -o bin/mihomo-smart-selector ./cmd/mihomo-smart-selector
 ```
 
-Open `http://127.0.0.1:8788` only after the local mock or Mihomo controller is
-running. The server will return a clear degraded-health response while Mihomo
-is unreachable.
-
-The repository-level verification entry points are:
+On Windows, use `bin/mihomo-smart-selector.exe` as the build output.
+Repository verification runs through PowerShell:
 
 ```powershell
 ./tools/verify.ps1
 ./tools/smoke-test.ps1
 ```
 
-`verify.ps1` checks formatting, module consistency, Go tests and vet, the
-frozen frontend install, TypeScript, the reproducibility of embedded web
-assets, shell syntax, dependency vulnerabilities, and both Git-history and
-working-tree secret scans. Use `-SkipSecurity` only for a faster local inner
-loop; CI runs the complete contract with the Go race detector. The smoke test
-builds both processes in a temporary directory, starts `mihomo-mock` and the
-real service on ephemeral loopback ports, exercises discovery, preflight,
-scan, ranking, selection, Controller state, and SQLite history, then removes
-the temporary processes and files.
+Verification covers formatting, modules, tests, frontend assets, workflow/shell
+syntax, dependency vulnerabilities and secret checks. `-SkipSecurity` is for a
+faster local loop; CI is configured to include the Go race detector. The process
+smoke test uses an isolated local mock and cleans up its processes.
 
-`scanner.probe_profile_overrides` is the safe way to configure a private
-service such as Emby without replacing built-in profiles. Strict checks remain
-disabled until a dedicated `__SMART_PROBE__`-style selector and loopback proxy
-listener have been installed and verified. See
-[the architecture and deployment design](docs/architecture.md).
+Please read [CONTRIBUTING.md](CONTRIBUTING.md), the [Code of Conduct](CODE_OF_CONDUCT.md)
+and the [maintainer setup guide](docs/open-source-setup.md). Keep credentials,
+subscription URLs and private endpoint details out of commits and public
+reports. Use [SECURITY.md](SECURITY.md) for sensitive reports.
 
-## Router deployment
+</details>
 
-Deployment is intentionally a separate, verified step. Determine the target's
-private LAN or Tailnet address, SSH host key, CPU architecture, Mihomo version,
-available flash space, trusted client CIDR, and active OpenClash configuration
-before copying files. The examples are templates, not pre-approved values for a
-particular router. See the [OpenWrt/iStoreOS deployment guide](deploy/openwrt/README.md)
-and [architecture and deployment design](docs/architecture.md).
+---
 
-The public router example requires a generated Bearer token and a trusted-CIDR
-allow-list. The optional unauthenticated-LAN mode is high risk and is never the
-default example. Do not add a WAN port forward.
-
-## Security
-
-Do not place a Controller secret, API token, provider URL, node credential,
-private service address, complete proxy configuration, or built binary in
-source control. Report suspected vulnerabilities according to
-[the security policy](SECURITY.md), without putting sensitive evidence in a
-public issue.
-
-## Contributing
-
-For help or bug reports, start with the bilingual
-[troubleshooting and reporting guide](docs/troubleshooting.md).
-Maintainers can find the configuration mapping and hosted setup boundaries in
-[open-source setup](docs/open-source-setup.md).
-
-Before opening a pull request, read [CONTRIBUTING.md](CONTRIBUTING.md) and run
-the complete verification and process-level smoke contracts. Public issues and
-logs must be redacted according to [SECURITY.md](SECURITY.md). Project changes
-are tracked in [CHANGELOG.md](CHANGELOG.md), and community participation is
-covered by the [Code of Conduct](CODE_OF_CONDUCT.md).
-
-## License
-
-Mihomo Smart Selector is available under the [MIT License](LICENSE).
+[MIT License](LICENSE) · [Report an issue](https://github.com/Uddoo/mihomo-smart-selector/issues/new/choose) · [简体中文](README.zh-CN.md)
