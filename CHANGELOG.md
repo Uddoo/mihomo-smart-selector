@@ -22,6 +22,23 @@ versioned releases begin.
 
 ### Added
 
+- Opt-in monitoring failover: confirmed current-node failure triggers selection
+  by baseline success rate, then P95, among fresh healthy monitored candidates.
+  Fresh verification, membership/readback checks, durable switch audits and a
+  restart-safe two-minute cooldown protect the operation. A persistent page
+  switch enables it; pausing monitoring also pauses failover.
+
+- Opt-in persistent monitoring: one plan per Controller, up to six node/target
+  combinations, two-minute baseline sampling, faster current-node checks,
+  shared scan concurrency, bounded request rates and seven-day raw retention.
+- A monitoring page with health transitions, state-change events, coverage,
+  recent baseline history and provisional/ready 24-hour HTTPS scores. Browser
+  closure does not stop monitoring; pause/resume and service restart retain
+  evidence. Monitoring selects a production node only when failure-triggered failover is explicitly enabled.
+- Transactional sample/state/event persistence and slot deduplication;
+  additional retests cannot replace failed baseline samples. Controller errors
+  and skipped work remain unknown instead of being charged to node failure.
+
 - Startup recovery marks unfinished scans as interrupted and pending switches
   as unknown; active/recent scans can be restored after a browser reload.
 - Durable switch intents, idempotent request IDs, Controller readback and an

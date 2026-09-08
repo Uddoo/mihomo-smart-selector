@@ -115,7 +115,17 @@ maintainer's permission.
 - **Keep selection deliberate:** result expiry, optional per-service strict/region gates, durable intents and Controller readback.
 
 These controls run in a single Go service with an embedded Vue interface and
-SQLite storage. There is no autonomous node switching or scheduled scanning.
+SQLite storage. Ordinary scans keep manual selection; monitoring has an opt-in failure-triggered failover mode.
+
+**Persistent monitoring:** enable a plan in the monitoring page to collect
+low-frequency checks on the router even after closing the browser. P1 includes
+current health, state-change events, coverage and a 24-hour HTTPS health score.
+Scores require 100 valid baseline samples and stay provisional until a full day
+with at least 80% coverage is available. WebSocket continuity is not verified.
+Optional failover replaces a confirmed-unavailable current node with the healthy
+monitored candidate having the highest baseline success rate (lower P95 breaks
+ties), after a fresh check. Switches have durable audits and a two-minute cooldown.
+[Monitoring usage and limits →](docs/monitoring.md)
 [Operation and recovery details →](docs/operations.md)
 
 <a id="compatibility"></a>
