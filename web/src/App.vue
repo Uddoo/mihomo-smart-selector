@@ -2,7 +2,7 @@
 import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {Network, ScanLine, List, History, Settings, Moon, Sun, RefreshCw, ChevronDown, CheckCircle2, Radio, ArrowRight} from '@lucide/vue'
 import {APIError, api, setAPIToken} from './api'
-import {rankResults} from './ranking'
+import {rankResults, hasJitterEvidence} from './ranking'
 import SettingsPanel from './SettingsPanel.vue'
 import type {Group, Health, NodeResult, NodeSummary, ProbeProfileSummary, Provider, Region, Scan, ScanPreview, SwitchEvent, ServiceCatalog, RuntimeSettings} from './models'
 
@@ -43,7 +43,6 @@ const switching = ref(false)
 const starting = ref(false)
 const showProfile = ref(false)
 let poll: number | undefined
-let stream: EventSource | undefined
 let refreshPending = false
 let refreshAgain = false
 let previewRevision = 0
@@ -192,8 +191,7 @@ async function start() {
     focusedName.value = ''
     pendingChoice.value = null
     running.value = true
-    stream = new EventSource('/api/v1/scans/' + encodeURIComponent(response.id) + '/events')
-    for (const name of ['batch-started', 'candidate-complete', 'egress-verified', 'strict-verified', 'completed', 'error']) stream.addEventListener(name, () => void refresh())
+    // Poll through api() so progress requests carry the configured Bearer token.
     poll = window.setInterval(() => void refresh(), 1200)
     void refresh()
   } catch (error) {
@@ -205,7 +203,7 @@ async function start() {
 
 async function refresh() {
   if (!scan.value) return
-  // Coalesce SSE bursts and polling. Concurrent responses must not replace a
+  // Coalesce polling. Concurrent responses must not replace a
   // newer ranking with an older snapshot or reopen a completed scan.
   if (refreshPending) { refreshAgain = true; return }
   refreshPending = true
@@ -279,8 +277,6 @@ function close() {
     clearInterval(poll)
     poll = undefined
   }
-  stream?.close()
-  stream = undefined
 }
 
 function regionLabel(code?: string) {
@@ -465,7 +461,7 @@ function probeKind(value: 'reachability' | 'strict') {
                 <div><dt>地区验证</dt><dd :class="statusTone(candidate.region_verification_status)">{{ statusLabel(candidate.region_verification_status) }}</dd></div>
                 <div><dt>服务限制</dt><dd :class="statusTone(candidate.restriction_status)">{{ statusLabel(candidate.restriction_status) }}</dd></div>
               </dl></section>
-              <details class="score-details"><summary>性能得分拆解<ChevronDown :size="15"/></summary><dl class="breakdown"><div><dt>可靠性</dt><dd>{{ points(candidate.score_breakdown?.reliability) }} / 40</dd></div><div><dt>P50</dt><dd>{{ points(candidate.score_breakdown?.p50) }} / 15</dd></div><div><dt>P95</dt><dd>{{ points(candidate.score_breakdown?.p95) }} / 20</dd></div><div><dt>抖动</dt><dd>{{ points(candidate.score_breakdown?.jitter) }} / 10</dd></div><div><dt>地区</dt><dd>{{ points(candidate.score_breakdown?.region) }} / 5</dd></div></dl><p>传输范围：{{ candidate.transport_status }}</p></details>
+              <details class="score-details"><summary>性能得分拆解<ChevronDown :size="15"/></summary><dl class="breakdown"><div><dt>可靠性</dt><dd>{{ points(candidate.score_breakdown?.reliability) }} / 40</dd></div><div><dt>P50</dt><dd>{{ points(candidate.score_breakdown?.p50) }} / 15</dd></div><div><dt>P95</dt><dd>{{ points(candidate.score_breakdown?.p95) }} / 20</dd></div><div><dt>抖动</dt><dd>{{ hasJitterEvidence(candidate) ? points(candidate.score_breakdown?.jitter) + ' / 10' : '样本不足 · 0 / 10' }}</dd></div><div><dt>地区</dt><dd>{{ points(candidate.score_breakdown?.region) }} / 5</dd></div></dl><p>传输范围：{{ candidate.transport_status }}</p></details>
               <div class="candidate-action"><button class="primary" :disabled="!!selectionReason(candidate)" @click="choose()">选择此节点<ArrowRight :size="16"/></button><p>{{ selectionReason(candidate) || '确认后切换，不自动切换' }}</p></div>
             </template>
             <p v-else class="empty-detail">{{ running ? '等待第一个节点完成检测，结果将实时出现。' : '开始扫描，或点击排名中的节点查看详情。' }}</p>

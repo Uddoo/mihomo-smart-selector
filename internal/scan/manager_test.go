@@ -22,6 +22,127 @@ type fakeMihomo struct {
 	delays   map[string]int
 }
 
+type blockingMihomo struct {
+	*fakeMihomo
+	started chan struct{}
+	once    sync.Once
+}
+
+type cancelOnSelectMihomo struct {
+	*fakeMihomo
+	cancel context.CancelFunc
+}
+
+func (f *cancelOnSelectMihomo) Select(ctx context.Context, group, member string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if member == "a" {
+		f.cancel()
+	}
+	return f.fakeMihomo.Select(ctx, group, member)
+}
+
+func TestCancellationDuringVerificationDoesNotCompleteScan(t *testing.T) {
+	for _, strict := range []bool{false, true} {
+		t.Run(map[bool]string{false: "egress", true: "strict"}[strict], func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			cfg := config.Defaults()
+			if strict {
+				cfg.Scanner.StrictVerification = config.StrictVerificationConfig{Enabled: true, SelectorGroup: "probe", ProxyURL: "http://127.0.0.1:1", MaxCandidates: 10}
+			} else {
+				cfg.EgressVerification = config.EgressConfig{Enabled: true, SelectorGroup: "probe", ProxyURL: "http://127.0.0.1:1", TraceURL: "http://trace.test/"}
+			}
+			fake := &cancelOnSelectMihomo{fakeMihomo: &fakeMihomo{proxies: map[string]mihomo.Proxy{
+				"ChatGPT": {Name: "ChatGPT", Type: "Selector", All: []string{"a"}},
+				"a":       {Name: "a", Type: "VLESS"},
+				"probe":   {Name: "probe", Type: "Selector", Now: "original", All: []string{"a", "original"}},
+			}, delays: map[string]int{"a": 100}}, cancel: cancel}
+			m := NewManager(cfg, fake, nil)
+			_, err := m.scan(ctx, model.Scan{ID: "test", Request: model.ScanRequest{TargetGroup: "ChatGPT", ProfileID: "chatgpt", Mode: "quick"}})
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("verification cancellation = %v", err)
+			}
+			if fake.proxies["probe"].Now != "original" {
+				t.Fatal("probe selector not restored after cancellation")
+			}
+		})
+	}
+}
+
+func (f *blockingMihomo) Delay(ctx context.Context, _, _ string, _ config.Probe, _ int) (int, error) {
+	f.once.Do(func() { close(f.started) })
+	<-ctx.Done()
+	return 0, ctx.Err()
+}
+
+func TestCancelDuringBatchClosesResults(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Scanner.Concurrency = 1
+	fake := &blockingMihomo{fakeMihomo: &fakeMihomo{}, started: make(chan struct{})}
+	m := NewManager(cfg, fake, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		m.probeBatch(ctx, model.Scan{ID: "cancel", Request: model.ScanRequest{Mode: "stable"}}, config.ProbeProfile{Probes: []config.Probe{{Name: "test"}}}, []candidate{{Name: "a"}, {Name: "b"}, {Name: "c"}})
+		close(done)
+	}()
+	select {
+	case <-fake.started:
+	case <-time.After(time.Second):
+		t.Fatal("probe did not start")
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("cancelled batch did not drain and close")
+	}
+}
+
+func TestStopPersistsCancelledScanAndReleasesSettingsLock(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Scanner.Concurrency = 1
+	store, err := history.Open(t.TempDir() + "/cancel.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	fake := &blockingMihomo{fakeMihomo: &fakeMihomo{proxies: map[string]mihomo.Proxy{
+		"ChatGPT": {Name: "ChatGPT", Type: "Selector", All: []string{"a", "b"}},
+		"a":       {Name: "a", Type: "VLESS"}, "b": {Name: "b", Type: "VLESS"},
+	}}, started: make(chan struct{})}
+	m := NewManager(cfg, fake, store)
+	s, err := m.Start(model.ScanRequest{TargetGroup: "ChatGPT"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-fake.started:
+	case <-time.After(time.Second):
+		t.Fatal("probe did not start")
+	}
+	if _, err := m.Stop(s.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for m.hasRunningScan() && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if m.hasRunningScan() {
+		t.Fatal("scan still running after cancellation")
+	}
+	s, err = store.GetScan(context.Background(), s.ID)
+	if err != nil || s.Status != model.ScanCancelled {
+		t.Fatalf("persisted scan = %+v, err = %v", s, err)
+	}
+	if _, err := m.SaveSettings(context.Background(), m.Settings()); err != nil {
+		t.Fatalf("settings remained locked: %v", err)
+	}
+}
+
 func (f *fakeMihomo) ListProxies(context.Context) (map[string]mihomo.Proxy, error) {
 	return f.proxies, nil
 }

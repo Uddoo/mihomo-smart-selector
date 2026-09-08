@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
@@ -12,6 +13,37 @@ import (
 	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 )
+
+func TestEgressUsesNewConnectionForEachCandidate(t *testing.T) {
+	var mu sync.Mutex
+	connections := map[string]bool{}
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		reused := connections[r.RemoteAddr]
+		connections[r.RemoteAddr] = true
+		mu.Unlock()
+		if reused {
+			_, _ = w.Write([]byte("loc=US\n"))
+		} else {
+			_, _ = w.Write([]byte("loc=JP\n"))
+		}
+	}))
+	defer proxy.Close()
+	cfg := config.Defaults()
+	cfg.EgressVerification = config.EgressConfig{Enabled: true, SelectorGroup: "probe", ProxyURL: proxy.URL, TraceURL: "http://trace.test/"}
+	fake := &fakeMihomo{proxies: map[string]mihomo.Proxy{"probe": {Name: "probe", Type: "Selector", Now: "original", All: []string{"a", "b", "original"}}}}
+	m := NewManager(cfg, fake, nil)
+	results := []model.NodeResult{{Name: "a"}, {Name: "b"}}
+	m.verifyEgress(context.Background(), fake.proxies, results, "test")
+	for _, result := range results {
+		if result.VerifiedRegion != "JP" {
+			t.Fatalf("connection reused across candidates: %+v", results)
+		}
+	}
+	if fake.proxies["probe"].Now != "original" {
+		t.Fatal("selection not restored")
+	}
+}
 
 func TestEgressVerificationRestoresProbeSelection(t *testing.T) {
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("loc=JP\n")) }))

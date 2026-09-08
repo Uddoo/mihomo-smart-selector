@@ -7,6 +7,29 @@ import (
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 )
 
+func TestJitterScoreDistinguishesZeroFromInsufficientSamples(t *testing.T) {
+	cfg := config.ScannerConfig{MedianTargetMS: 300, P95TargetMS: 800, JitterTargetMS: 200}
+	for _, tc := range []struct {
+		name    string
+		samples []model.ProbeSample
+		want    float64
+	}{
+		{"zero", []model.ProbeSample{{Probe: "a", DelayMS: 100}, {Probe: "a", DelayMS: 100}}, 10},
+		{"small", []model.ProbeSample{{Probe: "a", DelayMS: 100}, {Probe: "a", DelayMS: 102}}, 9.9},
+		{"single", []model.ProbeSample{{Probe: "a", DelayMS: 100}}, 0},
+		{"different probes", []model.ProbeSample{{Probe: "a", DelayMS: 100}, {Probe: "b", DelayMS: 100}}, 0},
+		{"failed second sample", []model.ProbeSample{{Probe: "a", DelayMS: 100}, {Probe: "a", Error: "timeout"}}, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			result := model.NodeResult{Samples: tc.samples}
+			calculateMetrics(&result, cfg)
+			if result.ScoreBreakdown.Jitter != tc.want {
+				t.Fatalf("jitter points = %v, want %v", result.ScoreBreakdown.Jitter, tc.want)
+			}
+		})
+	}
+}
+
 func TestCalculateMetricsFavorsStableSuccessfulNode(t *testing.T) {
 	cfg := config.ScannerConfig{MedianTargetMS: 300, P95TargetMS: 800, JitterTargetMS: 200}
 	stable := model.NodeResult{

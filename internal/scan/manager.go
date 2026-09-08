@@ -444,6 +444,9 @@ func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult
 		}
 	}
 	m.verifyStrict(ctx, proxies, profile, allResults, scan.ID)
+	if err := ctx.Err(); err != nil {
+		return allResults, err
+	}
 	for index := range allResults {
 		assessResult(&allResults[index], profile, m.currentConfig().Scanner.StrictVerification.Enabled)
 	}
@@ -527,17 +530,18 @@ func (m *Manager) probeBatch(parent context.Context, scan model.Scan, profile co
 		}()
 	}
 	go func() {
+		defer func() {
+			close(jobs)
+			workers.Wait()
+			close(results)
+		}()
 		for _, item := range candidates {
 			select {
 			case <-parent.Done():
-				close(jobs)
 				return
 			case jobs <- item:
 			}
 		}
-		close(jobs)
-		workers.Wait()
-		close(results)
 	}()
 
 	batchResults := make([]model.NodeResult, 0, len(candidates))
@@ -589,8 +593,12 @@ func (m *Manager) probeCandidate(parent context.Context, item candidate, profile
 	if mode == "quick" {
 		samples = 1
 	}
+sampling:
 	for _, probe := range profile.Probes {
 		for sample := 0; sample < samples; sample++ {
+			if parent.Err() != nil {
+				break sampling
+			}
 			ctx, cancel := context.WithTimeout(parent, time.Duration(m.currentConfig().Scanner.TimeoutMS+500)*time.Millisecond)
 			delay, err := m.client.Delay(ctx, item.Name, item.Provider, probe, m.currentConfig().Scanner.TimeoutMS)
 			cancel()
@@ -626,11 +634,16 @@ func (m *Manager) verifyEgress(ctx context.Context, proxies map[string]mihomo.Pr
 	httpClient := &http.Client{
 		Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS+1000) * time.Millisecond,
 		Transport: &http.Transport{
-			Proxy:       http.ProxyURL(proxyURL),
-			DialContext: (&net.Dialer{Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS) * time.Millisecond}).DialContext,
+			DisableKeepAlives: true,
+			Proxy:             http.ProxyURL(proxyURL),
+			DialContext:       (&net.Dialer{Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS) * time.Millisecond}).DialContext,
 		},
 	}
+	defer httpClient.CloseIdleConnections()
 	for index := range results {
+		if ctx.Err() != nil {
+			return
+		}
 		if !contains(probeSelector.All, results[index].Name) {
 			results[index].EgressError = "candidate is not a member of configured probe selector"
 			continue
@@ -666,9 +679,6 @@ func (m *Manager) verifyEgress(ctx context.Context, proxies map[string]mihomo.Pr
 		}
 		copy := results[index]
 		m.publish(scanID, Event{Kind: "egress-verified", Message: "egress verification completed: " + results[index].Name, At: time.Now().UTC(), Result: &copy})
-	}
-	if probeSelector.Now != "" {
-		_ = m.client.Select(ctx, probeSelector.Name, probeSelector.Now)
 	}
 }
 
@@ -723,6 +733,9 @@ func (m *Manager) verifyStrict(ctx context.Context, proxies map[string]mihomo.Pr
 	}
 	for index := range results {
 		result := &results[index]
+		if ctx.Err() != nil {
+			return
+		}
 		if !contains(probeSelector.All, result.Name) {
 			result.StrictVerificationStatus = "candidate_not_in_probe_selector"
 			result.RestrictionStatus = "not_checked"
@@ -734,6 +747,9 @@ func (m *Manager) verifyStrict(ctx context.Context, proxies map[string]mihomo.Pr
 			continue
 		}
 		for _, probe := range profile.StrictProbes {
+			if ctx.Err() != nil {
+				return
+			}
 			result.StrictChecks = append(result.StrictChecks, m.runStrictCheck(ctx, client, probe))
 		}
 		applyStrictOutcome(result)

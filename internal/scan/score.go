@@ -43,7 +43,11 @@ func calculateMetrics(result *model.NodeResult, cfg config.ScannerConfig) {
 	reliability := 40 * result.SuccessRate
 	p95 := scaledComponent(result.P95MS, cfg.P95TargetMS, 20)
 	p50 := scaledComponent(result.P50MS, cfg.MedianTargetMS, 15)
-	jitter := scaledComponent(int(math.Round(result.JitterMS)), cfg.JitterTargetMS, 10)
+	// Zero measured jitter is ideal; a single sample is insufficient evidence.
+	jitter := 0.0
+	if jitterCount > 0 && cfg.JitterTargetMS > 0 {
+		jitter = 10 * math.Max(0, 1-result.JitterMS/float64(cfg.JitterTargetMS))
+	}
 	region := 0.0
 	if result.VerifiedRegion != "" && result.VerifiedRegion == result.InferredRegion {
 		region = 5

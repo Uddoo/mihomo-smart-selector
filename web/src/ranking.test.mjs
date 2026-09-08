@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {rankResults} from './ranking.ts'
+import {rankResults, hasJitterEvidence} from './ranking.ts'
+
+test('jitter evidence requires two successful samples of the same probe', () => {
+  const a = {probe: 'a', delay_ms: 100}
+  assert.equal(hasJitterEvidence({samples: [a, a]}), true)
+  assert.equal(hasJitterEvidence({samples: [a]}), false)
+  assert.equal(hasJitterEvidence({samples: [a, {...a, probe: 'b'}]}), false)
+  assert.equal(hasJitterEvidence({samples: [a, {...a, error: 'timeout'}]}), false)
+})
 
 const node = (name, score, success_rate = 1, p95_ms = 100) => ({name, score, success_rate, p95_ms, rank: 0})
 

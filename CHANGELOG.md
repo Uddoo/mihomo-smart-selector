@@ -9,6 +9,17 @@ versioned releases begin.
 
 ## [Unreleased]
 
+### Fixed
+
+- Drain workers and close result channels when a scan is cancelled; cancellation
+  during isolated verification also prevents final ranking and completion.
+- Use a fresh HTTP connection for each egress candidate to avoid reusing the
+  previous node's connection, and restore the probe selector after cancellation.
+- Award full jitter points for repeated identical successful samples; keep
+  insufficient samples unscored and label them in the score breakdown.
+- Use authenticated polling for dashboard scan progress instead of opening an
+  EventSource connection without the required Bearer token.
+
 ### Added
 
 - Project logo in both READMEs and a simplified radar-and-node browser favicon.
