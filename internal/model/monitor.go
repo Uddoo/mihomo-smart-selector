@@ -8,6 +8,25 @@ type MonitorNode struct {
 	Name     string `json:"name"`
 	Provider string `json:"provider"`
 	Protocol string `json:"protocol"`
+	SeriesID string `json:"series_id,omitempty"`
+	Anchor   int64  `json:"anchor,omitempty"`
+}
+
+func SameMonitorNode(a, b MonitorNode) bool {
+	return a.ID == b.ID && a.Name == b.Name && a.Provider == b.Provider && a.Protocol == b.Protocol
+}
+
+type MonitorSeries struct {
+	ID          string      `json:"id"`
+	Node        MonitorNode `json:"node"`
+	ProfileID   string      `json:"profile_id"`
+	ProfileHash string      `json:"profile_hash"`
+	Anchor      int64       `json:"anchor"`
+}
+
+type MonitorRevision struct {
+	At   time.Time   `json:"at"`
+	Plan MonitorPlan `json:"plan"`
 }
 
 type MonitorPlan struct {
@@ -20,6 +39,7 @@ type MonitorPlan struct {
 	ProfileHash string        `json:"profile_hash"`
 	Nodes       []MonitorNode `json:"nodes"`
 	CreatedAt   time.Time     `json:"created_at"`
+	UpdatedAt   time.Time     `json:"updated_at,omitempty"`
 }
 
 type MonitorRequest struct {
@@ -32,13 +52,18 @@ type MonitorRequest struct {
 }
 
 type MonitorSample struct {
-	NodeID  string    `json:"node_id"`
-	Kind    string    `json:"kind"` // baseline, current, confirmation, manual
-	Slot    int64     `json:"slot"`
-	At      time.Time `json:"at"`
-	Outcome string    `json:"outcome"` // success, failure, unknown
-	DelayMS int       `json:"delay_ms"`
-	Reason  string    `json:"reason,omitempty"`
+	NodeID      string    `json:"node_id"`
+	Kind        string    `json:"kind"` // baseline, current, confirmation, manual
+	Slot        int64     `json:"slot"`
+	At          time.Time `json:"at"`
+	Outcome     string    `json:"outcome"` // success, failure, unknown
+	DelayMS     int       `json:"delay_ms"`
+	Reason      string    `json:"reason,omitempty"`
+	SeriesID    string    `json:"series_id,omitempty"`
+	ScheduledAt int64     `json:"scheduled_at,omitempty"`
+	ReasonCode  string    `json:"reason_code,omitempty"`
+	DataVersion int       `json:"data_version,omitempty"`
+	Resolution  string    `json:"resolution,omitempty"`
 }
 
 type MonitorState struct {
@@ -61,15 +86,39 @@ type MonitorEvent struct {
 }
 
 type MonitorMetrics struct {
-	Score          *float64 `json:"score"`
-	Readiness      string   `json:"readiness"`
-	Coverage       float64  `json:"coverage"`
-	Expected       int      `json:"expected"`
-	Samples        int      `json:"samples"`
-	SuccessRate    float64  `json:"success_rate"`
-	P95MS          int      `json:"p95_ms"`
-	Incidents      int      `json:"incidents"`
-	FailureSeconds int      `json:"failure_seconds"`
+	Score              *float64 `json:"score"`
+	Readiness          string   `json:"readiness"`
+	Coverage           float64  `json:"coverage"`
+	Expected           int      `json:"expected"`
+	Samples            int      `json:"samples"`
+	SuccessRate        float64  `json:"success_rate"`
+	P95MS              int      `json:"p95_ms"`
+	Incidents          int      `json:"incidents"`
+	FailureSeconds     int      `json:"failure_seconds"`
+	ObservedSeconds    int64    `json:"observed_seconds"`
+	WindowSeconds      int64    `json:"window_seconds"`
+	AvailabilityPoints float64  `json:"availability_points"`
+	ContinuityPoints   float64  `json:"continuity_points"`
+	LatencyPoints      float64  `json:"latency_points"`
+}
+
+type MonitorTrend struct {
+	At       time.Time `json:"at"`
+	Success  int       `json:"success"`
+	Failure  int       `json:"failure"`
+	Unknown  int       `json:"unknown"`
+	Expected int       `json:"expected"`
+	P50      *int      `json:"p50_ms"`
+	P95      *int      `json:"p95_ms"`
+}
+
+type MonitorTimeline struct {
+	Series  MonitorSeries  `json:"series"`
+	Active  bool           `json:"active"`
+	From    time.Time      `json:"from"`
+	To      time.Time      `json:"to"`
+	Metrics MonitorMetrics `json:"metrics"`
+	Trend   []MonitorTrend `json:"trend"`
 }
 
 type MonitorRow struct {
@@ -91,4 +140,7 @@ type MonitorOverview struct {
 	Rows            []MonitorRow   `json:"rows"`
 	Events          []MonitorEvent `json:"events"`
 	RetentionDays   int            `json:"retention_days"`
+	Window          string         `json:"window"`
+	DataVersion     uint64         `json:"data_version"`
+	InstanceID      string         `json:"instance_id"`
 }

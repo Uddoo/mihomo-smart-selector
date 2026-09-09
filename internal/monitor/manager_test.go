@@ -204,6 +204,7 @@ func TestBudgetAndStorageFailureStopWork(t *testing.T) {
 	}
 	*now = now.Add(time.Hour)
 	store.Close()
+	m.maintenance(context.Background(), *now)
 	m.step(context.Background(), *now)
 	if !m.fault || f.calls != 0 {
 		t.Fatal("storage fault did not stop sampling")

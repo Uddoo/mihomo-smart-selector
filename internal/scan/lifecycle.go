@@ -74,7 +74,7 @@ func (m *Manager) Cleanup(ctx context.Context, revision int) (history.CleanupRes
 	if m.hasRunningScan() {
 		return history.CleanupResult{}, fmt.Errorf("扫描运行时不能清理历史")
 	}
-	return m.store.Cleanup(ctx, m.currentConfig().Storage.Retention)
+	return m.store.MaintainHistory(ctx, m.currentConfig().Storage.Retention)
 }
 
 func (m *Manager) StartMaintenance() {
@@ -92,12 +92,14 @@ func (m *Manager) StartMaintenance() {
 		defer ticker.Stop()
 		for {
 			if m.settingsMu.TryLock() {
-				if !m.hasRunningScan() {
-					if _, err := m.store.Cleanup(ctx, m.currentConfig().Storage.Retention); err != nil && ctx.Err() == nil {
+				ready := !m.hasRunningScan() && !m.stopping
+				retention := m.currentConfig().Storage.Retention
+				m.settingsMu.Unlock()
+				if ready {
+					if _, err := m.store.MaintainHistory(ctx, retention); err != nil && ctx.Err() == nil {
 						log.Printf("history maintenance failed: %v", err)
 					}
 				}
-				m.settingsMu.Unlock()
 			}
 			select {
 			case <-ctx.Done():

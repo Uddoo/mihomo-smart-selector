@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
@@ -22,7 +24,10 @@ CREATE TABLE IF NOT EXISTS monitor_states (plan_id TEXT NOT NULL,node_id TEXT NO
 CREATE TABLE IF NOT EXISTS monitor_events (id INTEGER PRIMARY KEY AUTOINCREMENT,plan_id TEXT NOT NULL,at INTEGER NOT NULL,payload TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS monitor_events_time ON monitor_events(plan_id,at);
 `)
-	return err
+	if err != nil {
+		return err
+	}
+	return s.migrateMonitorSeries(ctx)
 }
 
 func (s *Store) MonitorPlan(ctx context.Context, scope string) (*model.MonitorPlan, error) {
@@ -41,28 +46,42 @@ func (s *Store) MonitorPlan(ctx context.Context, scope string) (*model.MonitorPl
 
 // Optimistic revision protects concurrent tabs and multiple processes.
 func (s *Store) SaveMonitorPlan(ctx context.Context, scope string, p model.MonitorPlan, previous int) error {
+	if err := s.PrepareMonitorPlan(ctx, scope, &p); err != nil {
+		return err
+	}
 	payload, err := json.Marshal(p)
 	if err != nil {
 		return err
 	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 	var result sql.Result
 	if previous == 0 {
-		result, err = s.db.ExecContext(ctx, `INSERT INTO monitor_plans(scope,revision,payload) VALUES(?,?,?) ON CONFLICT(scope) DO NOTHING`, scope, p.Revision, string(payload))
+		result, err = tx.ExecContext(ctx, `INSERT INTO monitor_plans(scope,revision,payload) VALUES(?,?,?) ON CONFLICT(scope) DO NOTHING`, scope, p.Revision, string(payload))
 	} else {
-		result, err = s.db.ExecContext(ctx, `UPDATE monitor_plans SET revision=?,payload=? WHERE scope=? AND revision=?`, p.Revision, string(payload), scope, previous)
+		result, err = tx.ExecContext(ctx, `UPDATE monitor_plans SET revision=?,payload=? WHERE scope=? AND revision=?`, p.Revision, string(payload), scope, previous)
 	}
 	if err != nil {
 		return err
 	}
 	n, err := result.RowsAffected()
-	if err == nil && n != 1 {
+	if err != nil {
+		return err
+	}
+	if n != 1 {
 		return fmt.Errorf("监控配置已变化，请刷新后重试")
 	}
-	return err
+	if err = s.persistMonitorSeries(ctx, tx, scope, p); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) MonitorStates(ctx context.Context, plan string) (map[string]model.MonitorState, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT node_id,payload FROM monitor_states WHERE plan_id=?`, plan)
+	rows, err := s.db.QueryContext(ctx, `SELECT node_id,payload FROM monitor_states WHERE plan_id=? UNION ALL SELECT b.node_id,s.payload FROM monitor_bindings b JOIN monitor_series_states s ON s.series_id=b.series_id WHERE b.plan_id=?`, plan, plan)
 	if err != nil {
 		return nil, err
 	}
@@ -89,6 +108,51 @@ func (s *Store) RecordMonitor(ctx context.Context, plan string, sample model.Mon
 		return false, err
 	}
 	defer tx.Rollback()
+	var series string
+	var anchor int64
+	bindErr := tx.QueryRowContext(ctx, `SELECT b.series_id,t.anchor FROM monitor_bindings b JOIN monitor_series t ON t.id=b.series_id WHERE b.plan_id=? AND b.node_id=?`, plan, sample.NodeID).Scan(&series, &anchor)
+	if bindErr == nil {
+		sample.SeriesID = series
+		sample.ScheduledAt = sample.At.Unix()
+		if sample.Kind == "baseline" {
+			sample.ScheduledAt = anchor + sample.Slot*120
+		}
+		sample.DataVersion = 2
+		if sample.ReasonCode == "" {
+			switch sample.Outcome {
+			case "success":
+				sample.ReasonCode = "ok"
+			case "failure":
+				sample.ReasonCode = "node_path"
+			default:
+				sample.ReasonCode = "unknown"
+			}
+		}
+		added, e := insertObservation(ctx, tx, sample)
+		if e != nil || !added {
+			return added, e
+		}
+		data, e := json.Marshal(state)
+		if e != nil {
+			return false, e
+		}
+		if _, e = tx.ExecContext(ctx, `INSERT INTO monitor_series_states(series_id,payload) VALUES(?,?) ON CONFLICT(series_id) DO UPDATE SET payload=excluded.payload`, series, string(data)); e != nil {
+			return false, e
+		}
+		if event != nil {
+			data, e = json.Marshal(event)
+			if e != nil {
+				return false, e
+			}
+			if _, e = tx.ExecContext(ctx, `INSERT INTO monitor_events(plan_id,at,payload) VALUES(?,?,?)`, plan, event.At.Unix(), string(data)); e != nil {
+				return false, e
+			}
+		}
+		return true, tx.Commit()
+	}
+	if bindErr != sql.ErrNoRows {
+		return false, bindErr
+	}
 	data, err := json.Marshal(sample)
 	if err != nil {
 		return false, err
@@ -124,6 +188,22 @@ func (s *Store) RecordMonitor(ctx context.Context, plan string, sample model.Mon
 }
 
 func (s *Store) MonitorSamples(ctx context.Context, plan string, since time.Time) ([]model.MonitorSample, error) {
+	bindings, err := s.planSeries(ctx, plan)
+	if err != nil {
+		return nil, err
+	}
+	if len(bindings) > 0 {
+		out := []model.MonitorSample{}
+		for _, series := range bindings {
+			items, e := s.SeriesSamples(ctx, series, since, time.Date(9999, 12, 31, 0, 0, 0, 0, time.UTC), true)
+			if e != nil {
+				return nil, e
+			}
+			out = append(out, items...)
+		}
+		sort.SliceStable(out, func(i, j int) bool { return out[i].At.Before(out[j].At) })
+		return out, nil
+	}
 	rows, err := s.db.QueryContext(ctx, `SELECT payload FROM monitor_samples WHERE plan_id=? AND at>=? ORDER BY at,slot`, plan, since.Unix())
 	if err != nil {
 		return nil, err
@@ -167,21 +247,51 @@ func (s *Store) MonitorEvents(ctx context.Context, plan string) ([]model.Monitor
 	return out, rows.Err()
 }
 
-// P1 retains seven days of raw evidence. Never VACUUM in the sampling loop.
+// Raw observations are removed only after their hour is durably aggregated.
+// Never VACUUM in the sampling loop.
 func (s *Store) CleanupMonitor(ctx context.Context, now time.Time) error {
-	tx, err := s.db.BeginTx(ctx, nil)
+	rows, err := s.db.QueryContext(ctx, `SELECT scope FROM monitor_plans UNION SELECT scope FROM monitor_series`)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
-	for _, query := range []string{`DELETE FROM monitor_samples WHERE at<?`, `DELETE FROM monitor_events WHERE at<?`} {
-		if _, err = tx.ExecContext(ctx, query, now.Add(-7*24*time.Hour).Unix()); err != nil {
+	scopes := []string{}
+	for rows.Next() {
+		var scope string
+		if err = rows.Scan(&scope); err != nil {
+			rows.Close()
 			return err
 		}
+		scopes = append(scopes, scope)
 	}
-	_, err = tx.ExecContext(ctx, `DELETE FROM monitor_states WHERE plan_id NOT IN (SELECT json_extract(payload,'$.id') FROM monitor_plans) AND plan_id NOT IN (SELECT DISTINCT plan_id FROM monitor_samples)`)
+	err = rows.Err()
+	rows.Close()
 	if err != nil {
 		return err
 	}
-	return tx.Commit()
+	pending := false
+	for _, scope := range scopes {
+		p, e := s.MonitorRetention(ctx, scope)
+		if e != nil {
+			return e
+		}
+		if e = s.cleanupMonitorScope(ctx, scope, p, now); e != nil {
+			if errors.Is(e, ErrMonitorCleanupPending) {
+				pending = true
+			} else {
+				return e
+			}
+		}
+	}
+	r, err := s.db.ExecContext(ctx, `DELETE FROM monitor_samples WHERE rowid IN (SELECT rowid FROM monitor_samples WHERE at<? ORDER BY at LIMIT 500)`, now.Add(-7*24*time.Hour).Unix())
+	if err != nil {
+		return err
+	}
+	n, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if pending || n >= 500 {
+		return ErrMonitorCleanupPending
+	}
+	return nil
 }

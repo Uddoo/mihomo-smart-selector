@@ -3,18 +3,23 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Activity, Pause, Play, RefreshCw, Clock, ShieldCheck } from '@lucide/vue'
 import { api } from './api'
 import type { Group, ServiceCatalog } from './models'
-import { monitorPercent, monitorStatus, monitorTime } from './monitoring'
+import MonitorHistoryPanel from './MonitorHistoryPanel.vue'
+import MonitorDiagnosticsPanel from './MonitorDiagnosticsPanel.vue'
+import { monitorPercent, monitorStatus, monitorTime, observedSpan } from './monitoring'
 import type { MonitorCatalog, MonitorOverview, MonitorPlan } from './monitoring'
 
 const props = defineProps<{ groups: Group[]; services: ServiceCatalog | null; scanLocked: boolean }>()
 const emit = defineEmits<{ openScan: [group: string, profile: string] }>()
 const data = ref<MonitorOverview | null>(null)
+const windowRange = ref('24h')
+const windowLabel = computed(() => windowRange.value === '7d' ? '最近 7 天' : windowRange.value === '1h' ? '最近 1 小时' : '最近 24 小时')
 const failure = ref(''), message = ref(''), busy = ref(false), editing = ref(false), initialized = ref(false)
 const group = ref(''), profile = ref(''), chosen = ref<string[]>([]), query = ref('')
 const catalog = ref<MonitorCatalog | null>(null), catalogBusy = ref(false), catalogError = ref('')
 let timer: ReturnType<typeof setTimeout> | undefined
 let disposed = false, catalogRevision = 0, hydrating = false
-const polling = new AbortController()
+let polling = new AbortController()
+let readRevision = 0, pollGeneration = 0
 let catalogAbort: AbortController | undefined
 const plan = computed(() => data.value?.plan)
 const profiles = computed(() => props.services?.profiles.filter(p => !p.requires_configuration) || [])
@@ -48,14 +53,16 @@ async function loadCatalog(preserve = false) {
 }
 
 async function refresh() {
+  const revision = ++readRevision; polling.abort(); polling = new AbortController()
   try {
-    const result = await api<MonitorOverview>('/monitor', {signal: polling.signal})
-    if (disposed) return
+    const result = await api<MonitorOverview>('/monitor?window=' + windowRange.value, {signal: polling.signal})
+    if (disposed || revision !== readRevision) return
     data.value = result; failure.value = ''
     if (!initialized.value) { initialized.value = true; if (!result.plan) { editing.value = true; defaults(); void loadCatalog() } }
-  } catch (e) { if (!disposed) failure.value = e instanceof Error ? e.message : '读取失败' }
+  } catch (e) { if (!disposed && revision === readRevision) failure.value = e instanceof Error ? e.message : '读取失败' }
 }
-async function poll() { await refresh(); if (!disposed) timer = setTimeout(() => void poll(), 5000) }
+async function poll(generation = pollGeneration) { if (!document.hidden) await refresh(); if (!disposed && generation === pollGeneration) timer = setTimeout(() => void poll(generation), 5000) }
+function changeWindow() { pollGeneration++; clearTimeout(timer); void poll(pollGeneration) }
 onMounted(() => void poll())
 onBeforeUnmount(() => { disposed = true; clearTimeout(timer); polling.abort(); catalogAbort?.abort() })
 
@@ -132,7 +139,7 @@ async function retest(id: string) {
       </fieldset>
       <p v-if="catalog && !filtered.length">没有匹配的候选；请调整搜索或检查策略组。</p>
       <p class="monitor-note">基准采样每 2 分钟；当前节点附加检查每 30 秒。预计约 {{ estimated.toLocaleString() }} 次探测/天，确认请求另计；最多 12 次后台探测/分钟。</p>
-      <p v-if="plan" class="monitor-note">暂停、继续同一方案保留评分。更换服务、节点列表或探测配置会开始新的观测记录；旧记录保留至清理，当前页面仅展示新方案。</p>
+      <p v-if="plan" class="monitor-note">暂停、继续同一方案保留评分。调整候选列表会保留未变化节点的历史；模板或节点身份改变时分开记录，可在历史序列中查看。</p>
       <div class="monitor-actions"><button class="primary" :disabled="busy || catalogBusy || !catalog || !chosen.length || chosen.length > capacity">{{ busy ? '正在保存' : plan ? '保存并监控' : '开始监控' }}</button><button v-if="plan" type="button" :disabled="busy" @click="editing = false">取消调整</button></div>
     </form>
     <template v-if="plan && data">
@@ -140,25 +147,29 @@ async function retest(id: string) {
       <section class="monitor-panel"><div class="monitor-heading"><div><h3>故障自动切换</h3><p>当前节点连续失败并确认不可用时，从当前健康且近期有成功样本的监控节点中选择近 24 小时成功率最高者；并列时选 P95 更低者。</p></div><button role="switch" aria-label="故障自动切换" :aria-checked="plan.auto_switch" :class="{primary: plan.auto_switch}" :disabled="busy" @click="toggleAuto">{{ plan.auto_switch ? '已开启' : '已关闭' }}</button></div><p class="monitor-note">切换前再测一次；没有可用候选时不切换。自动切换距最近一次切换至少间隔 2 分钟，结果不确定时停止自动重试，可在“选择历史”核对。暂停监控也会暂停自动切换。</p><p v-if="data.failover_message" role="status">{{ data.failover_message }}</p></section>
       <div class="monitor-overview">
         <article class="monitor-panel"><small>策略组当前选择</small><h3>{{ data.current || '等待 Controller 回读' }}</h3><span :class="['monitor-badge', current?.state.status || 'unknown']">{{ monitorStatus[current?.state.status || 'unknown'] }}</span><p>{{ plan.group }} · {{ plan.profile_id }}</p><p v-if="data.current && !current" class="bad">当前选择不在监控列表或为嵌套策略组，请调整方案加入实际叶子节点。</p><small>组选择不代表已有连接已迁移。</small></article>
-        <article class="monitor-panel"><small><Clock :size="14"/> 开始观测</small><h3>{{ monitorTime(plan.created_at) }}</h3><p>下次基准采样：{{ monitorTime(data.next_at) }}</p><small>控制器回读：{{ monitorTime(data.observed_at) }}</small></article>
-        <article class="monitor-panel"><small><ShieldCheck :size="14"/> 证据范围</small><h3>24 小时 HTTPS 健康分</h3><p>可用性 70 · 连续性 20 · 延迟 10</p><small>少于 100 个有效样本显示积累中。完整 24 小时且覆盖率 ≥ 80% 后标记数据充足。</small></article>
+        <article class="monitor-panel"><small><Clock :size="14"/> 当前方案创建</small><h3>{{ monitorTime(plan.created_at) }}</h3><p>下次基准采样：{{ monitorTime(data.next_at) }}</p><small>控制器回读：{{ monitorTime(data.observed_at) }}</small></article>
+        <article class="monitor-panel"><small><ShieldCheck :size="14"/> 证据范围</small><h3>{{ windowRange === '1h' ? '1 小时观测指标' : windowRange === '7d' ? '7 天 HTTPS 健康分' : '24 小时 HTTPS 健康分' }}</h3><p>可用性 70 · 连续性 20 · 延迟 10</p><small>少于 100 个有效样本显示积累中。完整覆盖所选时间跨度且覆盖率 ≥ 80% 后标记数据充足；1 小时只展示观测指标。</small></article>
       </div>
       <section class="monitor-panel">
-        <div class="monitor-heading"><div><h3>长期排名 · 最近 24 小时</h3><p>当前健康节点优先。额外复测不覆盖历史失败；自动切换使用成功率排序，与长期分排序独立。</p></div><button :disabled="scanLocked" @click="emit('openScan', plan.group, plan.profile_id)">去工作台复测并选择</button></div>
+        <div class="monitor-heading"><div><h3>长期排名 · {{ windowLabel }}</h3><p>当前健康节点优先。额外复测不覆盖历史失败；自动切换使用成功率排序，与长期分排序独立。</p></div><button :disabled="scanLocked" @click="emit('openScan', plan.group, plan.profile_id)">去工作台复测并选择</button></div>
+        <label class="monitor-window">观察窗口 <select v-model="windowRange" @change="changeWindow"><option value="1h">最近 1 小时</option><option value="24h">最近 24 小时</option><option value="7d">最近 7 天</option></select></label>
         <div class="monitor-table-wrap"><table class="monitor-table"><thead><tr><th>节点 / Provider</th><th>当前状态</th><th>长期分 / 100</th><th>覆盖率 / 有效样本</th><th>成功率</th><th>P95</th><th>故障段 / 估算时长</th><th>操作</th></tr></thead><tbody>
-          <tr v-for="row in data.rows" :key="row.id"><td><b>{{ row.name }}</b><small>{{ row.provider || '独立节点' }}</small><small v-if="data.current === row.name">策略组当前选择</small></td><td><span :class="['monitor-badge', row.state.status]">{{ monitorStatus[row.state.status] || '未知' }}</span><small>连续失败 {{ row.state.failures }}</small></td><td><b>{{ row.metrics.score === null ? '积累中' : row.metrics.score.toFixed(1) }}</b><small>{{ row.metrics.readiness === 'ready' ? '数据充足' : row.metrics.readiness === 'provisional' ? '暂定分 · 依据不足' : '等待 100 个有效样本' }}</small></td><td>{{ monitorPercent(row.metrics.coverage) }}<small>{{ row.metrics.samples }} / {{ row.metrics.expected }} 个基准时隙</small></td><td>{{ row.metrics.samples ? monitorPercent(row.metrics.success_rate) : '—' }}</td><td>{{ row.metrics.p95_ms ? row.metrics.p95_ms + ' ms' : '—' }}</td><td>{{ row.metrics.incidents }} 段<small>约 {{ Math.round(row.metrics.failure_seconds / 60) }} 分钟</small></td><td><button :disabled="busy || !plan.enabled || data.suspended" :aria-label="'监控复测 ' + row.name" @click="retest(row.id)">复测</button></td></tr>
+          <tr v-for="row in data.rows" :key="row.id"><td><b>{{ row.name }}</b><small>{{ row.provider || '独立节点' }}</small><small v-if="data.current === row.name">策略组当前选择</small></td><td><span :class="['monitor-badge', row.state.status]">{{ monitorStatus[row.state.status] || '未知' }}</span><small>连续失败 {{ row.state.failures }}</small></td><td><b>{{ row.metrics.readiness === 'observational' ? '短期观察' : row.metrics.score === null ? '积累中' : row.metrics.score.toFixed(1) }}</b><small>{{ row.metrics.readiness === 'observational' ? '不计算长期分' : row.metrics.readiness === 'ready' ? '数据充足' : row.metrics.readiness === 'provisional' ? '暂定分 · 依据不足' : '等待 100 个有效样本' }}</small></td><td>{{ monitorPercent(row.metrics.coverage) }}<small>{{ row.metrics.samples }} / {{ row.metrics.expected }} 个基准时隙</small><small>跨度 {{ observedSpan(row.metrics.observed_seconds) }} / {{ observedSpan(row.metrics.window_seconds) }}</small></td><td>{{ row.metrics.samples ? monitorPercent(row.metrics.success_rate) : '—' }}</td><td>{{ row.metrics.p95_ms ? row.metrics.p95_ms + ' ms' : '—' }}</td><td>{{ row.metrics.incidents }} 段<small>约 {{ Math.round(row.metrics.failure_seconds / 60) }} 分钟</small></td><td><button :disabled="busy || !plan.enabled || data.suspended" :aria-label="'监控复测 ' + row.name" @click="retest(row.id)">复测</button></td></tr>
         </tbody></table></div>
       </section>
+      <MonitorHistoryPanel :overview="data" :window="windowRange"/>
       <section class="monitor-panel"><h3>最近基准采样</h3><p class="monitor-note">每节点最多展示最近 60 条记录；悬停或聚焦查看时间与结果。覆盖率会计入没有记录的时隙，色块不代表连续在线。</p>
         <details v-for="row in data.rows" :key="row.id" class="monitor-detail"><summary>{{ row.name }} <small>最近采样：{{ monitorTime(row.state.last_at) }}</small></summary><div v-if="row.series.length" class="monitor-series"><span v-for="s in row.series" :key="s.slot" tabindex="0" :class="s.outcome" :title="`${monitorTime(s.at)} · ${s.outcome === 'success' ? s.delay_ms + ' ms' : s.reason || '失败'}`" :aria-label="`${monitorTime(s.at)}，${s.outcome === 'success' ? '成功 ' + s.delay_ms + ' 毫秒' : s.outcome === 'failure' ? '失败' : '缺测'}。${s.reason || ''}`"></span></div><p v-else>尚无基准采样。</p><p class="monitor-note">最近成功：{{ monitorTime(row.state.last_success) }} · 绿色成功 / 红色失败 / 灰色未知</p></details>
       </section>
       <section class="monitor-panel"><h3>健康事件</h3><p class="monitor-note">只记录状态变化，重复失败不刷屏；最多展示最近 100 条。页面关闭时仍记录事件，浏览器通知未启用。</p><p v-if="!data.events.length">等待首次采样；之后会在这里记录状态变化。</p><ol class="monitor-events"><li v-for="e in data.events" :key="e.id"><time>{{ monitorTime(e.at) }}</time><b>{{ e.node_name }}</b><span :class="['monitor-badge', e.status]">{{ monitorStatus[e.status] || e.status }}</span><p>{{ e.message || '健康状态已变化' }}</p></li></ol></section>
-      <p class="monitor-note">页面每 5 秒读取后台快照。原始记录保留 {{ data.retention_days }} 天；第一版提供 24 小时评分，7 天聚合与长连接验证将在后续阶段增加。同名节点换出口可能无法识别。</p>
+      <MonitorDiagnosticsPanel :window="windowRange"/>
+      <p class="monitor-note">页面每 5 秒读取后台快照。原始记录保留 {{ data.retention_days }} 天；支持 1h/24h/7d 分析与小时聚合。长连接未验证，同名节点换出口可能无法识别。</p>
     </template>
   </section>
 </template>
 
 <style scoped>
+.monitor-window { display:flex;align-items:center;gap:10px;margin-top:15px;font-size:13px; }.monitor-window select{padding:8px;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:6px;}
 .monitor-page { display: grid; gap: 20px; padding-top: 8px; }
 .monitor-page h2,.monitor-page h3 { margin: 0 0 9px; }
 .monitor-page h2 { font-size: 20px; }.monitor-page h3 { font-size: 16px; }

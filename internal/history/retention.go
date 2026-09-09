@@ -35,6 +35,12 @@ func (s *Store) Stats(ctx context.Context) (StorageStats, error) {
 }
 
 func (s *Store) Cleanup(ctx context.Context, p config.RetentionPolicy) (CleanupResult, error) {
+	return s.cleanupHistory(ctx, p, true)
+}
+func (s *Store) MaintainHistory(ctx context.Context, p config.RetentionPolicy) (CleanupResult, error) {
+	return s.cleanupHistory(ctx, p, false)
+}
+func (s *Store) cleanupHistory(ctx context.Context, p config.RetentionPolicy, reclaim bool) (CleanupResult, error) {
 	var out CleanupResult
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -62,12 +68,16 @@ func (s *Store) Cleanup(ctx context.Context, p config.RetentionPolicy) (CleanupR
 	}
 	// Reclaim database pages only when cleanup removed data; no periodic rewrite
 	// of a healthy database on flash storage.
-	if out.Scans+out.Audit > 0 {
+	if reclaim && out.Scans+out.Audit > 0 {
 		if _, err = s.db.ExecContext(ctx, `VACUUM`); err != nil {
 			return out, err
 		}
 	}
-	if _, err = s.db.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
+	checkpoint := "PRAGMA wal_checkpoint(PASSIVE)"
+	if reclaim {
+		checkpoint = "PRAGMA wal_checkpoint(TRUNCATE)"
+	}
+	if _, err = s.db.ExecContext(ctx, checkpoint); err != nil {
 		return out, err
 	}
 	out.Stats, err = s.Stats(ctx)

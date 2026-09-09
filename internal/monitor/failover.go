@@ -74,9 +74,24 @@ func (m *Manager) failover(ctx context.Context, now time.Time) {
 		m.mu.Unlock()
 		return
 	}
+	// Do not read history at all while the selected node is healthy/unknown.
+	failed := false
+	if m.issue == "" && fresh(m.observedAt, now, 45*time.Second) {
+		for _, n := range m.plan.Nodes {
+			state := m.states[n.ID]
+			if n.Name == m.current && state.Status == "unavailable" && state.Failures >= 2 && fresh(state.LastAt, now, 90*time.Second) {
+				failed = true
+				break
+			}
+		}
+	}
+	if !failed {
+		m.mu.Unlock()
+		return
+	}
 	m.failoverAt = now.Add(30 * time.Second)
 	m.mu.Unlock()
-	o, err := m.Overview(ctx)
+	o, err := m.overview(ctx, "24h", false)
 	if err != nil {
 		return
 	}
@@ -109,6 +124,7 @@ func (m *Manager) failover(ctx context.Context, now time.Time) {
 			if !m.takeBudget(m.now()) {
 				sample.Outcome = "unknown"
 				sample.Reason = "自动切换等待探测预算"
+				sample.ReasonCode = "budget"
 				break
 			}
 			delay, probeErr := m.source.MonitorDelay(child, candidate.MonitorNode, probe)
@@ -118,6 +134,10 @@ func (m *Manager) failover(ctx context.Context, now time.Time) {
 				if errors.Is(probeErr, scan.ErrMonitorBusy) || (probeErr != nil && (strings.Contains(probeErr.Error(), "HTTP 401") || strings.Contains(probeErr.Error(), "HTTP 403"))) || !m.source.MonitorReachable(child) {
 					sample.Outcome = "unknown"
 					sample.Reason = "探测额度或 Controller 不可用，暂不切换"
+					sample.ReasonCode = "controller"
+					if errors.Is(probeErr, scan.ErrMonitorBusy) {
+						sample.ReasonCode = "busy"
+					}
 				}
 				break
 			}
@@ -146,6 +166,7 @@ func (m *Manager) failover(ctx context.Context, now time.Time) {
 		}
 		if added {
 			m.states[candidate.ID] = state
+			m.dataVersion++
 		}
 		if sample.Outcome != "success" {
 			m.failoverMessage = sample.Reason
@@ -163,6 +184,7 @@ func (m *Manager) failover(ctx context.Context, now time.Time) {
 		if switchErr != nil {
 			m.failoverMessage = switchErr.Error()
 		} else if result.Status == "confirmed" && result.AuditPersisted {
+			m.dataVersion++
 			m.current = candidate.Name
 			m.refreshAt = time.Time{}
 			m.failoverMessage = "已自动切换：" + o.Current + " → " + candidate.Name

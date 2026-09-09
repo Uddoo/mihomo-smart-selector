@@ -58,7 +58,7 @@ func (m *Manager) MonitorSwitch(ctx context.Context, p model.MonitorPlan, expect
 	}
 	allowed := false
 	for _, n := range p.Nodes {
-		if n == node {
+		if model.SameMonitorNode(n, node) {
 			allowed = true
 		}
 	}
@@ -72,7 +72,7 @@ func (m *Manager) MonitorSwitch(ctx context.Context, p model.MonitorPlan, expect
 	}
 	present := false
 	for _, n := range nodes {
-		if n == node {
+		if model.SameMonitorNode(n, node) {
 			present = true
 		}
 	}

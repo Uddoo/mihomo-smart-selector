@@ -97,3 +97,5 @@ func (m *Manager) MonitorReachable(ctx context.Context) bool {
 	_, err := m.client.Reachable(ctx)
 	return err == nil
 }
+
+func (m *Manager) MonitorForegroundBusy() bool { return m.hasRunningScan() }

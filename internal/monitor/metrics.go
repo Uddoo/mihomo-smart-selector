@@ -55,14 +55,21 @@ func transition(prev model.MonitorState, sample model.MonitorSample) model.Monit
 }
 
 func nodeAnchor(p model.MonitorPlan, index int) int64 {
+	if p.Nodes[index].Anchor != 0 {
+		return p.Nodes[index].Anchor
+	}
 	return p.CreatedAt.Unix() + int64(index*Interval/len(p.Nodes))
 }
 
 // Expected slots include gaps (including browser absence, pauses and restarts).
 // Extra checks are never allowed to replace a failed baseline with a success.
 func metrics(samples []model.MonitorSample, anchor int64, now time.Time) model.MonitorMetrics {
-	out := model.MonitorMetrics{Readiness: "collecting"}
-	start := max(anchor, now.Add(-24*time.Hour).Unix())
+	return windowMetrics(samples, anchor, now, 24*time.Hour)
+}
+
+func windowMetrics(samples []model.MonitorSample, anchor int64, now time.Time, window time.Duration) model.MonitorMetrics {
+	out := model.MonitorMetrics{Readiness: "collecting", WindowSeconds: int64(window / time.Second), ObservedSeconds: min(int64(window/time.Second), max(int64(0), now.Unix()-anchor))}
+	start := max(anchor, now.Add(-window).Unix())
 	first := max(int64(0), (start-anchor+Interval-1)/Interval)
 	last := (now.Unix() - anchor) / Interval
 	if now.Unix() >= anchor && last >= first {
@@ -72,14 +79,14 @@ func metrics(samples []model.MonitorSample, anchor int64, now time.Time) model.M
 	successes := 0
 	previousSlot := int64(-2)
 	failed := false
-	baseline := []model.MonitorSample{}
+	baseline := make([]model.MonitorSample, 0, len(samples))
 	for _, s := range samples {
 		if s.Kind == "baseline" && s.Slot >= first && s.Slot <= last {
 			baseline = append(baseline, s)
 		}
 	}
 	sort.SliceStable(baseline, func(i, j int) bool { return baseline[i].Slot < baseline[j].Slot })
-	seen := map[int64]bool{}
+	seen := make(map[int64]bool, len(baseline))
 	for _, s := range baseline {
 		if seen[s.Slot] {
 			continue
@@ -114,6 +121,10 @@ func metrics(samples []model.MonitorSample, anchor int64, now time.Time) model.M
 		sort.Ints(delays)
 		out.P95MS = delays[int(math.Ceil(.95*float64(len(delays))))-1]
 	}
+	if window <= time.Hour {
+		out.Readiness = "observational"
+		return out
+	}
 	if out.Samples < 100 {
 		return out
 	}
@@ -126,9 +137,17 @@ func metrics(samples []model.MonitorSample, anchor int64, now time.Time) model.M
 	if successes == 0 {
 		score = 0
 	}
+	out.AvailabilityPoints = math.Round(70*out.SuccessRate*10) / 10
+	out.ContinuityPoints = math.Round(20*continuity*10) / 10
+	out.LatencyPoints = math.Round(10*latency*10) / 10
+	if successes == 0 {
+		out.AvailabilityPoints = 0
+		out.ContinuityPoints = 0
+		out.LatencyPoints = 0
+	}
 	out.Score = &score
 	out.Readiness = "provisional"
-	if now.Unix()-anchor >= 86400 && out.Coverage >= .8 {
+	if now.Unix()-anchor >= int64(window/time.Second) && out.Coverage >= .8 {
 		out.Readiness = "ready"
 	}
 	return out

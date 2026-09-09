@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"reflect"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +25,10 @@ type Source interface {
 
 type Manager struct {
 	mu                 sync.Mutex
+	dataVersion        uint64
+	instanceID         string
 	store              *history.Store
+	queries            *queryBudget
 	source             Source
 	plan               *model.MonitorPlan
 	profile            config.ProbeProfile
@@ -35,6 +36,7 @@ type Manager struct {
 	current, issue     string
 	failoverMessage    string
 	failoverAt         time.Time
+	correlationAt      time.Time
 	observedAt         time.Time
 	fault              bool
 	states             map[string]model.MonitorState
@@ -53,26 +55,28 @@ func New(store *history.Store, source Source) (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	m := &Manager{store: store, source: source, plan: p, states: map[string]model.MonitorState{}, manual: map[string]bool{}, slots: map[string]int64{}, now: func() time.Time { return time.Now().UTC() }}
+	m := &Manager{store: store, queries: newQueryBudget(), source: source, plan: p, states: map[string]model.MonitorState{}, manual: map[string]bool{}, slots: map[string]int64{}, now: func() time.Time { return time.Now().UTC() }}
+	var boot [12]byte
+	if _, err = rand.Read(boot[:]); err != nil {
+		return nil, err
+	}
+	m.instanceID = hex.EncodeToString(boot[:])
 	if p != nil {
-		m.states, err = store.MonitorStates(context.Background(), p.ID)
-		if err != nil {
-			return nil, err
-		}
-		// Recover high-water marks so restarting inside a slot does not probe twice.
-		var samples []model.MonitorSample
-		samples, err = store.MonitorSamples(context.Background(), p.ID, time.Now().Add(-24*time.Hour))
-		if err != nil {
-			return nil, err
-		}
-		for _, sample := range samples {
-			key := sample.NodeID + "/" + sample.Kind
-			if last, ok := m.slots[key]; !ok || sample.Slot > last {
-				m.slots[key] = sample.Slot
-			}
-		}
+		m.states, m.slots, err = store.MonitorCheckpoint(context.Background(), p.Nodes)
 	}
 	return m, err
+}
+
+func sameNodes(a, b []model.MonitorNode) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !model.SameMonitorNode(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func clonePlan(p *model.MonitorPlan) *model.MonitorPlan {
@@ -152,7 +156,7 @@ func (m *Manager) Save(ctx context.Context, r model.MonitorRequest) (*model.Moni
 	if r.AutoSwitch != nil {
 		plan.AutoSwitch = *r.AutoSwitch
 	}
-	if old != nil && old.Group == plan.Group && old.ProfileID == plan.ProfileID && old.ProfileHash == hash && reflect.DeepEqual(old.Nodes, selected) {
+	if old != nil && old.Group == plan.Group && old.ProfileID == plan.ProfileID && old.ProfileHash == hash && sameNodes(old.Nodes, selected) {
 		plan.ID = old.ID
 		plan.CreatedAt = old.CreatedAt
 	} else {
@@ -174,17 +178,32 @@ func (m *Manager) commitPlan(ctx context.Context, p *model.MonitorPlan, previous
 	if (m.plan == nil && previous != 0) || (m.plan != nil && m.plan.Revision != previous) {
 		return nil, fmt.Errorf("监控配置已变化，请刷新后重试")
 	}
+	p.UpdatedAt = m.now()
+	if err := m.store.PrepareMonitorPlan(ctx, m.source.MonitorScope(), p); err != nil {
+		return nil, err
+	}
+	var restoredStates map[string]model.MonitorState
+	var restoredSlots map[string]int64
+	changed := m.plan == nil || m.plan.ID != p.ID
+	if changed {
+		var e error
+		restoredStates, restoredSlots, e = m.store.MonitorCheckpoint(ctx, p.Nodes)
+		if e != nil {
+			return nil, e
+		}
+	}
 	if err := m.store.SaveMonitorPlan(ctx, m.source.MonitorScope(), *p, previous); err != nil {
 		return nil, err
 	}
 	if m.inflight != nil {
 		m.inflight()
 	}
-	if m.plan == nil || m.plan.ID != p.ID {
-		m.states = map[string]model.MonitorState{}
-		m.slots = map[string]int64{}
+	if changed {
+		m.states = restoredStates
+		m.slots = restoredSlots
 	}
 	m.plan = clonePlan(p)
+	m.dataVersion++
 	m.manual = map[string]bool{}
 	m.refreshAt = time.Time{}
 	m.current = ""
@@ -224,17 +243,26 @@ func (m *Manager) Start() {
 	m.done = make(chan struct{})
 	go func() {
 		defer close(m.done)
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				m.step(ctx, m.now())
-				m.failover(ctx, m.now())
+		var workers sync.WaitGroup
+		workers.Add(2)
+		go func() {
+			defer workers.Done()
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					m.step(ctx, m.now())
+					m.failover(ctx, m.now())
+					m.correlate(ctx, m.now())
+				}
 			}
-		}
+		}()
+		go func() { defer workers.Done(); m.maintenanceLoop(ctx) }()
+
+		workers.Wait()
 	}()
 }
 
@@ -269,6 +297,24 @@ func (m *Manager) refresh(ctx context.Context, plan model.MonitorPlan, now time.
 	if m.plan == nil || m.plan.Revision != plan.Revision {
 		return
 	}
+	previousIssue := m.issue
+	defer func() {
+		if previousIssue != m.issue {
+			status := "recovered"
+			message := "Controller 与监控配置已恢复可读"
+			if m.issue != "" {
+				status = "unknown"
+				message = m.issue
+			}
+			writeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+			defer cancel()
+			if err := m.store.RecordMonitorSystem(writeCtx, m.source.MonitorScope(), plan.ID, status, message, now); err != nil && ctx.Err() == nil {
+				m.fault = true
+				m.issue = "环境事件写入失败，监控已暂停"
+			}
+		}
+	}()
+	m.dataVersion++
 	m.refreshAt = now.Add(30 * time.Second)
 	m.observedAt = now
 	m.current = current
@@ -293,17 +339,7 @@ func (m *Manager) step(ctx context.Context, now time.Time) {
 	p := clonePlan(m.plan)
 	refresh := !now.Before(m.refreshAt)
 	fault := m.fault
-	clean := !now.Before(m.cleanAt)
-	if clean {
-		m.cleanAt = now.Add(time.Hour)
-	}
 	m.mu.Unlock()
-	if clean {
-		if err := m.store.CleanupMonitor(ctx, now); err != nil && ctx.Err() == nil {
-			m.storageFailure()
-			return
-		}
-	}
 	if p == nil || !p.Enabled || fault {
 		return
 	}
@@ -379,14 +415,17 @@ func (m *Manager) step(ctx context.Context, now time.Time) {
 	sample := model.MonitorSample{NodeID: chosen.ID, Kind: kind, Slot: slot, At: now, Outcome: "unknown"}
 	if issue != "" {
 		sample.Reason = issue
+		sample.ReasonCode = "environment"
 	} else if !present {
 		sample.Reason = "节点已移除或 Provider/协议身份发生变化"
+		sample.ReasonCode = "node_missing"
 	} else {
 		sample.Outcome = "success"
 		for _, probe := range profile.Probes {
 			if !m.takeBudget(now) {
 				sample.Outcome = "unknown"
 				sample.Reason = "已达到后台请求预算，本次未完成"
+				sample.ReasonCode = "budget"
 				break
 			}
 			delay, err := m.source.MonitorDelay(child, *chosen, probe)
@@ -397,9 +436,11 @@ func (m *Manager) step(ctx context.Context, now time.Time) {
 				if errors.Is(err, scan.ErrMonitorBusy) {
 					sample.Outcome = "unknown"
 					sample.Reason = "手动扫描占用探测额度，本次漏测"
+					sample.ReasonCode = "busy"
 				} else if strings.Contains(err.Error(), "HTTP 401") || strings.Contains(err.Error(), "HTTP 403") || !m.source.MonitorReachable(child) {
 					sample.Outcome = "unknown"
 					sample.Reason = "Controller 无法完成请求，未归因于节点"
+					sample.ReasonCode = "controller"
 				} else {
 					sample.Outcome = "failure"
 					sample.Reason = "节点路径探测失败或超时；未定位具体故障位置"
@@ -427,11 +468,13 @@ func (m *Manager) step(ctx context.Context, now time.Time) {
 	added, err := m.store.RecordMonitor(child, p.ID, sample, state, event)
 	if err != nil {
 		m.fault = true
+		m.dataVersion++
 		m.issue = "监控写入失败，已停止采样；修复存储后点击继续监控"
 		return
 	}
 	if added {
 		m.states[chosen.ID] = state
+		m.dataVersion++
 	}
 }
 
@@ -456,70 +499,6 @@ func (m *Manager) storageFailure() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.fault = true
+	m.dataVersion++
 	m.issue = "监控存储维护失败，已停止采样；修复存储后点击继续监控"
-}
-
-func (m *Manager) Overview(ctx context.Context) (model.MonitorOverview, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	now := m.now()
-	out := model.MonitorOverview{Plan: clonePlan(m.plan), Current: m.current, Issue: m.issue, Suspended: m.fault, ObservedAt: m.observedAt, Now: now, Rows: []model.MonitorRow{}, Events: []model.MonitorEvent{}, RetentionDays: 7}
-	out.FailoverMessage = m.failoverMessage
-	if m.plan == nil {
-		return out, nil
-	}
-	samples, err := m.store.MonitorSamples(ctx, m.plan.ID, now.Add(-24*time.Hour))
-	if err != nil {
-		return out, err
-	}
-	out.Events, err = m.store.MonitorEvents(ctx, m.plan.ID)
-	if err != nil {
-		return out, err
-	}
-	for i, n := range m.plan.Nodes {
-		row := model.MonitorRow{MonitorNode: n, State: m.states[n.ID], Series: []model.MonitorSample{}}
-		a := []model.MonitorSample{}
-		for _, s := range samples {
-			if s.NodeID == n.ID {
-				a = append(a, s)
-				if s.Kind == "baseline" {
-					row.Series = append(row.Series, s)
-				}
-			}
-		}
-		row.Metrics = metrics(a, nodeAnchor(*m.plan, i), now)
-		if !m.plan.Enabled || m.fault || m.issue != "" || row.State.LastAt.IsZero() || now.Sub(row.State.LastAt) > 2*Interval*time.Second {
-			row.State.Status = "unknown"
-		}
-		if len(row.Series) > 60 {
-			row.Series = row.Series[len(row.Series)-60:]
-		}
-		out.Rows = append(out.Rows, row)
-		anchor := nodeAnchor(*m.plan, i)
-		next := anchor
-		if now.Unix() >= anchor {
-			next = anchor + ((now.Unix()-anchor)/Interval+1)*Interval
-		}
-		t := time.Unix(next, 0).UTC()
-		if out.NextAt.IsZero() || t.Before(out.NextAt) {
-			out.NextAt = t
-		}
-	}
-	if !m.plan.Enabled || m.fault {
-		out.NextAt = time.Time{}
-	}
-	sort.SliceStable(out.Rows, func(i, j int) bool {
-		a, b := out.Rows[i], out.Rows[j]
-		if (a.State.Status == "healthy") != (b.State.Status == "healthy") {
-			return a.State.Status == "healthy"
-		}
-		if (a.Metrics.Readiness == "ready") != (b.Metrics.Readiness == "ready") {
-			return a.Metrics.Readiness == "ready"
-		}
-		if a.Metrics.Score != nil && b.Metrics.Score != nil {
-			return *a.Metrics.Score > *b.Metrics.Score
-		}
-		return a.Metrics.SuccessRate > b.Metrics.SuccessRate
-	})
-	return out, nil
 }
