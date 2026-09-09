@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {filterCatalog, sortCatalog, regionSourceLabel, protocolLabel} from './nodeCatalog.ts'
+import {filterCatalog, sortCatalog, regionSourceLabel, protocolLabel, regionStatus, catalogRegionLabel, regionEvidenceLabel} from './nodeCatalog.ts'
 
 const nodes = [
   {name: 'JP10-HY2', provider: 'Provider_B26FA7', protocol: 'Hysteria2', inferred_region: 'JP', region_source: 'name-inferred'},
@@ -33,4 +33,25 @@ test('region claims and unknown protocols remain explicit', () => {
   assert.equal(regionSourceLabel('unknown'), '未识别到地区')
   assert.equal(protocolLabel('vless'), 'VLESS')
   assert.equal(protocolLabel('FutureProtocol'), 'FutureProtocol')
+  assert.equal(regionEvidenceLabel('🇯🇵', labels), '日本旗帜（JP）')
+  assert.equal(regionEvidenceLabel('Tokyo', labels), 'Tokyo')
+})
+
+test('special entries are hidden by default but recoverable, while dynamic and ambiguous proxies remain', () => {
+  const input = [
+    {name: 'DIRECT', entry_kind: 'builtin', region_source: 'not-applicable'},
+    {name: '到期提示', entry_kind: 'subscription-info', region_source: 'not-applicable'},
+    {name: '自动线路', entry_kind: 'dynamic', region_source: 'dynamic'},
+    {name: 'JP via HK', entry_kind: 'proxy', region_source: 'ambiguous', region_candidates: ['JP', 'HK'], region_evidence: ['JP', 'HK']},
+    {name: 'opaque', region_source: 'unknown'},
+  ]
+  assert.equal(filterCatalog(input, filters({}), labels).length, 3)
+  assert.equal(filterCatalog(input, filters({scope:'all'}), labels).length, 5)
+  assert.equal(filterCatalog(input, filters({scope:'special'}), labels).length, 2)
+  assert.equal(filterCatalog(input, filters({status:'ambiguous', query:'日本'}), labels)[0].name, 'JP via HK')
+  assert.equal(filterCatalog(input, filters({status:'unknown'}), labels)[0].name, 'opaque')
+  assert.equal(catalogRegionLabel(input[3], labels), '待确认')
+  assert.equal(regionStatus(input[2]), 'dynamic')
+  assert.equal(regionStatus(input[0]), 'not-applicable')
+  assert.equal(regionStatus({...input[2], inferred_region:'JP', region_source:'manual'}), 'identified')
 })

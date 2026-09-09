@@ -185,6 +185,10 @@ export interface NodeSummary {
   protocol?: string
   inferred_region?: string
   region_source: string
+  entry_kind?: 'proxy' | 'builtin' | 'subscription-info' | 'dynamic'
+  region_reason?: 'transit' | 'conflicting-cues'
+  region_candidates?: string[]
+  region_evidence?: string[]
 }
 
 export interface SwitchEvent {

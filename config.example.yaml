@@ -59,6 +59,8 @@ scanner:
 
 # The name-classifier is only a candidate filter. It never claims actual egress
 # country. Actual egress verification is separate and optional below.
+# Built-in region aliases remain available; entries below extend that dictionary.
+# See docs/region-classification.md for merge rules and ambiguous transit names.
 regions:
   - code: JP
     name: Japan

@@ -1,5 +1,9 @@
 # Mihomo Smart Selector — Architecture & deployment design
 
+Node-directory classification uses a built-in dictionary extended by startup
+configuration. Its additive API fields, ambiguity handling and scope boundaries
+are documented in [region classification](region-classification.md).
+
 ## 1. Decision and product boundary
 
 This project is an **independent service**, not a fork or a plugin of
@@ -234,8 +238,8 @@ purchases, playback requests or other state-changing traffic.
 | `GET /api/v1/settings` | current editable runtime parameters and revision | none |
 | `PUT /api/v1/settings` | validate and save runtime parameters | persists overrides for subsequent scans |
 | `GET /api/v1/providers` | available proxy providers | none |
-| `GET /api/v1/regions` | configured classifier rules, no secrets | none |
-| `GET /api/v1/nodes` | eligible leaf-node catalogue and name-inferred region | none |
+| `GET /api/v1/regions` | built-in and custom classifier rules after additive merging, no secrets | none |
+| `GET /api/v1/nodes` | non-group catalogue with entry types, inferred regions and ambiguity evidence | none |
 | `GET /api/v1/history` | past scan/switch evidence | none |
 | `POST /api/v1/scans/preflight` | validate filters and estimate candidates/probes | none |
 | `POST /api/v1/scans` | submit group, optional profile, filters and mode | starts asynchronous probes; enabled verification temporarily changes the dedicated probe selector |

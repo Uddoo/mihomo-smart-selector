@@ -22,6 +22,12 @@ versioned releases begin.
 
 ### Added
 
+- A built-in 40-region name dictionary merged with legacy custom aliases,
+  normalized names and explicit transit/conflicting-cue evidence. Manual region
+  overrides retain precedence; inferred regions are not verified egress claims.
+- Node-directory entry types and filters separate built-in outbounds, suspected
+  subscription notices and dynamic routes from unidentified proxy regions.
+
 - Independent node-catalog filters for region, provider and protocol, searchable
   metadata, natural sorting, removable filter chips and retained browsing state.
 - On-demand node details with keyboard navigation and a mobile drawer, explicit

@@ -203,6 +203,7 @@ func Load(path string) (Config, error) {
 	if err := config.Validate(); err != nil {
 		return Config{}, err
 	}
+	config.Regions = MergeRegions(config.Regions)
 	return config, nil
 }
 
@@ -335,6 +336,14 @@ func (c Config) Validate() error {
 	}
 	regionCodes := map[string]bool{}
 	for _, region := range c.Regions {
+		code := strings.ToUpper(strings.TrimSpace(region.Code))
+		if regionCodes[code] {
+			return fmt.Errorf("duplicate region code %q", code)
+		}
+		regionCodes[code] = true
+	}
+	regionCodes = map[string]bool{}
+	for _, region := range MergeRegions(c.Regions) {
 		if region.Code == "" || region.Name == "" || len(region.Aliases) == 0 {
 			return fmt.Errorf("every region needs code, name, and at least one alias")
 		}
@@ -344,7 +353,7 @@ func (c Config) Validate() error {
 		regionCodes[region.Code] = true
 	}
 	for name, code := range c.RegionOverrides {
-		if strings.TrimSpace(name) == "" || !regionCodes[code] {
+		if strings.TrimSpace(name) == "" || !regionCodes[strings.ToUpper(strings.TrimSpace(code))] {
 			return fmt.Errorf("region override %q references unknown region %q", name, code)
 		}
 	}

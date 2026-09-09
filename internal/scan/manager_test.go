@@ -166,6 +166,48 @@ func (f *fakeMihomo) Select(_ context.Context, group, member string) error {
 }
 func (f *fakeMihomo) Reachable(context.Context) (string, error) { return "test", nil }
 
+func TestCatalogClassifiesEntriesWithoutDeletingThem(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Regions = []config.Region{{Code: "JP", Name: "Japan", Aliases: []string{"JP"}}}
+	fake := &fakeMihomo{proxies: map[string]mihomo.Proxy{
+		"香港 01":           {Name: "香港 01", Type: "Vless"},
+		"LA香港中转01":        {Name: "LA香港中转01", Type: "Vless"},
+		"DIRECT":          {Name: "DIRECT", Type: "Direct"},
+		"过期时间：2030-01-01": {Name: "过期时间：2030-01-01", Type: "Shadowsocks"},
+		"🌏自动最优线路":         {Name: "🌏自动最优线路", Type: "AnyTLS"},
+		"香港组":             {Name: "香港组", Type: "Selector"},
+	}}
+	m := NewManager(cfg, fake, nil)
+	nodes, err := m.Nodes(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byName := map[string]model.NodeSummary{}
+	for _, node := range nodes {
+		byName[node.Name] = node
+	}
+	if len(nodes) != 6 {
+		t.Fatalf("catalog must preserve 5 entries + provider node, but exclude group: %#v", nodes)
+	}
+	if byName["香港 01"].InferredRegion != "HK" || len(byName["香港 01"].RegionEvidence) == 0 {
+		t.Fatalf("missing new region/evidence: %#v", byName["香港 01"])
+	}
+	if byName["LA香港中转01"].RegionSource != "ambiguous" || byName["LA香港中转01"].InferredRegion != "" {
+		t.Fatal("transit must not assert egress country")
+	}
+	if byName["DIRECT"].EntryKind != "builtin" || byName["过期时间：2030-01-01"].EntryKind != "subscription-info" || byName["🌏自动最优线路"].RegionSource != "dynamic" {
+		t.Fatal("entry kinds lost")
+	}
+	available := m.Regions()
+	if len(available) != 40 {
+		t.Fatalf("effective API dictionary: %d", len(available))
+	}
+	available[0].Aliases[0] = "mutated"
+	if m.Regions()[0].Aliases[0] == "mutated" {
+		t.Fatal("API leaked mutable classifier data")
+	}
+}
+
 func TestManagerScansFiltersRanksAndSelectsMember(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Regions = []config.Region{{Code: "JP", Name: "Japan", Aliases: []string{"JP"}}}

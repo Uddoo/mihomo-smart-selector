@@ -17,6 +17,12 @@ fieldset small { margin-left: auto; color: var(--catalog-muted); }
 .sort-select { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 select { padding: 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--text); min-height: 44px; max-width: 100%; }
 .catalog-hint { margin: 10px 0 16px; font-size: 12px; line-height: 1.7; color: var(--catalog-muted); }
+.catalog-view-options { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; margin-bottom: 16px; font-size: 13px; }
+.catalog-view-options label { display: flex; align-items: center; gap: 8px; }
+.catalog-view-options > span { color: var(--catalog-muted); line-height: 1.7; }
+.catalog-view-options > span button { border: 0; background: transparent; color: var(--blue); padding: 6px; }
+.entry-kind { color: var(--catalog-muted); font-size: 11px; }
+.region-pending { color: var(--text); border-bottom: 1px dashed var(--muted); }
 .catalog-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .catalog-chips button { display: flex; align-items: center; gap: 8px; background: var(--soft); color: var(--text); overflow-wrap: anywhere; max-width: 100%; text-align: left; }
 .catalog-chips svg { flex-shrink: 0; }

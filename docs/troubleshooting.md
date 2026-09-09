@@ -8,6 +8,7 @@ Check the table before submitting a minimal, reproducible, redacted report in Ch
 | --- | --- |
 | Controller 连接失败 / Connection failed | 确认 Controller 正在运行、`mihomo.controller` 可由服务端访问，且 `MIHOMO_SECRET` 已在服务进程环境中设置。Verify the running Controller, server-side connectivity, and the service process environment. |
 | 无候选节点 / No candidates | 检查选中的 Selector、Provider 状态、地区和筛选限制。Check the selected Selector, provider state, and region/filter constraints. |
+| 地区未知或待确认 / Unknown or ambiguous region | 查看节点详情中的命中线索；中转、旗帜与名称冲突时需人工确认。旧地区配置自动扩展内置词典，规则及手动覆盖见[地区推断](region-classification.md)。Inspect the matching evidence and resolve ambiguous names explicitly. |
 | 探测失败 / Probe failed | 查看具体 Profile、超时和 HTTP/body 验证结果；成功响应不代表登录、播放或地区解锁。Inspect the profile, timeout, and HTTP/body results; success does not prove login, playback, or regional unlock. |
 | LAN 访问被拒绝 / LAN access denied | 检查监听地址、API token 和 `allowed_cidrs`，按部署指南配置可信访问。Check the listener, API token, and allowed CIDRs against the deployment guide. |
 | 前端资源异常 / Frontend asset error | 运行 `pnpm --dir web install --frozen-lockfile` 和 `pnpm --dir web build`，重新构建 Go 二进制并重启。Install and rebuild the frontend, then rebuild and restart the Go binary. |

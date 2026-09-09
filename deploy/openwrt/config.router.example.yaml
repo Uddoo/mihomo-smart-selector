@@ -55,6 +55,8 @@ scanner:
     # selector_group: "MSS Probe Only"
     # proxy_url: http://127.0.0.1:7890
     # max_candidates: 60
+# Extend the built-in dictionary; this list does not restrict region coverage.
+# See docs/region-classification.md for alias merging and manual overrides.
 regions:
   - code: JP
     name: Japan

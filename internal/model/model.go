@@ -143,11 +143,15 @@ type NodeResult struct {
 }
 
 type NodeSummary struct {
-	Name           string `json:"name"`
-	Provider       string `json:"provider,omitempty"`
-	Protocol       string `json:"protocol,omitempty"`
-	InferredRegion string `json:"inferred_region,omitempty"`
-	RegionSource   string `json:"region_source"`
+	Name             string   `json:"name"`
+	Provider         string   `json:"provider,omitempty"`
+	Protocol         string   `json:"protocol,omitempty"`
+	InferredRegion   string   `json:"inferred_region,omitempty"`
+	RegionSource     string   `json:"region_source"`
+	EntryKind        string   `json:"entry_kind"`
+	RegionReason     string   `json:"region_reason,omitempty"`
+	RegionCandidates []string `json:"region_candidates,omitempty"`
+	RegionEvidence   []string `json:"region_evidence,omitempty"`
 }
 
 type Scan struct {

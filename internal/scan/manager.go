@@ -223,7 +223,7 @@ func (m *Manager) Providers(ctx context.Context) ([]mihomo.Provider, error) {
 }
 
 func (m *Manager) Regions() []config.Region {
-	return append([]config.Region(nil), m.currentConfig().Regions...)
+	return m.classifier.Regions()
 }
 
 func (m *Manager) profileFor(request model.ScanRequest) (config.ProbeProfile, error) {
@@ -286,8 +286,7 @@ func (m *Manager) Nodes(ctx context.Context) ([]model.NodeSummary, error) {
 				continue
 			}
 			seen[proxy.Name] = true
-			match := m.classifier.Classify(proxy.Name)
-			nodes = append(nodes, model.NodeSummary{Name: proxy.Name, Provider: provider.Name, Protocol: proxy.Type, InferredRegion: match.Code, RegionSource: match.Source})
+			nodes = append(nodes, m.nodeSummary(proxy.Name, provider.Name, proxy.Type))
 		}
 	}
 	for name, proxy := range proxies {
@@ -295,11 +294,17 @@ func (m *Manager) Nodes(ctx context.Context) ([]model.NodeSummary, error) {
 			continue
 		}
 		seen[name] = true
-		match := m.classifier.Classify(name)
-		nodes = append(nodes, model.NodeSummary{Name: name, Provider: proxy.ProviderName, Protocol: proxy.Type, InferredRegion: match.Code, RegionSource: match.Source})
+		nodes = append(nodes, m.nodeSummary(name, proxy.ProviderName, proxy.Type))
 	}
 	sort.Slice(nodes, func(left, right int) bool { return nodes[left].Name < nodes[right].Name })
 	return nodes, nil
+}
+
+func (m *Manager) nodeSummary(name, provider, protocol string) model.NodeSummary {
+	kind, match := m.classifier.ClassifyEntry(name, protocol)
+	return model.NodeSummary{Name: name, Provider: provider, Protocol: protocol,
+		InferredRegion: match.Code, RegionSource: match.Source, EntryKind: kind,
+		RegionReason: match.Reason, RegionCandidates: match.Candidates, RegionEvidence: match.Evidence}
 }
 
 func (m *Manager) History(ctx context.Context, limit int) ([]model.SwitchEvent, error) {
