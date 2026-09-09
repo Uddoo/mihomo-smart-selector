@@ -69,7 +69,8 @@ function schedule(preserve = false) {
   timer = setTimeout(() => void load(), 150)
 }
 watch(() => props.seriesId, value => { if (value) selected.value = value })
-watch(() => [props.overview.plan?.revision, props.overview.instance_id], () => void loadCatalog())
+// Compare primitive identities: polling replaces the entire overview object.
+watch([() => props.overview.plan?.revision, () => props.overview.instance_id], () => void loadCatalog())
 watch(() => [props.window, selected.value, props.focusEvent?.key], () => schedule(), {flush: 'sync'})
 watch(() => props.overview.data_version, () => schedule(true), {flush: 'sync'})
 onMounted(() => void loadCatalog())
