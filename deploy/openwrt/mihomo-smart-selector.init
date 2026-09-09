@@ -30,7 +30,10 @@ start_service() {
     procd_set_param respawn 3600 5 5
     procd_set_param stdout 1
     procd_set_param stderr 1
-    procd_set_param env "MSS_API_TOKEN=$api_token"
+    procd_set_param nice 10
+    # Router defaults: one Go execution core and a soft managed-memory budget.
+    # GOMEMLIMIT is not an RSS/cgroup hard cap; validate real device consumption.
+    procd_set_param env "MSS_API_TOKEN=$api_token" "GOMAXPROCS=1" "GOMEMLIMIT=128MiB"
     procd_close_instance
 
     unset api_token

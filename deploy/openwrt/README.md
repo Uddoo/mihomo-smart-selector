@@ -153,3 +153,13 @@ This removes the local database and generated API token. It does not change
 OpenClash subscription files, strategy groups, the active Mihomo configuration,
 or the Controller listener. Restore and restart OpenClash only if a separately
 reviewed deployment step changed those files.
+
+## Resource defaults
+
+The init template runs the selector with `nice=10`, `GOMAXPROCS=1`, and
+`GOMEMLIMIT=128MiB` to reduce competition with routing and proxy workloads.
+Apply the updated init script together with the binary to use these defaults.
+The memory setting is a Go runtime soft limit, not an RSS/cgroup hard cap;
+one Go execution core is not a fixed CPU percentage quota. Verify actual RSS,
+CPU time and routing latency after deployment. Background history maintenance
+does not automatically VACUUM the shared database.
