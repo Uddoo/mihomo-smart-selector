@@ -10,6 +10,14 @@ $committedRoot = (Resolve-Path -LiteralPath (Join-Path $projectRoot 'internal/ap
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)
 $outputRoot = Join-Path $tempBase ('mihomo-smart-selector-web-' + [guid]::NewGuid().ToString('N'))
 
+# Vue's scoped-style identifiers include source bytes. Git normalizes CRLF at
+# commit time, so even one stray CRLF can make a local build differ from CI.
+foreach ($source in Get-ChildItem -LiteralPath (Join-Path $projectRoot 'web/src') -Filter '*.vue' -File -Recurse) {
+    if ([IO.File]::ReadAllText($source.FullName).Contains("`r")) {
+        throw "Vue source must use LF line endings before building: $($source.FullName). Normalize the file, then run pnpm --dir web build."
+    }
+}
+
 function Get-AssetManifest {
     param(
         [Parameter(Mandatory)]
