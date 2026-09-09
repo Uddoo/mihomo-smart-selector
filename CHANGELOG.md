@@ -22,6 +22,12 @@ versioned releases begin.
 
 ### Added
 
+- Independent node-catalog filters for region, provider and protocol, searchable
+  metadata, natural sorting, removable filter chips and retained browsing state.
+- On-demand node details with keyboard navigation and a mobile drawer, explicit
+  region-inference explanations, copy actions, sticky headers and adjustable
+  pagination with empty-state recovery.
+
 - P2 monitoring: immutable plan revisions and independent observation series
   preserve history across candidate edits; P1 data migrates with a durable
   watermark without guessing missing legacy definitions.

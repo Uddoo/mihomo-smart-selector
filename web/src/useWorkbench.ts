@@ -6,6 +6,7 @@ import {discover} from './discovery'
 import {selectionKey, operationLabel, operationMessage} from './selectionState'
 import type {Group, Health, NodeResult, NodeSummary, ProbeProfileSummary, Provider, Region, Scan, ScanPreview, SwitchEvent, ServiceCatalog, RuntimeSettings} from './models'
 import {usePageRoute} from './pageRoute'
+import {useNodeCatalog} from './useNodeCatalog'
 
 // Owned by the app shell so navigation never interrupts an active scan or switch.
 export function useWorkbench() {
@@ -16,6 +17,7 @@ export function useWorkbench() {
   const providers = ref<Provider[]>([])
   const regions = ref<Region[]>([])
   const nodes = ref<NodeSummary[]>([])
+  const catalog = useNodeCatalog(nodes, regionLabel)
   const history = ref<SwitchEvent[]>([])
   const group = ref('')
   const serviceID = ref('')
@@ -36,8 +38,6 @@ export function useWorkbench() {
   const noticeWarning = ref(false)
   watch(notice, () => { noticeWarning.value = false }, {flush:'sync'})
   const failure = ref('')
-  const query = ref('')
-  const selected = ref<NodeSummary | null>(null)
   const focusedName = ref('')
   const pendingChoice = ref<NodeResult | null>(null)
   const choiceDialog = ref<HTMLDialogElement | null>(null)
@@ -89,11 +89,6 @@ export function useWorkbench() {
   const invalidBindings = computed(() => services.value?.bindings.filter(item => item.status !== 'valid') || [])
   const serviceSource = computed(() => serviceID.value ? '本次手动选择；保存绑定后下次自动使用' : binding.value ? (binding.value.status === 'valid' ? '使用已保存的服务绑定' : '绑定已失效，请选择服务重新绑定或移除绑定') : services.value?.suggestions[group.value] ? '按组名推荐；可另选服务并保存绑定' : '未绑定服务，当前仅使用默认探测配置')
   const profileReady = computed(() => discoveryValid.value && !loading.value && !groupMissing.value && !!profile.value && !profile.value.requires_configuration && (running.value || preview.value?.ready === true))
-  const visibleNodes = computed(() => nodes.value.filter(node =>
-    (!query.value || node.name.toLowerCase().includes(query.value.toLowerCase())) &&
-    (!areas.value.length || areas.value.includes(node.inferred_region || '')) &&
-    (!providerSet.value.length || providerSet.value.includes(node.provider || '')),
-  ))
 
   watch(theme, value => {
     document.documentElement.dataset.theme = value
@@ -333,6 +328,7 @@ export function useWorkbench() {
   }
 
   return {
+    catalog,
     syncError, refreshScan: refresh, connectionMode, focusedName, page, health, groups, services, access, token,
     theme, notice, noticeWarning, failure, pendingChoice, choiceDialog, switching,
     current, configLocked, load, unlock, confirmChoice, openMonitorScan, regionLabel,
@@ -342,8 +338,8 @@ export function useWorkbench() {
     binding, invalidBindings, serviceSource, profileReady, openRecent, saveBinding, area,
     provider, start, stop, selectionReason, choose, percentLabel, latency,
     clock, statusTone, probeKind, running, recent, now, best,
-    currentResult, retest, points, hasJitterEvidence, evidence, nodes, query,
-    selected, visibleNodes, history, reconcile,
+    currentResult, retest, points, hasJitterEvidence, evidence, nodes,
+    history, reconcile,
   }
 }
 

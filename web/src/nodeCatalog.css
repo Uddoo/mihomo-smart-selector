@@ -1,0 +1,66 @@
+.catalog { --catalog-muted: color-mix(in srgb, var(--text) 72%, var(--surface)); min-width: 0; }
+.catalog-tools { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; }
+.catalog-search { display: grid; gap: 8px; flex: 1 1 300px; max-width: 500px; font-size: 13px; font-weight: 600; }
+.catalog-search > div { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); padding-left: 12px; }
+.catalog-search input { width: 100%; min-width: 0; border: 0; padding: 12px; font-weight: 400; }
+.catalog-search svg { color: var(--catalog-muted); flex-shrink: 0; }
+.catalog-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.catalog-filters details { position: relative; }
+.catalog-filters summary { display: flex; gap: 8px; align-items: center; border: 1px solid var(--line); background: var(--surface); padding: 12px; border-radius: 7px; font-size: 13px; min-height: 44px; }
+.catalog-filters details[open] summary { border-color: var(--blue); }
+fieldset { position: absolute; top: 100%; left: 0; z-index: 5; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px #14213b18; padding: 14px; margin: 6px 0 0; min-width: 240px; max-width: min(360px, calc(100vw - 48px)); max-height: 320px; overflow: auto; }
+legend { float: left; width: 100%; font-size: 12px; color: var(--catalog-muted); margin-bottom: 10px; }
+fieldset label { display: flex; gap: 9px; align-items: center; min-height: 40px; font-size: 13px; }
+fieldset label span { overflow-wrap: anywhere; min-width: 0; }
+fieldset input { accent-color: var(--blue); width: 16px; height: 16px; flex-shrink: 0; }
+fieldset small { margin-left: auto; color: var(--catalog-muted); }
+.sort-select { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+select { padding: 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--text); min-height: 44px; max-width: 100%; }
+.catalog-hint { margin: 10px 0 16px; font-size: 12px; line-height: 1.7; color: var(--catalog-muted); }
+.catalog-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.catalog-chips button { display: flex; align-items: center; gap: 8px; background: var(--soft); color: var(--text); overflow-wrap: anywhere; max-width: 100%; text-align: left; }
+.catalog-chips svg { flex-shrink: 0; }
+.catalog-chips .clear-filters { background: transparent; color: var(--blue); border-color: transparent; }
+.catalog-summary { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; margin: 18px 0 12px; color: var(--catalog-muted); }
+.catalog-summary b { color: var(--text); }
+.catalog-summary small { color: var(--catalog-muted); }
+.mobile-table-hint { display: none; }
+.catalog-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.catalog-layout.with-detail { grid-template-columns: minmax(0, 1fr) 320px; }
+.catalog-list { min-width: 0; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); overflow: hidden; }
+.catalog-scroll { overflow: auto; max-height: 65vh; min-height: 180px; scroll-padding-top: 52px; }
+.catalog-scroll table { min-width: 620px; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+.name-col { width: 40%; }.region-col { width: 16%; }.provider-col { width: 26%; }.protocol-col { width: 18%; }
+th { position: sticky; top: 0; z-index: 1; background: var(--bg); padding: 6px 12px; border-bottom: 1px solid var(--line); color: var(--catalog-muted); }
+th button { display: flex; align-items: center; gap: 8px; min-height: 36px; border: 0; background: transparent; color: inherit; padding: 5px 0; font-size: 12px; }
+td { padding: 12px; white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
+tbody tr:first-child td { border-top: 0; }
+tbody tr { cursor: pointer; }
+tbody tr:hover, tbody tr.selected { background: var(--soft); }
+tbody tr.selected td:first-child { box-shadow: inset 3px 0 var(--blue); }
+.catalog-node { background: transparent; border: 0; padding: 3px 0; font-weight: 600; font-size: 14px; text-align: left; overflow-wrap: anywhere; max-width: 100%; }
+.viewing { display: block; color: var(--blue); font-size: 11px; }
+.protocol-tag { font-size: 12px; color: var(--catalog-muted); background: var(--bg); padding: 3px 6px; border-radius: 4px; }
+.catalog-pagination { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--line); padding: 14px; font-size: 12px; color: var(--catalog-muted); }
+.catalog-pagination > span { margin-right: auto; }
+.catalog-pagination label { display: flex; align-items: center; gap: 6px; }
+.catalog-pagination button { min-height: 44px; }
+.catalog-empty { text-align: center; padding: 40px 20px; }
+.catalog-empty h2 { font-size: 18px; }
+.catalog-empty p { font-size: 13px; line-height: 1.8; color: var(--catalog-muted); }
+.catalog-detail { position: sticky; top: 16px; padding: 20px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); max-height: calc(100vh - 32px); overflow: auto; }
+.catalog-drawer { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(420px, 100vw); max-width: 100vw; height: 100dvh; max-height: 100dvh; overflow: auto; padding: 24px; border: 0; border-left: 1px solid var(--line); background: var(--surface); color: var(--text); }
+.catalog-drawer::backdrop { background: #10203c80; }
+@media (max-width: 900px) {
+  .catalog-layout.with-detail { grid-template-columns: minmax(0, 1fr); }
+  .catalog-tools { align-items: stretch; }
+  .catalog-search { max-width: none; }
+  .catalog-filters { width: 100%; position: relative; }
+  .catalog-filters details { position: static; }
+  fieldset { left: 0; right: 0; width: 100%; max-width: 100%; }
+  .catalog-pagination { justify-content: flex-start; }
+  .catalog-pagination > span { width: 100%; }
+  .catalog-scroll { max-height: 60vh; }
+  .catalog-summary .region-hint { display: none; }
+  .catalog-summary .mobile-table-hint { display: block; }
+}

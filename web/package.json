@@ -8,7 +8,7 @@
   },
   "type": "module",
   "scripts": {
-    "test": "node --experimental-strip-types --test src/ranking.test.mjs src/selectionState.test.mjs src/monitoring.test.mjs src/scanTransport.test.mjs",
+    "test": "node --experimental-strip-types --test src/ranking.test.mjs src/selectionState.test.mjs src/monitoring.test.mjs src/scanTransport.test.mjs src/nodeCatalog.test.mjs",
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview"
