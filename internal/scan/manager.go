@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -419,6 +420,8 @@ func (m *Manager) discoverCandidates(ctx context.Context, request model.ScanRequ
 	if err != nil {
 		return nil, fmt.Errorf("discover proxies: %w", err)
 	}
+	// Provider enrichment belongs to this scan, not the controller's shared snapshot.
+	proxies = maps.Clone(proxies)
 	group, exists := proxies[request.TargetGroup]
 	if !exists || !strings.EqualFold(group.Type, "Selector") {
 		return nil, fmt.Errorf("target group %q is not a Mihomo Selector", request.TargetGroup)
