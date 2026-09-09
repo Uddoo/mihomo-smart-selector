@@ -18,7 +18,7 @@
 
 ![Completed scan: five ranked nodes, sample evidence, and a current-versus-candidate comparison](docs/assets/screenshots/workbench-results.png)
 <p align="center"><sub>Actual application, local mock data. The interface is currently in Simplified Chinese. Shown timings illustrate the workflow, not a network benchmark.</sub></p>
-<p align="center"><strong>Single binary · Service-specific probes · Manual confirmation</strong></p>
+<p align="center"><strong>Single binary · Manual scan selection · Opt-in monitoring failover</strong></p>
 
 ## Why try it?
 
@@ -27,6 +27,7 @@
 | **Which node should I use for this service?** | Choose a ChatGPT, YouTube, GitHub or custom probe profile and save its group binding. |
 | **Is the candidate worth a closer look?** | Screen every eligible node, then refine the top K and your current node. Inspect P95, success counts and sample evidence side by side. |
 | **What happened when I switched?** | Confirm explicitly, then check the Controller readback and audit status. Unknown outcomes have a reconciliation action. |
+| **How does it behave over time?** | Monitor current health and historical coverage, inspect incidents, and optionally enable failure-triggered failover. |
 
 The service works alongside Mihomo / OpenClash. It leaves subscriptions and the
 business Selector unchanged during scans; optional strict/egress checks use a
@@ -94,16 +95,45 @@ repeat the switch. Unknown outcomes remain available for reconciliation.
 *All three showcase images use the built-in mock and actual application flows.
 They are not evidence of streaming unlock, account access or production latency.*
 
+### 03 · Observe health over time
+
+The monitoring overview shows the current selection, nodes needing attention,
+and the evidence behind the selected observation window. Open node details for
+history, the event timeline for incidents, or monitoring settings for the
+opt-in failover switch and diagnostics.
+
+![Live monitoring overview with current state, provisional HTTPS scores, coverage and recent 24-hour ranking](docs/assets/screenshots/monitoring-overview-live-20260909.png)
+
+*Maintainer-supplied live capture, 2026-09-09. A node can be healthy now while
+its historical success rate is low. The pictured scores are provisional:
+about 14 hours of observation and 46% coverage do not establish a full 24-hour
+record. Enabled failover is this deployment's setting, not the default.*
+
+[All four monitoring tabs and how to read them →](docs/monitoring.md#live-screenshots)
+
+### 04 · Find nodes and inspect region evidence
+
+Search names, regions, providers or protocols; combine region filters with
+entry scope and region status. The catalog uses its own filters, with an
+explicit action to copy the scan filters. Built-in aliases extend legacy
+configuration, while ambiguous transit names remain available for review.
+
+![Live node catalog: 299 visible entries out of 309, with ten built-in outbounds or suspected notices hidden](docs/assets/screenshots/node-catalog-live-20260909.png)
+
+*Same live screenshot batch. The 299 / 309 counts describe this snapshot, not
+a product limit. Hidden entries remain accessible through “全部条目” (all
+entries). Regions are inferred from names/configuration, not measured exits.*
+
+[Region inference, entry types and manual overrides →](docs/region-classification.md)
+
 <details>
-<summary><strong>More views: node catalog and preferences</strong></summary>
+<summary><strong>Earlier view: preferences</strong></summary>
 
-These earlier deployment screenshots show additional views. Their layout may
-predate recent updates; real usage information was retained with the
-maintainer's permission.
+This earlier deployment capture is retained for reference; it may predate the
+current layout. See the [screenshot provenance](docs/assets/screenshots/README.md)
+for the distinction between local mock images and live captures.
 
-![Node catalog with providers, protocols and inferred regions](docs/assets/screenshots/node-catalog.png)
-
-![Preferences for scan settings and optional verification](docs/assets/screenshots/preferences.png)
+![Earlier preferences view for scan settings and optional verification](docs/assets/screenshots/preferences.png)
 
 </details>
 
@@ -135,7 +165,7 @@ ties), after a fresh check. Switches have durable audits and a two-minute cooldo
 | Evidence | Scope |
 | --- | --- |
 | **Local runtime** | Windows, using the included mock Controller and browser workflow tests. |
-| **Router runtime** | NanoPi R5S LTS / ARM64, iStoreOS 24.10.8, Mihomo `alpha-smart-86ece76`. |
+| **Router runtime** | NanoPi R5S LTS / ARM64 with iStoreOS 24.10.8. The 2026-09-09 live captures show monitoring and the expanded node catalog; they do not establish full-window reliability or long-connection continuity. |
 | **Build validation** | CI is configured to build Linux ARM64 and AMD64; use the live CI badge for the current result. Build success is not runtime validation on every device. |
 
 The project is under active development. Configuration and API compatibility
@@ -151,6 +181,8 @@ separately from performance scoring.
 | --- | --- |
 | Use my own group names, services or private endpoints | [Service adaptation & persistent settings](docs/service-adaptation.md) |
 | Install on a router | [Deployment, preflight and rollback](deploy/openwrt/README.md) |
+| Read monitoring health, trends, events and failover settings | [Monitoring guide with live screenshots](docs/monitoring.md) |
+| Understand inferred, ambiguous or hidden catalog entries | [Region inference and entry types](docs/region-classification.md) |
 | Understand scores, isolation or the API | [Architecture & verification boundaries](docs/architecture.md) |
 | Understand restart recovery, audit states or cleanup | [Long-running operation](docs/operations.md) |
 | Diagnose a problem | [Troubleshooting & reporting](docs/troubleshooting.md) |
@@ -159,9 +191,11 @@ separately from performance scoring.
 <a id="faq"></a>
 ## Common questions
 
-**Will scanning switch my current business node?** No. Only an explicit selection
-changes that group. Optional verification may temporarily change its dedicated
-probe Selector, then attempts to restore it.
+**Will scanning switch my current business node?** No. Ordinary scans require an
+explicit selection to change that group. Optional verification may temporarily
+change its dedicated probe Selector, then attempts to restore it. Separately,
+monitoring can switch a confirmed-unavailable current node when you explicitly
+enable its failure-triggered failover mode.
 
 **Why can a higher-scoring node appear below another?** Stable scans put refined
 nodes first. Within the same stage, ranking uses score, then success rate, then
