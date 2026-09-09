@@ -9,7 +9,30 @@ in-memory active scans. Running scans appear first. Results are loaded through
 The browser remembers its last scan ID in session storage and reconnects after
 reload, restoring the group, profile, mode and filters. A new browser uses the
 active/latest scan; the workbench also offers an active/recent scan picker.
-Polling never starts a new scan or repeats a selection.
+Browser updates never start a new scan or repeat a selection.
+
+Active scans use the authenticated SSE endpoint `GET /api/v1/scans/{id}/events`
+with a Bearer header (the token is not placed in the URL). Node updates are
+coalesced over 250 ms. The browser reads an authoritative snapshot when the
+stream connects, every 15 seconds while connected, and on terminal events.
+The event queue is bounded and has no replay IDs, so these snapshots also repair
+missed events. Only a snapshot can mark a scan complete and enable selection.
+Events received during a snapshot read are discarded and followed by another
+snapshot; they are not replayed over potentially newer state.
+
+When SSE is unavailable, snapshot polling starts at 3 seconds and backs off
+on read failures, up to 30 seconds. Stream reconnection backs off from 1 to
+30 seconds; a stream silent for 35 seconds is reopened. Snapshot requests time
+out after 10 seconds. Hidden or offline browser pages suspend the subscription
+and timers; becoming visible/online triggers resynchronization. Backend scans
+continue independently. A failed refresh retains the previous results with a
+warning that clears after a successful snapshot.
+
+The node catalog and scan ranking render 50 items per page. Scan search and
+current/candidate location controls operate over the full result set; pagination
+does not change scoring, scan scope or selection validation. Desktop and mobile
+render only their active list layout. Preferences and storage panels load when
+first visited.
 
 Before accepting requests, startup marks leftover `running`/`pending` scans as
 `interrupted`. It does not resume their network probes. A clean shutdown blocks
