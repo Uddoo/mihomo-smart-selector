@@ -22,6 +22,15 @@ versioned releases begin.
 
 ### Added
 
+- P2 monitoring: immutable plan revisions and independent observation series
+  preserve history across candidate edits; P1 data migrates with a durable
+  watermark without guessing missing legacy definitions.
+- Exact hourly compaction and 1h/24h/7d views, history selection, latency trends
+  and event markers. Automatic failover remains fixed to the 24-hour window.
+- Provider correlation episodes, stable paginated incident timelines, configurable
+  retention and storage reporting, and redacted diagnostic ZIP exports. Browser
+  exports use a JSON envelope to avoid download-manager interception of fetch.
+
 - Opt-in monitoring failover: confirmed current-node failure triggers selection
   by baseline success rate, then P95, among fresh healthy monitored candidates.
   Fresh verification, membership/readback checks, durable switch audits and a
