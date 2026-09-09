@@ -1,17 +1,34 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Activity, Pause, Play, RefreshCw, Clock, ShieldCheck } from '@lucide/vue'
+import { Activity, Pause, Play, RefreshCw, ShieldCheck } from '@lucide/vue'
 import { api } from './api'
 import type { Group, ServiceCatalog } from './models'
+import MonitorEvidence from './MonitorEvidence.vue'
 import MonitorHistoryPanel from './MonitorHistoryPanel.vue'
 import MonitorDiagnosticsPanel from './MonitorDiagnosticsPanel.vue'
-import { monitorPercent, monitorStatus, monitorTime, observedSpan } from './monitoring'
-import type { MonitorCatalog, MonitorOverview, MonitorPlan } from './monitoring'
+import { monitorPercent, monitorStatus, monitorTime } from './monitoring'
+import type { MonitorActivity, MonitorRow, MonitorCatalog, MonitorOverview, MonitorPlan } from './monitoring'
 
 const props = defineProps<{ groups: Group[]; services: ServiceCatalog | null; scanLocked: boolean }>()
 const emit = defineEmits<{ openScan: [group: string, profile: string] }>()
 const data = ref<MonitorOverview | null>(null)
 const windowRange = ref('24h')
+const tabs = [{id: 'overview', label: '概览'}, {id: 'details', label: '节点详情'}, {id: 'events', label: '事件时间线'}, {id: 'settings', label: '监控设置'}] as const
+type MonitorTab = typeof tabs[number]['id']
+const tab = ref<MonitorTab>('overview')
+const selectedSeries = ref('')
+const focusedEvent = ref<MonitorActivity | null>(null)
+const abnormal = computed(() => data.value?.rows.filter(row => ['suspect', 'unavailable', 'recovering'].includes(row.state.status)) || [])
+const unknownCount = computed(() => data.value?.rows.filter(row => row.state.status === 'unknown').length || 0)
+function openNode(row: MonitorRow) { selectedSeries.value = row.series_id || ''; focusedEvent.value = null; tab.value = 'details' }
+function locateEvent(event: MonitorActivity) { if (!event.series_id) return; selectedSeries.value = event.series_id; focusedEvent.value = event; tab.value = 'details' }
+function moveTab(event: KeyboardEvent, index: number) {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+  event.preventDefault()
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length
+  tab.value = tabs[next]!.id
+  document.getElementById('monitor-tab-' + tab.value)?.focus()
+}
 const windowLabel = computed(() => windowRange.value === '7d' ? '最近 7 天' : windowRange.value === '1h' ? '最近 1 小时' : '最近 24 小时')
 const failure = ref(''), message = ref(''), busy = ref(false), editing = ref(false), initialized = ref(false)
 const group = ref(''), profile = ref(''), chosen = ref<string[]>([]), query = ref('')
@@ -58,15 +75,16 @@ async function refresh() {
     const result = await api<MonitorOverview>('/monitor?window=' + windowRange.value, {signal: polling.signal})
     if (disposed || revision !== readRevision) return
     data.value = result; failure.value = ''
-    if (!initialized.value) { initialized.value = true; if (!result.plan) { editing.value = true; defaults(); void loadCatalog() } }
+    if (!initialized.value) { initialized.value = true; if (!result.plan) { editing.value = true; tab.value = 'settings'; defaults(); void loadCatalog() } }
   } catch (e) { if (!disposed && revision === readRevision) failure.value = e instanceof Error ? e.message : '读取失败' }
 }
 async function poll(generation = pollGeneration) { if (!document.hidden) await refresh(); if (!disposed && generation === pollGeneration) timer = setTimeout(() => void poll(generation), 5000) }
-function changeWindow() { pollGeneration++; clearTimeout(timer); void poll(pollGeneration) }
+function changeWindow() { focusedEvent.value = null; pollGeneration++; clearTimeout(timer); void poll(pollGeneration) }
 onMounted(() => void poll())
 onBeforeUnmount(() => { disposed = true; clearTimeout(timer); polling.abort(); catalogAbort?.abort() })
 
 async function edit() {
+  tab.value = 'settings'
 	 hydrating = true
   if (plan.value) { group.value = plan.value.group; profile.value = plan.value.profile_id; chosen.value = plan.value.nodes.map(n => n.name) }
   editing.value = true; defaults(); await nextTick(); hydrating = false; await loadCatalog(true)
@@ -75,7 +93,7 @@ async function save() {
   busy.value = true; message.value = ''; failure.value = ''
   try {
     await api<MonitorPlan>('/monitor/plan', {method: 'PUT', body: JSON.stringify({revision: plan.value?.revision || 0, enabled: true, group: group.value, profile_id: profile.value, nodes: chosen.value})})
-    editing.value = false; message.value = '监控已保存。关闭页面后，路由器仍会持续采样。'; await refresh()
+    editing.value = false; tab.value = 'overview'; message.value = '监控已保存。关闭页面后，路由器仍会持续采样。'; await refresh()
   } catch (e) { failure.value = e instanceof Error ? e.message : '保存失败' }
   finally { busy.value = false }
 }
@@ -123,8 +141,14 @@ async function retest(id: string) {
         <button v-if="plan && !editing" :disabled="busy" @click="edit">调整监控方案</button>
       </div>
     </div>
+    <div class="monitor-navigation">
+      <div role="tablist" aria-label="监控视图" class="monitor-tabs"><button v-for="(item, index) in tabs" :id="'monitor-tab-' + item.id" :key="item.id" role="tab" :aria-selected="tab === item.id" :aria-controls="'monitor-panel-' + item.id" :tabindex="tab === item.id ? 0 : -1" @click="tab = item.id" @keydown="moveTab($event, index)">{{ item.label }}</button></div>
+      <label v-if="plan" class="monitor-window">观察窗口 <select v-model="windowRange" aria-label="观察窗口" @change="changeWindow"><option value="1h">最近 1 小时</option><option value="24h">最近 24 小时</option><option value="7d">最近 7 天</option></select></label>
+    </div>
+    <div :id="'monitor-panel-' + tab" role="tabpanel" :aria-labelledby="'monitor-tab-' + tab" class="monitor-section">
+    <p v-if="initialized && !plan && tab !== 'settings'" class="monitor-note">尚未创建监控方案。<button @click="tab = 'settings'">前往监控设置</button></p>
     <p v-if="!initialized" role="status">正在读取路由器上的监控记录…</p>
-    <form v-if="editing" class="monitor-panel monitor-config" @submit.prevent="save">
+    <form v-show="tab === 'settings' && editing" class="monitor-panel monitor-config" @submit.prevent="save">
       <h3>{{ plan ? '调整监控方案' : '创建第一个监控方案' }}</h3>
       <p>一次启用，后台持续运行。默认加入当前叶子节点及最近扫描候选；最多六个探测目标组合。</p>
       <div class="monitor-fields">
@@ -144,31 +168,42 @@ async function retest(id: string) {
     </form>
     <template v-if="plan && data">
       <div v-if="data.issue" class="notice warning" role="alert">{{ data.issue }}</div>
-      <section class="monitor-panel"><div class="monitor-heading"><div><h3>故障自动切换</h3><p>当前节点连续失败并确认不可用时，从当前健康且近期有成功样本的监控节点中选择近 24 小时成功率最高者；并列时选 P95 更低者。</p></div><button role="switch" aria-label="故障自动切换" :aria-checked="plan.auto_switch" :class="{primary: plan.auto_switch}" :disabled="busy" @click="toggleAuto">{{ plan.auto_switch ? '已开启' : '已关闭' }}</button></div><p class="monitor-note">切换前再测一次；没有可用候选时不切换。自动切换距最近一次切换至少间隔 2 分钟，结果不确定时停止自动重试，可在“选择历史”核对。暂停监控也会暂停自动切换。</p><p v-if="data.failover_message" role="status">{{ data.failover_message }}</p></section>
+
+      <p v-if="tab === 'overview' && data.window !== windowRange" role="status">正在读取所选观察窗口，请稍候。</p>
+      <div v-show="tab === 'overview' && data.window === windowRange" class="monitor-section">
       <div class="monitor-overview">
-        <article class="monitor-panel"><small>策略组当前选择</small><h3>{{ data.current || '等待 Controller 回读' }}</h3><span :class="['monitor-badge', current?.state.status || 'unknown']">{{ monitorStatus[current?.state.status || 'unknown'] }}</span><p>{{ plan.group }} · {{ plan.profile_id }}</p><p v-if="data.current && !current" class="bad">当前选择不在监控列表或为嵌套策略组，请调整方案加入实际叶子节点。</p><small>组选择不代表已有连接已迁移。</small></article>
-        <article class="monitor-panel"><small><Clock :size="14"/> 当前方案创建</small><h3>{{ monitorTime(plan.created_at) }}</h3><p>下次基准采样：{{ monitorTime(data.next_at) }}</p><small>控制器回读：{{ monitorTime(data.observed_at) }}</small></article>
+        <article class="monitor-panel"><small>策略组当前选择</small><h3>{{ data.current || '等待 Controller 回读' }}</h3><span :class="['monitor-badge', current?.state.status || 'unknown']">{{ monitorStatus[current?.state.status || 'unknown'] }}</span><p>{{ plan.group }} · {{ plan.profile_id }}</p><p v-if="data.current && !current" class="bad">当前选择不在监控列表或为嵌套策略组，请调整方案加入实际叶子节点。</p><small>组选择不代表已有连接已迁移。</small><button v-if="current?.series_id" @click="openNode(current)">查看当前节点趋势</button></article>
+        <article class="monitor-panel"><small>需要关注</small><h3>{{ abnormal.length }} 个异常 / 恢复观察 · {{ unknownCount }} 个缺测</h3><p>自动切换：{{ plan.auto_switch ? '已开启' : '已关闭' }}</p><button v-for="row in abnormal" :key="row.id" :disabled="!row.series_id" @click="openNode(row)">{{ row.name }} · 查看趋势</button><button @click="tab = 'events'">查看事件时间线</button></article>
         <article class="monitor-panel"><small><ShieldCheck :size="14"/> 证据范围</small><h3>{{ windowRange === '1h' ? '1 小时观测指标' : windowRange === '7d' ? '7 天 HTTPS 健康分' : '24 小时 HTTPS 健康分' }}</h3><p>可用性 70 · 连续性 20 · 延迟 10</p><small>少于 100 个有效样本显示积累中。完整覆盖所选时间跨度且覆盖率 ≥ 80% 后标记数据充足；1 小时只展示观测指标。</small></article>
       </div>
       <section class="monitor-panel">
         <div class="monitor-heading"><div><h3>长期排名 · {{ windowLabel }}</h3><p>当前健康节点优先。额外复测不覆盖历史失败；自动切换使用成功率排序，与长期分排序独立。</p></div><button :disabled="scanLocked" @click="emit('openScan', plan.group, plan.profile_id)">去工作台复测并选择</button></div>
-        <label class="monitor-window">观察窗口 <select v-model="windowRange" @change="changeWindow"><option value="1h">最近 1 小时</option><option value="24h">最近 24 小时</option><option value="7d">最近 7 天</option></select></label>
-        <div class="monitor-table-wrap"><table class="monitor-table"><thead><tr><th>节点 / Provider</th><th>当前状态</th><th>长期分 / 100</th><th>覆盖率 / 有效样本</th><th>成功率</th><th>P95</th><th>故障段 / 估算时长</th><th>操作</th></tr></thead><tbody>
-          <tr v-for="row in data.rows" :key="row.id"><td><b>{{ row.name }}</b><small>{{ row.provider || '独立节点' }}</small><small v-if="data.current === row.name">策略组当前选择</small></td><td><span :class="['monitor-badge', row.state.status]">{{ monitorStatus[row.state.status] || '未知' }}</span><small>连续失败 {{ row.state.failures }}</small></td><td><b>{{ row.metrics.readiness === 'observational' ? '短期观察' : row.metrics.score === null ? '积累中' : row.metrics.score.toFixed(1) }}</b><small>{{ row.metrics.readiness === 'observational' ? '不计算长期分' : row.metrics.readiness === 'ready' ? '数据充足' : row.metrics.readiness === 'provisional' ? '暂定分 · 依据不足' : '等待 100 个有效样本' }}</small></td><td>{{ monitorPercent(row.metrics.coverage) }}<small>{{ row.metrics.samples }} / {{ row.metrics.expected }} 个基准时隙</small><small>跨度 {{ observedSpan(row.metrics.observed_seconds) }} / {{ observedSpan(row.metrics.window_seconds) }}</small></td><td>{{ row.metrics.samples ? monitorPercent(row.metrics.success_rate) : '—' }}</td><td>{{ row.metrics.p95_ms ? row.metrics.p95_ms + ' ms' : '—' }}</td><td>{{ row.metrics.incidents }} 段<small>约 {{ Math.round(row.metrics.failure_seconds / 60) }} 分钟</small></td><td><button :disabled="busy || !plan.enabled || data.suspended" :aria-label="'监控复测 ' + row.name" @click="retest(row.id)">复测</button></td></tr>
+        <div class="monitor-table-wrap"><table class="monitor-table"><thead><tr><th>节点 / Provider</th><th>当前状态</th><th>HTTPS 健康分与依据</th><th>成功率</th><th>P95</th><th>故障段 / 估算时长</th><th>操作</th></tr></thead><tbody>
+          <tr v-for="row in data.rows" :key="row.id"><td><button class="node-link" :disabled="!row.series_id" :aria-label="'查看趋势 ' + row.name" @click="openNode(row)">{{ row.name }}</button><small>{{ row.provider || '独立节点' }}</small><small v-if="data.current === row.name">策略组当前选择</small></td><td><span :class="['monitor-badge', row.state.status]">{{ monitorStatus[row.state.status] || '未知' }}</span><small>连续失败 {{ row.state.failures }}</small></td><td><MonitorEvidence :metrics="row.metrics" :window="windowRange" compact/></td><td>{{ row.metrics.samples ? monitorPercent(row.metrics.success_rate) : '—' }}</td><td>{{ row.metrics.p95_ms ? row.metrics.p95_ms + ' ms' : '—' }}</td><td>{{ row.metrics.incidents }} 段<small>约 {{ Math.round(row.metrics.failure_seconds / 60) }} 分钟</small></td><td><button :disabled="busy || !plan.enabled || data.suspended" :aria-label="'监控复测 ' + row.name" @click="retest(row.id)">复测</button></td></tr>
         </tbody></table></div>
       </section>
-      <MonitorHistoryPanel :overview="data" :window="windowRange"/>
-      <section class="monitor-panel"><h3>最近基准采样</h3><p class="monitor-note">每节点最多展示最近 60 条记录；悬停或聚焦查看时间与结果。覆盖率会计入没有记录的时隙，色块不代表连续在线。</p>
-        <details v-for="row in data.rows" :key="row.id" class="monitor-detail"><summary>{{ row.name }} <small>最近采样：{{ monitorTime(row.state.last_at) }}</small></summary><div v-if="row.series.length" class="monitor-series"><span v-for="s in row.series" :key="s.slot" tabindex="0" :class="s.outcome" :title="`${monitorTime(s.at)} · ${s.outcome === 'success' ? s.delay_ms + ' ms' : s.reason || '失败'}`" :aria-label="`${monitorTime(s.at)}，${s.outcome === 'success' ? '成功 ' + s.delay_ms + ' 毫秒' : s.outcome === 'failure' ? '失败' : '缺测'}。${s.reason || ''}`"></span></div><p v-else>尚无基准采样。</p><p class="monitor-note">最近成功：{{ monitorTime(row.state.last_success) }} · 绿色成功 / 红色失败 / 灰色未知</p></details>
+      <p class="monitor-note">下次基准采样：{{ monitorTime(data.next_at) }} · Controller 回读：{{ monitorTime(data.observed_at) }}</p>
+      </div>
+      <div v-if="tab === 'details'" class="monitor-section">
+      <MonitorHistoryPanel :overview="data" :window="windowRange" :series-id="selectedSeries" :focus-event="focusedEvent" @select-series="selectedSeries = $event; focusedEvent = null" @clear-focus="focusedEvent = null"/>
+      <section v-if="!focusedEvent" class="monitor-panel"><h3>最近基准采样</h3><p class="monitor-note">每节点最多展示最近 60 条记录；悬停或聚焦查看时间与结果。覆盖率会计入没有记录的时隙，色块不代表连续在线。</p>
+        <details v-for="row in data.rows.filter(row => row.series_id === selectedSeries)" :key="row.id" class="monitor-detail"><summary>{{ row.name }} <small>最近采样：{{ monitorTime(row.state.last_at) }}</small></summary><div v-if="row.series.length" class="monitor-series"><span v-for="s in row.series" :key="s.slot" tabindex="0" :class="s.outcome" :title="`${monitorTime(s.at)} · ${s.outcome === 'success' ? s.delay_ms + ' ms' : s.reason || '失败'}`" :aria-label="`${monitorTime(s.at)}，${s.outcome === 'success' ? '成功 ' + s.delay_ms + ' 毫秒' : s.outcome === 'failure' ? '失败' : '缺测'}。${s.reason || ''}`"></span></div><p v-else>尚无基准采样。</p><p class="monitor-note">最近成功：{{ monitorTime(row.state.last_success) }} · 绿色成功 / 红色失败 / 灰色未知</p></details>
       </section>
-      <section class="monitor-panel"><h3>健康事件</h3><p class="monitor-note">只记录状态变化，重复失败不刷屏；最多展示最近 100 条。页面关闭时仍记录事件，浏览器通知未启用。</p><p v-if="!data.events.length">等待首次采样；之后会在这里记录状态变化。</p><ol class="monitor-events"><li v-for="e in data.events" :key="e.id"><time>{{ monitorTime(e.at) }}</time><b>{{ e.node_name }}</b><span :class="['monitor-badge', e.status]">{{ monitorStatus[e.status] || e.status }}</span><p>{{ e.message || '健康状态已变化' }}</p></li></ol></section>
-      <MonitorDiagnosticsPanel :window="windowRange"/>
+      </div>
+      <div v-show="tab === 'settings'" class="monitor-section">
+      <section class="monitor-panel"><div class="monitor-heading"><div><h3>故障自动切换</h3><p>当前节点连续失败并确认不可用时，从当前健康且近期有成功样本的监控节点中选择近 24 小时成功率最高者；并列时选 P95 更低者。</p></div><button role="switch" aria-label="故障自动切换" :aria-checked="plan.auto_switch" :class="{primary: plan.auto_switch}" :disabled="busy" @click="toggleAuto">{{ plan.auto_switch ? '已开启' : '已关闭' }}</button></div><p class="monitor-note">切换前再测一次；没有可用候选时不切换。自动切换距最近一次切换至少间隔 2 分钟，结果不确定时停止自动重试，可在“选择历史”核对。暂停监控也会暂停自动切换。</p><p v-if="data.failover_message" role="status">{{ data.failover_message }}</p></section>
+      <p v-if="!editing"><button @click="edit">编辑监控方案</button> · 当前方案创建于 {{ monitorTime(plan.created_at) }}</p>
+      </div>
+      <MonitorDiagnosticsPanel v-show="tab === 'events' || tab === 'settings'" :window="windowRange" :active="tab === 'events' || tab === 'settings'" :mode="tab === 'events' ? 'events' : 'settings'" @locate="locateEvent"/>
       <p class="monitor-note">页面每 5 秒读取后台快照。原始记录保留 {{ data.retention_days }} 天；支持 1h/24h/7d 分析与小时聚合。长连接未验证，同名节点换出口可能无法识别。</p>
     </template>
+    </div>
   </section>
 </template>
 
 <style scoped>
+.monitor-section{display:grid;gap:18px;min-width:0}.monitor-navigation{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}.monitor-tabs{display:flex;gap:5px;flex-wrap:wrap}.monitor-tabs button[aria-selected="true"]{color:var(--blue);background:var(--soft);border-color:var(--blue)}.node-link{padding:0;border:0;background:transparent;color:var(--blue);text-align:left;white-space:normal;overflow-wrap:anywhere;font-weight:600}.monitor-overview button{margin:8px 8px 0 0}.monitor-table td{white-space:normal}.monitor-tabs button{min-height:44px}
+
 .monitor-window { display:flex;align-items:center;gap:10px;margin-top:15px;font-size:13px; }.monitor-window select{padding:8px;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:6px;}
 .monitor-page { display: grid; gap: 20px; padding-top: 8px; }
 .monitor-page h2,.monitor-page h3 { margin: 0 0 9px; }

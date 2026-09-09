@@ -30,3 +30,25 @@ export interface MonitorCorrelation { id: number; provider: string; status: stri
 export interface MonitorActivity { key: string; at: string; kind: string; status: string; node?: string; group?: string; series_id?: string; previous?: string; selected?: string; message: string }
 export interface MonitorActivityPage { items: MonitorActivity[]; next_cursor?: string }
 export const activityKind: Record<string, string> = {node: '节点状态', environment: '环境状态', plan: '方案变更', provider: 'Provider 关联', automatic_switch: '自动切换', manual_switch: '手动选择'}
+
+export function healthEvidence(metrics: MonitorRow['metrics'], window: string) {
+  if (window === '1h' || metrics.readiness === 'observational') return {value: '短期观察', label: '1 小时只展示观测指标', scored: false}
+  if (metrics.samples < 100 || metrics.score === null) return {value: '积累中', label: '等待 100 个有效基准样本', scored: false}
+  return {value: metrics.score.toFixed(1), label: metrics.readiness === 'ready' ? '数据充足' : '暂定分 · 覆盖或跨度不足', scored: true}
+}
+
+export function eventRange(at: string, now = Date.now()) {
+  const time = Date.parse(at)
+  if (!Number.isFinite(time) || time > now) return null
+  const to = Math.min(now, time + 30 * 60 * 1000)
+  return {from: new Date(to - 60 * 60 * 1000).toISOString(), to: new Date(to).toISOString()}
+}
+
+export function eventBucket(trend: MonitorTrend[], at: string): number {
+  const time = Date.parse(at)
+  if (!Number.isFinite(time)) return -1
+  for (let i = trend.length - 1; i >= 0; i--) {
+    if (Date.parse(trend[i]!.at) <= time) return i
+  }
+  return -1
+}

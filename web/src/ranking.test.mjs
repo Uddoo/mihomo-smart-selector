@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {rankResults, hasJitterEvidence, evidence, expired} from './ranking.ts'
+import {rankResults, hasJitterEvidence, evidence, expired, candidateComparison} from './ranking.ts'
 
 test('refined results precede single-sample screening results', () => {
   const screened = {...node('screened', 90), stage:'screened'}
@@ -44,4 +44,19 @@ test('updated verification scores replace stale ranks and empty scans stay empty
   assert.deepEqual(rankResults([]), [])
   const input = [{...node('old-first', 40), rank: 1}, {...node('new-first', 80), rank: 2}]
   assert.deepEqual(rankResults(input).map(x => [x.name, x.rank]), [['new-first', 1], ['old-first', 2]])
+})
+
+
+test('comparison never treats absent or expired latency as an improvement', () => {
+  const now = Date.parse('2026-09-09T00:00:00Z')
+  const current = {name: 'current', p95_ms: 188, success_rate: 1}
+  const candidate = {name: 'candidate', p95_ms: 109, success_rate: 1}
+  assert.equal(candidateComparison(candidate, current, now), 'P95 降低 79 ms · 成功率持平')
+  assert.match(candidateComparison(candidate, undefined, now), /暂无同轮/)
+  assert.match(candidateComparison({...candidate, p95_ms: 0}, current, now), /暂无可比较/)
+  assert.match(candidateComparison(candidate, {...current, p95_ms: undefined}, now), /暂无可比较/)
+  assert.match(candidateComparison(candidate, {...current, expires_at: new Date(now).toISOString()}, now), /已过期/)
+  assert.match(candidateComparison({...candidate, expires_at: new Date(now).toISOString()}, current, now), /已过期/)
+  assert.match(candidateComparison(current, current, now), /当前正在使用/)
+  assert.match(candidateComparison({...candidate, success_rate: .8}, current, now), /成功率降低 20.0/)
 })

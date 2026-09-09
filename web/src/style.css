@@ -274,3 +274,66 @@ input:not([type="checkbox"]), .toolbar input { border: 1px solid var(--line); bo
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Workbench: common actions first, evidence beside the decision. */
+.workbench-status { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; margin:16px 0; font-size:12px; color:var(--muted); }
+.workbench-status b { color:var(--text); margin-left:8px; overflow-wrap:anywhere; }
+.scan-config > .command { gap:16px; }
+.scan-config > .command > label { flex:1 1 220px; margin:0; }
+.scan-config > .command select { flex:1; max-width:none; min-width:0; }
+.advanced-config { border-top:1px solid var(--line); }
+.advanced-config > summary { display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:14px 0; font-size:13px; }
+.advanced-config > summary small { flex:1; }
+.advanced-config[open] > summary > svg { transform:rotate(180deg); }
+.advanced-fields { border-top:1px solid var(--line); padding:16px 0; }
+.advanced-fields .providers { margin-left:auto; }
+.advanced-fields > label:first-of-type { flex:0 1 auto; }
+.profile-scope > select { max-width:100%; padding:7px; border:1px solid var(--line); border-radius:6px; background:var(--surface); color:var(--text); }
+.decision-summary { display:grid; gap:10px; border:1px solid var(--line); border-radius:8px; padding:14px; background:var(--soft); }
+.decision-summary > strong { font-size:15px; line-height:1.6; font-variant-numeric:tabular-nums; }
+.decision-summary p { font-size:12px; line-height:1.7; margin:0; }
+.candidate-action { display:grid; gap:8px; }
+.candidate-heading h3, .node-focus { overflow-wrap:anywhere; }
+.node-focus { white-space:normal; max-width:300px; }
+.mobile-ranking { display:none; }
+.candidate-drawer { border:0; color:var(--text); background:var(--surface); }
+.candidate-drawer::backdrop { background:#0e152280; }
+html:has(dialog[open]) { overflow:hidden; }
+@media (max-width:760px) {
+  .desktop-ranking { display:none; }
+  .mobile-ranking { display:grid; gap:10px; margin-top:16px; }
+  .ranking .node-card { display:grid; gap:10px; width:100%; padding:14px; text-align:left; border-radius:10px; }
+  .node-card.selected { background:var(--soft); border-color:var(--blue); }
+  .node-card-title { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+  .node-card-title > strong { flex:1 1 130px; min-width:0; overflow-wrap:anywhere; }
+  .node-card-title .score { font-size:18px; white-space:nowrap; }
+  .node-card-title .score small { font-size:11px; margin-left:3px; }
+  .node-card-meta,.node-card-reason { font-size:11px; color:var(--muted); overflow-wrap:anywhere; line-height:1.6; }
+  .node-card-metrics { display:flex; justify-content:space-between; gap:8px; font-size:12px; font-variant-numeric:tabular-nums; }
+  .node-card-metrics b { display:block; margin-top:5px; }
+  .candidate-drawer { position:fixed; inset:auto 0 0; width:100%; max-width:100%; max-height:90dvh; margin:0; padding:0; border-radius:18px 18px 0 0; overflow:auto; }
+  .drawer-heading { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; position:sticky; top:0; background:var(--surface); border-bottom:1px solid var(--line); z-index:2; }
+  .candidate-drawer .compare { border:0; padding:16px; display:flex; gap:16px; }
+  .candidate-drawer .compare > h2 { display:none; }
+  .candidate-drawer .candidate-action { position:sticky; bottom:0; background:var(--surface); padding:12px 0 max(12px,env(safe-area-inset-bottom)); border-top:1px solid var(--line); z-index:1; }
+  .candidate-action button { min-height:44px; }
+  .scan-config > .command { align-items:stretch; }
+  .scan-config > .command > label { flex-basis:100%; display:grid; grid-template-columns:80px minmax(0,1fr); }
+  .scan-config > .command .scan-button { justify-content:center; width:100%; margin:0; min-height:44px; }
+  .advanced-config > summary small { flex-basis:75%; font-size:11px; }
+  .advanced-fields .chips { gap:5px; }
+  .advanced-fields .chips button { border-radius:5px; margin:0; }
+  .advanced-fields .providers { margin-left:0; }
+  .advanced-fields .provider-options { left:0; right:auto; max-width:calc(100vw - 70px); }
+  .workbench-status { line-height:1.7; }
+  .profile-scope { display:grid; gap:6px; }
+}
+
+.desktop-candidate-actions { margin-top:0; }
+.mobile-candidate-actions { display:none; }
+@media(max-width:760px) {
+  .desktop-candidate-actions { display:none; }
+  .mobile-candidate-actions { display:grid; }
+}
+
+.ranking-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.ranking-tools input{flex:1;min-width:130px;max-width:100%}

@@ -1,6 +1,8 @@
 export class APIError extends Error {
-  constructor(message: string, public readonly status: number) {
+  readonly status: number
+  constructor(message: string, status: number) {
     super(message)
+    this.status = status
   }
 }
 
@@ -10,16 +12,16 @@ export function setAPIToken(value: string) {
   accessToken = value.trim()
 }
 
+export function fetchAPI(path: string, init: RequestInit = {}) {
+  const headers = new Headers(init.headers)
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json')
+  if (accessToken) headers.set('Authorization', 'Bearer ' + accessToken)
+  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  return fetch('/api/v1' + path, {...init, headers})
+}
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch('/api/v1' + path, {
-    headers: {
-      Accept: 'application/json',
-      ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {}),
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-      ...init?.headers,
-    },
-    ...init,
-  })
+  const response = await fetchAPI(path, init)
   const body = await response.json().catch(() => ({}))
   if (!response.ok) {
     throw new APIError(typeof body.error === 'string' ? body.error : 'Request failed', response.status)

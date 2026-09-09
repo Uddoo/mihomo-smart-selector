@@ -27,3 +27,14 @@ export function evidence(result: NodeResult) {
 export function expired(result: NodeResult, now: number) {
  return !!result.expires_at && Date.parse(result.expires_at) <= now
 }
+
+export function candidateComparison(candidate: NodeResult | undefined, current: NodeResult | undefined, now: number): string {
+  if (!candidate || !current) return '暂无同轮比较依据'
+  if (candidate.name === current.name) return '当前正在使用此节点'
+  if (expired(candidate, now) || expired(current, now)) return '比较结果已过期，请复测后再比较'
+  if (!(candidate.p95_ms && candidate.p95_ms > 0 && current.p95_ms && current.p95_ms > 0)) return '暂无可比较的 P95 时延'
+  const delta = Math.round(candidate.p95_ms - current.p95_ms)
+  const latency = delta === 0 ? 'P95 相同' : `P95 ${delta < 0 ? '降低' : '增加'} ${Math.abs(delta)} ms`
+  const success = (candidate.success_rate - current.success_rate) * 100
+  return `${latency} · 成功率${Math.abs(success) < .05 ? '持平' : `${success > 0 ? '增加' : '降低'} ${Math.abs(success).toFixed(1)} 个百分点`}`
+}
