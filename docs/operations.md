@@ -20,6 +20,10 @@ missed events. Only a snapshot can mark a scan complete and enable selection.
 Events received during a snapshot read are discarded and followed by another
 snapshot; they are not replayed over potentially newer state.
 
+The server sends SSE heartbeats every 15 seconds. Each stream write/flush has
+a 10-second deadline, cleared while idle; ordinary endpoints keep their
+30-second response deadline. Failed stream writes release the subscription.
+
 When SSE is unavailable, snapshot polling starts at 3 seconds and backs off
 on read failures, up to 30 seconds. Stream reconnection backs off from 1 to
 30 seconds; a stream silent for 35 seconds is reopened. Snapshot requests time
@@ -27,6 +31,22 @@ out after 10 seconds. Hidden or offline browser pages suspend the subscription
 and timers; becoming visible/online triggers resynchronization. Backend scans
 continue independently. A failed refresh retains the previous results with a
 warning that clears after a successful snapshot.
+
+Other API reads also have a 10-second deadline covering headers and the full
+body. Mutations allow 25 seconds and diagnostic downloads allow 30 seconds.
+A mutation timeout does not prove failure and never triggers an automatic
+retry: check the resulting state or switch audit, retaining the original
+selection request ID for any retry.
+
+Monitoring overview refreshes run every 5 seconds after successful reads and
+back off to 10, 20 and 30 seconds after repeated failures. The page retains its
+last snapshot and displays the last successful read time on failure. Hidden or
+offline pages cancel overview reads; visibility or connectivity restoration
+triggers an immediate refresh. Successful discovery responses populate the
+workbench as they arrive, while scanning/selection remain gated until discovery
+and preflight validation finish. Workbench discovery also cancels obsolete
+reads on visibility/connectivity changes and refreshes immediately on return,
+so a recovered monitor does not retain an old shell-level network error.
 
 The node catalog and scan ranking render 50 items per page. Scan search and
 current/candidate location controls operate over the full result set; pagination

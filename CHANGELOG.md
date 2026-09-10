@@ -11,6 +11,12 @@ versioned releases begin.
 
 ### Fixed
 
+- Keep scan event streams alive past the ordinary HTTP response timeout, bound
+  each stream write, and release subscriptions on write or flush failure.
+- Bound API reads including response bodies, retain uncertain mutation outcomes,
+  and recover monitoring polling with backoff and immediate online/foreground
+  refresh. Failed refreshes retain the previous snapshot and last successful
+  read time; discovery displays completed fields while other reads are pending.
 - Drain workers and close result channels when a scan is cancelled; cancellation
   during isolated verification also prevents final ranking and completion.
 - Use a fresh HTTP connection for each egress candidate to avoid reusing the
@@ -22,6 +28,8 @@ versioned releases begin.
 
 ### Added
 
+- Browser reliability regressions for monitoring history and recovery, partial
+  discovery, and idempotent switch retries after a lost response and page reload.
 - A built-in 40-region name dictionary merged with legacy custom aliases,
   normalized names and explicit transit/conflicting-cue evidence. Manual region
   overrides retain precedence; inferred regions are not verified egress claims.

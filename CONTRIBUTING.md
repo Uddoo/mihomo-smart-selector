@@ -93,6 +93,29 @@ Controller, preflight a scan, rank candidates, select a member, observe the
 Controller change, and persist SQLite history. A unit test alone is not a
 replacement for this process boundary.
 
+Browser reliability regressions run against a freshly built service and an
+isolated mock Controller, with temporary SQLite storage and random loopback
+ports. Install the locked Chromium build once, then run:
+
+```powershell
+pnpm --dir web exec playwright install chromium
+pnpm --dir web test:e2e
+```
+
+The suite checks monitor snapshot replacement, incident focus, stale history
+responses, request timeouts, retry backoff, offline/visibility recovery,
+progressive discovery, and a lost switch response followed by an idempotent
+retry after reload. Monitoring history uses deterministic API fixtures; the
+scan/switch scenario exercises the real Go API, mock Controller and SQLite.
+A real SSE connection also receives three 15-second heartbeats to check writes
+beyond the server's ordinary 30-second response timeout; allow about a minute
+for the suite.
+Browser visibility transitions are simulated; offline transitions use the
+browser context's network controls. CI installs Chromium with Linux system
+dependencies and runs the same tests against the verified embedded assets.
+Screenshots and failure traces go to the OS temporary directory under
+`mihomo-smart-selector-e2e-results` (override with `MSS_E2E_OUTPUT`).
+
 ## Issue and pull-request flow
 
 - Chinese and English reports are welcome. Start with the bilingual
