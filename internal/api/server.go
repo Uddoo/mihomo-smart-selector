@@ -343,7 +343,7 @@ func (s *Server) events(writer http.ResponseWriter, request *http.Request, id st
 		writeError(writer, http.StatusNotFound, "scan not found")
 		return
 	}
-	flusher, supported := writer.(http.Flusher)
+	_, supported := writer.(http.Flusher)
 	if !supported {
 		writeError(writer, http.StatusInternalServerError, "streaming is not supported")
 		return
@@ -353,27 +353,52 @@ func (s *Server) events(writer http.ResponseWriter, request *http.Request, id st
 	writer.Header().Set("Connection", "keep-alive")
 	events, unsubscribe := s.manager.Subscribe(id)
 	defer unsubscribe()
-	writeEvent(writer, flusher, scan.Event{Kind: "connected", Message: "event stream connected", At: time.Now().UTC()})
+	serveEvents(writer, request, events, 15*time.Second)
+}
+
+// SSE has no total response deadline. Bound each write instead, so a slow
+// reader cannot retain a subscription and the server's ordinary WriteTimeout
+// does not disconnect healthy long-running scans.
+func serveEvents(writer http.ResponseWriter, request *http.Request, events <-chan scan.Event, heartbeat time.Duration) {
+	control := http.NewResponseController(writer)
+	write := func(payload string) error {
+		if err := control.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(writer, payload); err != nil {
+			return err
+		}
+		if err := control.Flush(); err != nil {
+			return err
+		}
+		return control.SetWriteDeadline(time.Time{})
+	}
+	writeEvent := func(event scan.Event) error {
+		payload, err := json.Marshal(event)
+		if err != nil {
+			return err
+		}
+		return write(fmt.Sprintf("event: %s\ndata: %s\n\n", event.Kind, payload))
+	}
+	if err := writeEvent(scan.Event{Kind: "connected", Message: "event stream connected", At: time.Now().UTC()}); err != nil {
+		return
+	}
+	ticker := time.NewTicker(heartbeat)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-request.Context().Done():
 			return
-		case event := <-events:
-			writeEvent(writer, flusher, event)
-		case <-time.After(15 * time.Second):
-			_, _ = io.WriteString(writer, ": keepalive\n\n")
-			flusher.Flush()
+		case event, open := <-events:
+			if !open || writeEvent(event) != nil {
+				return
+			}
+		case <-ticker.C:
+			if err := write(": keepalive\n\n"); err != nil {
+				return
+			}
 		}
 	}
-}
-
-func writeEvent(writer http.ResponseWriter, flusher http.Flusher, event scan.Event) {
-	payload, err := json.Marshal(event)
-	if err != nil {
-		return
-	}
-	_, _ = fmt.Fprintf(writer, "event: %s\ndata: %s\n\n", event.Kind, payload)
-	flusher.Flush()
 }
 
 func decodeJSON(writer http.ResponseWriter, request *http.Request, output any) bool {
