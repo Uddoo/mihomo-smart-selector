@@ -52,6 +52,12 @@ jobs:
         shell: pwsh
         run: ./tools/smoke-test.ps1
 
+      - name: Install the browser used by regression tests
+        run: pnpm --dir web exec playwright install --with-deps chromium
+
+      - name: Run browser reliability regressions against the isolated mock
+        run: pnpm --dir web exec playwright test
+
   build:
     name: Build linux/${{ matrix.goarch }}
     needs: verify

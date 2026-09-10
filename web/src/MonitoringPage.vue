@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { Activity, Pause, Play, RefreshCw, ShieldCheck } from '@lucide/vue'
 import { api } from './api'
+import { useMonitorOverview } from './useMonitorOverview'
 import type { Group, ServiceCatalog } from './models'
 import MonitorEvidence from './MonitorEvidence.vue'
 import MonitorHistoryPanel from './MonitorHistoryPanel.vue'
 import MonitorDiagnosticsPanel from './MonitorDiagnosticsPanel.vue'
 import { monitorPercent, monitorStatus, monitorTime } from './monitoring'
-import type { MonitorActivity, MonitorRow, MonitorCatalog, MonitorOverview, MonitorPlan } from './monitoring'
+import type { MonitorActivity, MonitorRow, MonitorCatalog, MonitorPlan } from './monitoring'
 
 const props = defineProps<{ groups: Group[]; services: ServiceCatalog | null; scanLocked: boolean }>()
 const emit = defineEmits<{ openScan: [group: string, profile: string] }>()
-const data = ref<MonitorOverview | null>(null)
 const windowRange = ref('24h')
+const {data, failure, lastUpdated, refresh} = useMonitorOverview(windowRange)
 const tabs = [{id: 'overview', label: '概览'}, {id: 'details', label: '节点详情'}, {id: 'events', label: '事件时间线'}, {id: 'settings', label: '监控设置'}] as const
 type MonitorTab = typeof tabs[number]['id']
 const tab = ref<MonitorTab>('overview')
@@ -30,13 +31,10 @@ function moveTab(event: KeyboardEvent, index: number) {
   document.getElementById('monitor-tab-' + tab.value)?.focus()
 }
 const windowLabel = computed(() => windowRange.value === '7d' ? '最近 7 天' : windowRange.value === '1h' ? '最近 1 小时' : '最近 24 小时')
-const failure = ref(''), message = ref(''), busy = ref(false), editing = ref(false), initialized = ref(false)
+const message = ref(''), busy = ref(false), editing = ref(false), initialized = ref(false)
 const group = ref(''), profile = ref(''), chosen = ref<string[]>([]), query = ref('')
 const catalog = ref<MonitorCatalog | null>(null), catalogBusy = ref(false), catalogError = ref('')
-let timer: ReturnType<typeof setTimeout> | undefined
 let disposed = false, catalogRevision = 0, hydrating = false
-let polling = new AbortController()
-let readRevision = 0, pollGeneration = 0
 let catalogAbort: AbortController | undefined
 const plan = computed(() => data.value?.plan)
 const profiles = computed(() => props.services?.profiles.filter(p => !p.requires_configuration) || [])
@@ -69,19 +67,11 @@ async function loadCatalog(preserve = false) {
   finally { if (rev === catalogRevision) catalogBusy.value = false }
 }
 
-async function refresh() {
-  const revision = ++readRevision; polling.abort(); polling = new AbortController()
-  try {
-    const result = await api<MonitorOverview>('/monitor?window=' + windowRange.value, {signal: polling.signal})
-    if (disposed || revision !== readRevision) return
-    data.value = result; failure.value = ''
-    if (!initialized.value) { initialized.value = true; if (!result.plan) { editing.value = true; tab.value = 'settings'; defaults(); void loadCatalog() } }
-  } catch (e) { if (!disposed && revision === readRevision) failure.value = e instanceof Error ? e.message : '读取失败' }
-}
-async function poll(generation = pollGeneration) { if (!document.hidden) await refresh(); if (!disposed && generation === pollGeneration) timer = setTimeout(() => void poll(generation), 5000) }
-function changeWindow() { focusedEvent.value = null; pollGeneration++; clearTimeout(timer); void poll(pollGeneration) }
-onMounted(() => void poll())
-onBeforeUnmount(() => { disposed = true; clearTimeout(timer); polling.abort(); catalogAbort?.abort() })
+watch(data, result => {
+  if (result && !initialized.value) { initialized.value = true; if (!result.plan) { editing.value = true; tab.value = 'settings'; defaults(); void loadCatalog() } }
+})
+function changeWindow() { focusedEvent.value = null }
+onBeforeUnmount(() => { disposed = true; catalogAbort?.abort() })
 
 async function edit() {
   tab.value = 'settings'
@@ -132,7 +122,7 @@ async function retest(id: string) {
 
 <template>
   <section class="monitor-page" aria-label="持续监控">
-    <div v-if="failure" class="notice error" role="alert">{{ failure }}。页面数据可能已过期。<button @click="refresh">重新读取</button></div>
+    <div v-if="failure" class="notice error" role="alert">{{ failure }}。页面数据可能已过期。<span v-if="lastUpdated">上次成功读取：{{ monitorTime(lastUpdated) }}。</span><button @click="refresh">重新读取</button></div>
     <div v-if="message" class="notice" role="status">{{ message }}</div>
     <div class="monitor-banner">
       <div><Activity :size="25"/><div><h2>{{ runLabel }}</h2><p>长期 HTTPS 健康记录 · {{ plan?.auto_switch ? '故障自动切换' : '手动选择' }} · 长连接未验证</p></div></div>

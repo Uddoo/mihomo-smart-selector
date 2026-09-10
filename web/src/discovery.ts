@@ -1,10 +1,23 @@
 import {api} from './api'
 import type {Health, Group, Provider, Region, NodeSummary, SwitchEvent, ServiceCatalog, RuntimeSettings} from './models'
 
-export function discover() {
+export interface DiscoverySnapshot {
+  health?: Health; groups?: Group[]; providers?: Provider[]; regions?: Region[]
+  nodes?: NodeSummary[]; history?: SwitchEvent[]; services?: ServiceCatalog; settings?: RuntimeSettings
+}
+
+export function discover(onUpdate?: (snapshot: DiscoverySnapshot) => void, signal?: AbortSignal) {
+  const snapshot: DiscoverySnapshot = {}
+  function read<K extends keyof DiscoverySnapshot>(key: K, path: string) {
+    return api<NonNullable<DiscoverySnapshot[K]>>(path, {signal}).then(value => {
+      snapshot[key] = value
+      onUpdate?.({...snapshot})
+      return value
+    })
+  }
   return Promise.allSettled([
-    api<Health>('/health'), api<Group[]>('/groups'), api<Provider[]>('/providers'),
-    api<Region[]>('/regions'), api<NodeSummary[]>('/nodes'), api<SwitchEvent[]>('/history'),
-    api<ServiceCatalog>('/services'), api<RuntimeSettings>('/settings'),
+    read('health', '/health'), read('groups', '/groups'), read('providers', '/providers'),
+    read('regions', '/regions'), read('nodes', '/nodes'), read('history', '/history'),
+    read('services', '/services'), read('settings', '/settings'),
   ])
 }

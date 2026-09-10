@@ -27,6 +27,8 @@ export function useWorkbench() {
   const discoveryValid = ref(false)
   const minimumSuccessRate = ref(.95)
   let discoveryPoll: number | undefined
+  let discoveryRevision = 0
+  let discoveryController: AbortController | undefined
   const areas = ref<string[]>([])
   const providerSet = ref<string[]>([])
   const mode = ref<'quick' | 'stable'>('quick')
@@ -101,42 +103,68 @@ export function useWorkbench() {
     else choiceDialog.value?.close()
   }, {flush: 'post'})
 
+  function resumeDiscovery() {
+    discoveryController?.abort()
+    ++discoveryRevision; ++previewRevision
+    loading.value = false
+    discoveryValid.value = false
+    if (!navigator.onLine) {
+      health.value = {status: 'degraded', mihomo_connected: false}
+      failure.value = '网络已断开，连接恢复后自动重新读取'
+      return
+    }
+    if (!document.hidden) void load()
+  }
   onMounted(() => {
     ageTimer = window.setInterval(() => { now.value = Date.now() }, 1000)
     setAPIToken(token.value)
-    void load()
+    document.addEventListener('visibilitychange', resumeDiscovery)
+    window.addEventListener('online', resumeDiscovery)
+    window.addEventListener('offline', resumeDiscovery)
+    resumeDiscovery()
     discoveryPoll = window.setInterval(() => {
-      if (!configLocked.value && !access.value && !document.hidden) void load()
+      if (!configLocked.value && !access.value && !document.hidden && navigator.onLine) void load()
     }, 30000)
   })
-  onBeforeUnmount(() => { window.clearInterval(ageTimer); close(); window.clearInterval(discoveryPoll); ++previewRevision })
+  onBeforeUnmount(() => {
+    window.clearInterval(ageTimer); close(); window.clearInterval(discoveryPoll)
+    ++previewRevision; ++discoveryRevision; discoveryController?.abort()
+    document.removeEventListener('visibilitychange', resumeDiscovery)
+    window.removeEventListener('online', resumeDiscovery)
+    window.removeEventListener('offline', resumeDiscovery)
+  })
 
   async function load() {
     if (loading.value || configLocked.value) return
+    const revision = ++discoveryRevision
+    discoveryController?.abort(); discoveryController = new AbortController()
     loading.value = true
     discoveryValid.value = false
     ++previewRevision
     preview.value = null
     failure.value = ''
-    const response = await discover()
+    const response = await discover(snapshot => {
+      if (revision !== discoveryRevision) return
+      if (snapshot.health) health.value = snapshot.health
+      if (snapshot.groups) {
+        groups.value = snapshot.groups
+        if (!group.value && groups.value[0]) group.value = groups.value[0].name
+      }
+      if (snapshot.providers) providers.value = snapshot.providers
+      if (snapshot.regions) regions.value = snapshot.regions
+      if (snapshot.nodes) nodes.value = snapshot.nodes
+      if (snapshot.history) history.value = snapshot.history
+      if (snapshot.services) services.value = snapshot.services
+      if (snapshot.settings) minimumSuccessRate.value = snapshot.settings.min_success_rate
+    }, discoveryController.signal)
+    if (revision !== discoveryRevision) return
     if (response[0].status === 'rejected' && response[0].reason instanceof APIError && response[0].reason.status === 401) {
       access.value = true
       loading.value = false
       return
     }
     access.value = false
-    if (response[0].status === 'fulfilled') health.value = response[0].value
-    else health.value = {status: 'degraded', mihomo_connected: false}
-    if (response[1].status === 'fulfilled') {
-      groups.value = response[1].value || []
-      if (!group.value && groups.value[0]) group.value = groups.value[0].name
-    }
-    if (response[2].status === 'fulfilled') providers.value = response[2].value || []
-    if (response[3].status === 'fulfilled') regions.value = response[3].value || []
-    if (response[4].status === 'fulfilled') nodes.value = response[4].value || []
-    if (response[5].status === 'fulfilled') history.value = response[5].value || []
-    if (response[6].status === 'fulfilled') services.value = response[6].value
-    if (response[7].status === 'fulfilled') minimumSuccessRate.value = response[7].value.min_success_rate
+    if (response[0].status === 'rejected') health.value = {status: 'degraded', mihomo_connected: false}
     const bad = response.find(item => item.status === 'rejected') as PromiseRejectedResult | undefined
     if (bad) failure.value = bad.reason instanceof Error ? bad.reason.message : '无法加载 Mihomo 数据'
     discoveryValid.value = !bad
