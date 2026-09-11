@@ -1,10 +1,10 @@
-import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+import {computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch} from 'vue'
 import {APIError, api, setAPIToken} from './api'
 import {rankResults, hasJitterEvidence, evidence, expired} from './ranking'
 import {useScanSession} from './scanSession'
 import {discover} from './discovery'
 import {selectionKey, operationLabel, operationMessage} from './selectionState'
-import type {Group, Health, NodeResult, NodeSummary, ProbeProfileSummary, Provider, Region, Scan, ScanPreview, SwitchEvent, ServiceCatalog, RuntimeSettings} from './models'
+import type {Group, Health, NestedSelector, NodeResult, NodeSummary, ProbeProfileSummary, Provider, Region, Scan, ScanPreview, SwitchEvent, ServiceCatalog, RuntimeSettings} from './models'
 import {usePageRoute} from './pageRoute'
 import {useNodeCatalog} from './useNodeCatalog'
 import {t, formatRegion, formatNumber} from './i18n'
@@ -34,6 +34,7 @@ export function useWorkbench() {
   const providerSet = ref<string[]>([])
   const mode = ref<'quick' | 'stable'>('quick')
   const preview = ref<ScanPreview | null>(null)
+  const nestedNavigation = shallowRef<{path: string[]; target: string} | null>(null)
   const access = ref(false)
   const token = ref(sessionStorage.getItem('mss-api-token') || '')
   function savedTheme(): 'light' | 'dark' {
@@ -103,7 +104,7 @@ export function useWorkbench() {
       getComputedStyle(document.documentElement).getPropertyValue('--bg').trim())
     try { localStorage.setItem('mss-theme', value) } catch { /* Keep the in-memory preference when storage is disabled. */ }
   }, {immediate: true})
-  watch(group, () => { serviceID.value = ''; void preflight() })
+  watch(group, () => { serviceID.value = ''; nestedNavigation.value = null; void preflight() })
   watch([serviceID, areas, providerSet, mode], () => void preflight())
   watch(pendingChoice, value => {
     if (value) choiceDialog.value?.showModal()
@@ -214,6 +215,35 @@ export function useWorkbench() {
 
   function provider(name: string) {
     providerSet.value = providerSet.value.includes(name) ? providerSet.value.filter(x => x !== name) : [...providerSet.value, name]
+  }
+
+  async function selectNestedGroup(option: NestedSelector) {
+    if (configLocked.value || loading.value || !preview.value?.nested_selectors?.some(item => item.group === option.group)) return
+    const profileID = preview.value.profile.id
+    session.clearView(); focusedName.value = ''; pendingChoice.value = null
+    group.value = option.group
+    await nextTick() // Let the normal group-change reset finish before preserving the service.
+    serviceID.value = profileID
+    nestedNavigation.value = {path: [...option.path], target: option.group}
+    void preflight()
+  }
+
+  async function returnToParentGroup() {
+    if (configLocked.value || loading.value || !nestedNavigation.value) return
+    const parent = nestedNavigation.value.path[0]
+    const profileID = serviceID.value || profile.value?.id || ''
+    if (!parent) return
+    session.clearView(); focusedName.value = ''; pendingChoice.value = null
+    group.value = parent
+    await nextTick()
+    serviceID.value = profileID
+    void preflight()
+  }
+
+  function clearScanFilters() {
+    if (configLocked.value || loading.value) return
+    areas.value = []; providerSet.value = []
+    void preflight()
   }
 
   async function preflight() {
@@ -366,6 +396,7 @@ export function useWorkbench() {
 
   return {
     catalog,
+    nestedNavigation, selectNestedGroup, returnToParentGroup, clearScanFilters,
     syncError, refreshScan: refresh, connectionMode, focusedName, page, health, groups, services, access, token,
     theme, notice, noticeWarning, failure, pendingChoice, choiceDialog, switching,
     current, configLocked, load, unlock, confirmChoice, openMonitorScan, regionLabel,

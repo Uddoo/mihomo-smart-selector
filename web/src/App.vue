@@ -65,7 +65,7 @@ const currentPage = computed(() => navigation.find(item => item.id === page.valu
       <SwitchHistory v-else-if="page === 'history'" :state="state"/>
 
       <section v-else>
-        <ConnectionSettings :connected="!!health?.mihomo_connected"/>
+        <ConnectionSettings :connected="!!health?.mihomo_connected" :locked="configLocked" @restarted="load()"/>
         <SettingsPanel :locked="configLocked" :groups="groups" :profiles="services?.profiles || []" @saved="load()"/>
 		<StoragePanel :locked="configLocked"/>
         <div class="settings">

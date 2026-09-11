@@ -30,6 +30,11 @@ export function useScanSession(onSettled: (scan: Scan) => void) {
     onMode: mode => { connectionMode.value = mode },
   })
   function close() { ++openRevision; transport.stop() }
+  function clearView() {
+    if (running.value) return
+    close(); scan.value = null; syncError.value = ''
+    sessionStorage.removeItem('mss-scan-id')
+  }
   function visibility() {
     if (document.hidden || !navigator.onLine) transport.suspend()
     else if (running.value) transport.resume()
@@ -68,5 +73,5 @@ export function useScanSession(onSettled: (scan: Scan) => void) {
     document.removeEventListener('visibilitychange', visibility)
     window.removeEventListener('online', visibility); window.removeEventListener('offline', visibility)
   })
-  return {scan, running, recent, syncError, connectionMode, monitor, refresh: transport.refresh, open, restore, close}
+  return {scan, running, recent, syncError, connectionMode, monitor, refresh: transport.refresh, open, restore, close, clearView}
 }

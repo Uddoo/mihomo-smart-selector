@@ -177,6 +177,15 @@ export interface ScanPreview {
   profile: ProbeProfileSummary
   ready: boolean
   reason?: string
+  reason_code?: 'filters_empty' | 'no_direct_leaves'
+  nested_selectors?: NestedSelector[]
+}
+
+export interface NestedSelector {
+  group: string
+  path: string[]
+  candidate_count: number
+  on_current_path: boolean
 }
 
 export interface NodeSummary {

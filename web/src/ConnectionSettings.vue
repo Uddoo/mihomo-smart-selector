@@ -2,13 +2,17 @@
 import {shallowRef, useTemplateRef, watch} from 'vue'
 import {t, translateMessage} from './i18n'
 import {useConnectionSettings} from './useConnectionSettings'
+import ServiceRestart from './ServiceRestart.vue'
 
-defineProps<{connected: boolean}>()
+defineProps<{connected: boolean; locked?: boolean}>()
+const emit = defineEmits<{restarted: []}>()
+const serviceBusy = shallowRef(false)
 const {state, draft, secretAction, secret, busy, error, notice, testedVersion, dirty, sourceLabel, reload, save, test, restore} = useConnectionSettings()
 const form = useTemplateRef<HTMLFormElement>('form')
 const showSecret = shallowRef(false)
 watch(secretAction, () => { showSecret.value = false })
 function testDraft() { if (form.value?.reportValidity()) void test() }
+function restarted() { void reload(); emit('restarted') }
 </script>
 
 <template>
@@ -23,12 +27,12 @@ function testDraft() { if (form.value?.reportValidity()) void test() }
         <span>{{ t('当前使用') }}</span><code>{{ state.active.controller }}</code>
         <span v-if="state.restart_required" class="connection-pending">{{ t('已保存更改 · 待重启') }}</span>
       </div>
-      <p v-if="state?.restart_required" class="notice warning" role="status">{{ t('当前扫描和监控继续使用原连接。请结束任务后重启 Mihomo Smart Selector；刷新网页不会应用连接配置。') }}</p>
+      <p v-if="state?.restart_required" class="notice warning" role="status">{{ t('当前仍使用原连接。结束扫描后，点击下方“重启服务”应用已保存的配置。') }}</p>
       <p v-if="error" class="notice error" role="alert">{{ translateMessage(error) }}</p>
       <p v-if="notice" class="notice" role="status">{{ translateMessage(notice) }}</p>
       <p v-if="testedVersion" class="notice" role="status">{{ t('测试通过 · Mihomo {version}。仅验证当前填写的连接，尚未应用。', {version: testedVersion}) }}</p>
       <p v-if="busy === 'load'" role="status">{{ t('正在读取连接配置…') }}</p>
-      <fieldset v-if="state" class="connection-fields" :disabled="!!busy">
+      <fieldset v-if="state" class="connection-fields" :disabled="!!busy || serviceBusy">
         <legend class="sr-only">{{ t('Mihomo 连接配置') }}</legend>
         <div class="settings-inputs connection-inputs">
           <label class="connection-address">{{ t('Controller 地址') }}
@@ -63,6 +67,7 @@ function testDraft() { if (form.value?.reportValidity()) void test() }
         <p class="settings-note connection-footnote">{{ t('图形界面保存的连接优先于 YAML；恢复默认也需重启。测试只读取版本信息，不保存配置或切换节点。') }}</p>
       </fieldset>
       <button v-else-if="!busy" type="button" @click="reload">{{ t('重新加载') }}</button>
+      <ServiceRestart :disabled="!!busy || dirty || !!locked" :pending-changes="!!state?.restart_required" @busy-change="serviceBusy = $event" @restarted="restarted"/>
     </form>
   </section>
 </template>

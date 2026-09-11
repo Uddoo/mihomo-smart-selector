@@ -10,6 +10,7 @@ const {state} = defineProps<{state: Workbench}>()
 const { syncError, refreshScan, connectionMode, health, groups, providers, regions, group, serviceID, services, loading, discoveryValid, areas, providerSet, mode, preview, failure, switching, starting, showProfile, current, results, candidate, scanLabel, configLocked, progress, percent, profile, groupMissing, binding, invalidBindings, serviceSource, profileReady, openRecent, load, saveBinding, area, provider, start, stop, selectionReason, choose, regionLabel, percentLabel, latency, clock, statusLabel, statusTone, probeKind, scan, running, recent } = state
 import {ref, nextTick, onMounted, onBeforeUnmount, useTemplateRef, watch} from 'vue'
 import CandidateDetails from './CandidateDetails.vue'
+import ScanCompatibility from './ScanCompatibility.vue'
 const resultQuery = ref('')
 const filteredResults = computed(() => results.value.filter(row => !resultQuery.value || row.name.toLowerCase().includes(resultQuery.value.toLowerCase())))
 const {page: resultPage, pageCount, visible: pageResults, locate} = usePagination(filteredResults)
@@ -118,7 +119,8 @@ onBeforeUnmount(() => { closeDetails(); mobileQuery.removeEventListener('change'
         </section>
         </div>
 
-        <div v-if="!running && !groupMissing && discoveryValid && !profile?.requires_configuration && !preview?.ready" class="preflight warning"><b>{{ t('当前不可扫描') }}</b><span>{{ translateMessage(!group ? t('未发现可选择的 Selector 策略组。') : preview?.reason || failure || t('正在加载预检。')) }}</span></div>
+        <ScanCompatibility v-if="!running && !groupMissing && discoveryValid" :preview="preview" :disabled="configLocked || loading" :navigation="state.nestedNavigation.value" @select-group="state.selectNestedGroup" @return-to-parent="state.returnToParentGroup" @clear-filters="state.clearScanFilters"/>
+        <div v-if="!running && !groupMissing && discoveryValid && !profile?.requires_configuration && !preview" class="preflight warning"><b>{{ t('扫描预检') }}</b><span>{{ translateMessage(!group ? t('未发现可选择的 Selector 策略组。') : failure || t('正在加载预检。')) }}</span></div>
 
         <div v-if="running" class="progress">
           <div><b>{{ t('{p0} · 已完成探测任务 {p1} / {p2} · 第 {p3} / {p4} 批', {p0: progress?.stage === 'refining' ? t('复测阶段') : t('初筛阶段'), p1: progress?.completed || 0, p2: progress?.total || 0, p3: progress?.current_batch || 0, p4: progress?.total_batches || 0}) }}</b><strong>{{ percent }}%</strong></div>
