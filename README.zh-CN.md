@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/branding/logo.png" width="112" alt="Mihomo Smart Selector 项目标识" />
+  <img src="docs/assets/branding/social-preview.png" width="1280" alt="Mihomo Smart Selector — 扫描、对比、确认切换。界面预览使用演示数据。" />
 </p>
 <h1 align="center">Mihomo Smart Selector</h1>
 <p align="center"><strong>按服务选节点，让每次切换都有依据。</strong></p>
