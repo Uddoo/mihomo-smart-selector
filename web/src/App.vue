@@ -48,7 +48,7 @@ const currentPage = computed(() => navigation.find(item => item.id === page.valu
       <header>
         <div>
           <h1>{{ translateMessage(currentPage.label) }}</h1>
-          <p>{{ translateMessage(currentPage.description) }}</p>
+          <p class="page-description">{{ translateMessage(currentPage.description) }}<span v-if="health?.mihomo_version === 'dev-mock'" class="fixture-label">{{ t('示例数据') }}</span></p>
         </div>
         <div class="header-actions"><LanguageSelect/><button class="theme" :aria-label="theme === 'light' ? t('切换到深色主题') : t('切换到明亮主题')" @click="theme = theme === 'light' ? 'dark' : 'light'"><Moon v-if="theme === 'light'" :size="17" aria-hidden="true"/><Sun v-else :size="17" aria-hidden="true"/><span>{{ t('{p0}主题', {p0: theme === 'light' ? t('深色') : t('明亮')}) }}</span></button></div>
       </header>

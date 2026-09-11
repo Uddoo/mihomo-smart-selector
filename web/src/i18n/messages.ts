@@ -1,6 +1,10 @@
 // Chinese source messages are the stable lookup keys and the complete zh-CN catalog.
 // Keep placeholders identical across languages. Product data is never translated here.
 export const en = {
+  "收起详情": "Close",
+  "按{column}升序排列": "Sort {column} ascending",
+  "按{column}降序排列": "Sort {column} descending",
+  "恢复原始顺序（{column}）": "Restore original order ({column})",
   "查看 {node} 详情": "View details for {node}",
   "方案修订 {p0}：{p1} 个节点，监控运行={p2}，自动切换={p3}": "Plan revision {p0}: nodes {p1}, monitoring={p2}, auto switch={p3}",
   "无效事件范围或分页大小": "Invalid event range or page size.",

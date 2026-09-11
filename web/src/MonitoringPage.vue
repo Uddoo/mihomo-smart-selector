@@ -192,7 +192,7 @@ async function retest(id: string) {
 </template>
 
 <style scoped>
-.monitor-section{display:grid;gap:18px;min-width:0}.monitor-navigation{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px}.monitor-tabs{display:flex;gap:4px;padding:4px;background:var(--surface-muted);border:1px solid var(--line);border-radius:var(--radius-md)}.monitor-tabs button[aria-selected="true"]{color:var(--blue);background:var(--surface);border-color:var(--line);font-weight:650}.monitor-overview button{margin:8px 8px 0 0}.monitor-tabs button{min-height:44px;border-color:transparent;background:transparent}
+.monitor-section{display:grid;gap:18px;min-width:0}.monitor-navigation{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px}.monitor-tabs{display:flex;gap:4px;padding:4px;background:var(--surface-muted);border:1px solid var(--line);border-radius:var(--radius-md)}.monitor-tabs button[aria-selected="true"]{color:var(--text);background:var(--surface);border-color:var(--line);font-weight:600}.monitor-overview button{margin:8px 8px 0 0}.monitor-tabs button{min-height:44px;border-color:transparent;background:transparent}
 
 .monitor-window { display:flex;align-items:center;gap:10px;font-size:13px; }.monitor-window select{padding:10px;min-height:44px;border:1px solid var(--control-border);background:var(--surface);color:var(--text);border-radius:var(--radius-sm);}
 .monitor-page { display: grid; gap: 24px; padding-top: 4px; }

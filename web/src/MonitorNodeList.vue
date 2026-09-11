@@ -67,13 +67,13 @@ const emit = defineEmits<{open: [row: MonitorRow]; retest: [id: string]}>()
 .monitor-table tr:hover { background: var(--soft); }
 .monitor-table td small { display: block; margin-top: 6px; font-size: 12px; }
 .monitor-table .current-tag { display: inline-block; margin-top: 8px; }
-.node-link { display: inline-flex; align-items: center; min-height: 40px; max-width: 100%; padding: 6px 0; border: 0; background: transparent; color: var(--blue); text-align: left; white-space: normal; overflow-wrap: anywhere; font-size: 14px; font-weight: 650; }
+.node-link { display: inline-flex; align-items: center; min-height: 40px; max-width: 100%; padding: 6px 0; border: 0; background: transparent; color: var(--text); text-align: left; white-space: normal; overflow-wrap: anywhere; font-size: 14px; font-weight: 500; }
 .monitor-node-cards { display: none; }
 .monitor-list-empty { padding: 24px 0; color: var(--muted); line-height: 1.8; }
 .monitor-badge { display: inline-block; align-self: start; padding: 4px 8px; border-radius: 5px; background: var(--surface-muted); color: var(--muted); font-size: 12px; white-space: nowrap; }
 .monitor-badge.healthy { color: var(--green); background: var(--good-bg); }
 .monitor-badge.suspect, .monitor-badge.unavailable { color: var(--red); background: var(--bad-bg); }
-.monitor-badge.recovering { color: var(--blue); background: var(--soft); }
+.monitor-badge.recovering { color: var(--text); background: var(--soft); }
 @media (max-width: 1100px) {
   .monitor-table-wrap { display: none; }
   .monitor-node-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }

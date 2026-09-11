@@ -18,5 +18,5 @@ const evidence = computed(() => healthEvidence(props.metrics, props.window))
 </template>
 
 <style scoped>
-.monitor-evidence{display:grid;gap:7px;min-width:0;font-size:13px;white-space:normal;line-height:1.6;font-variant-numeric:tabular-nums}.monitor-evidence strong{font-size:22px;color:var(--text)}.monitor-evidence small,.monitor-evidence div>span{color:var(--muted);font-size:12px}.monitor-evidence .provisional{color:var(--text);border-left:3px solid #bd861c;padding-left:7px}.compact strong{font-size:16px}.compact{font-size:12px}.monitor-evidence p{color:var(--muted);font-size:12px;margin:8px 0}summary{cursor:pointer}
+.monitor-evidence{display:grid;gap:7px;min-width:0;font-size:13px;white-space:normal;line-height:1.6;font-variant-numeric:tabular-nums}.monitor-evidence strong{font-size:20px;font-weight:600;font-family:var(--font-mono);color:var(--text)}.monitor-evidence small,.monitor-evidence div>span{color:var(--muted);font-size:12px}.monitor-evidence .provisional{color:var(--warning);background:var(--warning-bg);padding:3px 6px;border-radius:4px}.compact strong{font-size:16px}.compact{font-size:12px}.monitor-evidence p{color:var(--muted);font-size:12px;margin:8px 0}summary{cursor:pointer}
 </style>

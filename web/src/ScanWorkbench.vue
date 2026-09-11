@@ -3,6 +3,7 @@ import {t, translateMessage, formatDate} from './i18n'
 import {computed} from 'vue'
 import {usePagination} from './usePagination'
 import ListPagination from './ListPagination.vue'
+import TableSearch from './TableSearch.vue'
 import type {Workbench} from './useWorkbench'
 import {RefreshCw, ChevronDown, CheckCircle2, Radio, CircleAlert, CirclePause, ScanLine} from '@lucide/vue'
 const {state} = defineProps<{state: Workbench}>()
@@ -135,8 +136,7 @@ onBeforeUnmount(() => { closeDetails(); mobileQuery.removeEventListener('change'
             <div class="head">
               <div><h2>{{ t('实时排名') }}</h2><p>{{ scan?.status === 'complete' ? t('复测节点优先 · 性能满分 90 · 仅可选择符合条件的节点') : t('结果返回即排序 · 扫描完成后可选择') }}</p></div>
             </div>
-            <div v-if="results.length > 50" class="ranking-tools"><input v-model="resultQuery" type="search" name="scan-result-query" autocomplete="off" :spellcheck="false" :placeholder="t('搜索扫描结果…')" :aria-label="t('搜索扫描结果')"><button :disabled="!results.some(row => row.name === current?.now)" @click="locateNode(current?.now)">{{ t('定位当前节点') }}</button><button :disabled="!candidate" @click="locateNode(candidate?.name)">{{ t('定位候选') }}</button></div>
-            <ListPagination :page="resultPage" :pages="pageCount" :total="filteredResults.length" @change="resultPage = $event"/>
+            <div class="ranking-tools"><TableSearch id="scan-result-query" v-model="resultQuery" :label="t('搜索扫描结果')" :placeholder="t('搜索扫描结果…')" :disabled="!results.length"/><button :disabled="!results.some(row => row.name === current?.now)" @click="locateNode(current?.now)">{{ t('定位当前节点') }}</button><button :disabled="!candidate" @click="locateNode(candidate?.name)">{{ t('定位候选') }}</button></div>
             <div v-if="!pageResults.length" class="ranking-empty" role="status">
               <ScanLine :size="30" :stroke-width="1.5" aria-hidden="true"/>
               <h3>{{ translateMessage(emptyTitle) }}</h3><p>{{ translateMessage(emptyDescription) }}</p>
@@ -144,7 +144,7 @@ onBeforeUnmount(() => { closeDetails(); mobileQuery.removeEventListener('change'
             </div>
             <div v-if="!mobile && pageResults.length" class="scroll desktop-ranking" tabindex="0" role="region" :aria-label="t('节点实时排名列表')">
               <table :aria-label="t('节点实时排名')">
-                <thead><tr><th>{{ t('排名') }}</th><th>{{ t('节点 / Provider') }}</th><th>{{ t('地区') }}</th><th class="numeric">{{ t('成功率') }}</th><th class="numeric">P95</th><th class="numeric">{{ t('性能评分') }}</th><th class="action-column">{{ t('操作') }}</th></tr></thead>
+                <thead><tr><th scope="col">{{ t('排名') }}</th><th scope="col">{{ t('节点 / Provider') }}</th><th scope="col">{{ t('地区') }}</th><th scope="col" class="numeric">{{ t('成功率') }}</th><th scope="col" class="numeric">P95</th><th scope="col" class="numeric">{{ t('性能评分') }}</th><th scope="col" class="action-column">{{ t('操作') }}</th></tr></thead>
                 <tbody>
                   <tr v-for="result in pageResults" :key="result.name" :class="{selected: candidate?.name === result.name}" @click="openDetails(result.name)">
                     <td class="rank">{{ result.rank }}</td>
@@ -174,11 +174,12 @@ onBeforeUnmount(() => { closeDetails(); mobileQuery.removeEventListener('change'
                 <span class="node-card-reason">{{ translateMessage(selectionReason(result) || t('可确认切换 · 查看证据与详情')) }}</span>
               </button>
             </div>
+            <ListPagination :page="resultPage" :pages="pageCount" :total="filteredResults.length" @change="resultPage = $event"/>
           </section>
 
           <CandidateDetails v-if="!mobile" :state="state"/>
           <dialog v-else ref="detailDialog" class="candidate-drawer" :aria-label="t('候选详情')" @close="drawerOpen = false">
-            <div class="drawer-heading"><b>{{ t('候选详情') }}</b><button :aria-label="t('关闭候选详情')" @click="closeDetails">{{ t('关闭') }}</button></div>
+            <div class="drawer-heading"><b>{{ t('候选详情') }}</b><span v-if="health?.mihomo_version === 'dev-mock'" class="fixture-label">{{ t('示例数据') }}</span><button :aria-label="t('关闭候选详情')" @click="closeDetails">{{ t('收起详情') }}</button></div>
             <CandidateDetails :state="state"/>
           </dialog>
         </div>

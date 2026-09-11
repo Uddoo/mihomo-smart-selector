@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import {t, translateMessage} from './i18n'
 import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
-import {ArrowDown, ArrowUp, ChevronsUpDown, Search, X} from '@lucide/vue'
+import {ArrowDown, ArrowUp, ChevronsUpDown, X} from '@lucide/vue'
 import type {Workbench} from './useWorkbench'
 import type {NodeSummary} from './models'
 import type {CatalogSort} from './nodeCatalog'
 import {compareNames, protocolLabel, providerLabel, catalogRegionLabel, entryKindLabel, inCatalogScope, regionStatus, regionReasonLabel, scopeLabels, statusLabels} from './nodeCatalog'
 import NodeDetails from './NodeDetails.vue'
+import TableSearch from './TableSearch.vue'
 
 const {state} = defineProps<{state: Workbench}>()
 const {nodes, regionLabel, catalog} = state
 const {filters, sort, descending, pageSize, page, sorted, clear} = catalog
-const search = ref<HTMLInputElement>()
+const search = ref<InstanceType<typeof TableSearch>>()
 const scrollArea = ref<HTMLElement>()
 const detail = ref<HTMLElement>()
 const drawer = ref<HTMLDialogElement>()
@@ -43,7 +44,14 @@ function chipLabel(key: string, value: string) {
   return key === 'regions' ? (value ? regionLabel(value) : t('未确定地区')) : key === 'providers' ? providerLabel(value) : protocolLabel(value)
 }
 function remove(key: 'regions' | 'providers' | 'protocols', value: string) { filters[key] = filters[key].filter(item => item !== value) }
-function sortBy(key: CatalogSort) { if (sort.value === key) descending.value = !descending.value; else { sort.value = key; descending.value = false } }
+function sortBy(key: CatalogSort) {
+  if (sort.value !== key) { sort.value = key; descending.value = false }
+  else if (!descending.value) descending.value = true
+  else { sort.value = 'original'; descending.value = false }
+}
+function sortLabel(key: CatalogSort, label: string) {
+  return t(sort.value !== key ? '按{column}升序排列' : !descending.value ? '按{column}降序排列' : '恢复原始顺序（{column}）', {column: translateMessage(label)})
+}
 function reset() { clear(); void nextTick(() => search.value?.focus()) }
 function inherit() { clear(); filters.regions = [...state.areas.value]; filters.providers = [...state.providerSet.value] }
 function top() { scrollArea.value?.scrollTo({top: 0}) }
@@ -89,7 +97,7 @@ onBeforeUnmount(() => { media.removeEventListener('change', resize); document.re
 <template>
   <section class="catalog" :aria-label="t('节点目录浏览')">
     <div class="catalog-tools">
-      <label class="catalog-search" for="catalog-search"><span>{{ t('搜索节点') }}</span><div><Search :size="17" aria-hidden="true"/><input id="catalog-search" ref="search" v-model="filters.query" type="search" :placeholder="t('名称、地区、来源或协议')" aria-describedby="catalog-search-hint"></div></label>
+      <TableSearch id="catalog-search" ref="search" v-model="filters.query" class="catalog-search" :label="t('搜索节点')" :placeholder="t('名称、地区、来源或协议')" describedby="catalog-search-hint"/>
       <div ref="filterBar" class="catalog-filters">
         <details v-for="dimension in dimensions" :key="dimension.key" @keydown.esc="escapeFilter">
           <summary>{{ translateMessage(dimension.label) }}<span v-if="filters[dimension.key].length"> · {{ filters[dimension.key].length }}</span><ChevronsUpDown :size="14" aria-hidden="true"/></summary>
@@ -117,7 +125,7 @@ onBeforeUnmount(() => { media.removeEventListener('change', resize); document.re
       <div class="catalog-list">
         <div ref="scrollArea" class="catalog-scroll" tabindex="0" :aria-label="t('节点列表，可滚动')">
           <table><caption class="sr-only">{{ t('节点目录；点击名称查看详情，表头按钮可排序') }}</caption><colgroup><col class="name-col"><col class="region-col"><col class="provider-col"><col class="protocol-col"></colgroup>
-            <thead><tr><th v-for="column in columns" :key="column.key" scope="col" :aria-sort="sort === column.key ? (descending ? 'descending' : 'ascending') : 'none'"><button @click="sortBy(column.key)">{{ translateMessage(column.label) }}<component :is="sort === column.key ? (descending ? ArrowDown : ArrowUp) : ChevronsUpDown" :size="14" aria-hidden="true"/></button></th></tr></thead>
+            <thead><tr><th v-for="column in columns" :key="column.key" scope="col" :aria-sort="sort === column.key ? (descending ? 'descending' : 'ascending') : 'none'"><button :aria-label="sortLabel(column.key, column.label)" @click="sortBy(column.key)">{{ translateMessage(column.label) }}<component :is="sort === column.key ? (descending ? ArrowDown : ArrowUp) : ChevronsUpDown" :size="14" aria-hidden="true"/></button></th></tr></thead>
             <tbody><tr v-for="node in visible" :key="node.name" :class="{selected: selectedName === node.name}" @click="open(node, $event)"><td><button class="catalog-node" :aria-expanded="selectedName === node.name" aria-controls="catalog-detail" @click.stop="open(node, $event)">{{ node.name }}</button><span v-if="selectedName === node.name" class="viewing">{{ t('正在查看') }}</span><small v-if="node.entry_kind && node.entry_kind !== 'proxy'" class="entry-kind">{{ translateMessage(entryKindLabel(node.entry_kind)) }}</small></td><td><span :class="{'region-pending': regionStatus(node) === 'ambiguous'}" :title="translateMessage(regionReasonLabel(node))">{{ translateMessage(catalogRegionLabel(node, regionLabel)) }}</span></td><td><span :title="node.provider || t('未标注来源')">{{ providerLabel(node.provider) }}</span></td><td><span class="protocol-tag">{{ translateMessage(protocolLabel(node.protocol)) }}</span></td></tr></tbody>
           </table>
           <div v-if="!visible.length" class="catalog-empty"><h2>{{ nodes.length ? t('没有匹配的节点') : t('暂无节点数据') }}</h2><p>{{ nodes.length ? t('请调整上方关键词或筛选条件后重试。') : state.loading.value ? t('正在加载节点目录…') : t('请检查 Controller 连接及节点配置，再刷新目录。') }}</p><button v-if="active" @click="reset">{{ t('清除筛选') }}</button><button v-else :disabled="state.loading.value" @click="state.load()">{{ t('刷新目录') }}</button></div>

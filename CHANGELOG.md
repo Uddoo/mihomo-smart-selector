@@ -11,6 +11,12 @@ versioned releases begin.
 
 ### Changed
 
+- Adopt Geist typography, self-hosted variable fonts and neutral light/dark
+  surfaces across the workbench. Keep status colors tied to actual evidence.
+- Apply Carbon-inspired table interactions: persistent scan search with a clear
+  action, pagination below results, and a three-state catalog sort with accessible
+  direction labels. Inspecting a row retains the explicit switch confirmation.
+- Identify mock data across the shared page header and mobile candidate drawer.
 - Refine the existing Vue workbench with shared light/dark design tokens,
   clearer controls, readable status text and complete mobile navigation.
 - Keep scan results closer to the top on phones with collapsible settings,
