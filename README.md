@@ -62,6 +62,11 @@ each process. Ports 9090 and 8788 must be available.
 
 ### Connect your own Mihomo
 
+**Windows portable build:** extract the matching AMD64 / ARM64 ZIP from a published
+[GitHub Release](https://github.com/Uddoo/mihomo-smart-selector/releases), then run the EXE.
+First launch creates configuration beside the executable. No Go or Node.js runtime is required.
+See the [Windows guide](docs/windows.md#english) for availability, supported systems, configuration and upgrades.
+
 | Where you want to run it | Next step |
 | --- | --- |
 | **On your computer** | Copy `config.example.yaml` to `config.yaml` and run `go run ./cmd/mihomo-smart-selector -config config.yaml`. Open **Settings → Mihomo connection**, enter the address and secret, test and save, then restart the service. YAML, `MIHOMO_SECRET` and `mihomo.secret_file` remain supported. [Graphical connection setup →](docs/connection-settings.md#english) |
@@ -70,8 +75,8 @@ each process. Ports 9090 and 8788 must be available.
 Keep the loopback listener for local use. LAN access requires a token and a
 trusted-CIDR allow-list in the standard deployment configuration. Dedicated
 strict/egress validation requires a separately configured probe Selector and
-loopback listener. **Pre-release: installation is currently from source; no
-stable download package is published.**
+loopback listener. Windows packaging and a tested draft-release workflow are included;
+available published versions are listed on GitHub Releases. The project remains in pre-release.
 
 <a id="showcase"></a>
 ## A closer look
@@ -184,6 +189,8 @@ separately from performance scoring.
 | I want to… | Read |
 | --- | --- |
 | Explore the current interface in English | [Live screenshot tour](docs/screenshots.md) |
+| Run a portable Windows EXE | [Windows installation and upgrades](docs/windows.md#english) |
+| Scan a service whose group contains other groups | [Nested Selector navigation and scope](docs/nested-groups.md#english) |
 | Use my own group names, services or private endpoints | [Service adaptation & persistent settings](docs/service-adaptation.md) |
 | Install on a router | [Deployment, preflight and rollback](deploy/openwrt/README.md) |
 | Read monitoring health, trends, events and failover settings | [English screenshot tour](docs/screenshots.md#monitoring-overview) · [Detailed guide (Chinese)](docs/monitoring.md) |

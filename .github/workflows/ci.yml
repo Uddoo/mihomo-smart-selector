@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -57,6 +58,43 @@ jobs:
 
       - name: Run browser reliability regressions against the isolated mock
         run: pnpm --dir web exec playwright test
+
+  windows:
+    name: Package and run Windows AMD64
+    needs: verify
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Test native Windows behavior
+        run: go test ./...
+      - name: Build portable packages
+        shell: pwsh
+        env:
+          PACKAGE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
+        run: ./tools/build-windows.ps1 -Version $env:PACKAGE_VERSION
+      - name: Run the extracted AMD64 package
+        shell: pwsh
+        env:
+          PACKAGE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
+        run: ./tools/test-windows-package.ps1 -ArchivePath "dist/windows/mihomo-smart-selector-$env:PACKAGE_VERSION-windows-amd64.zip"
+      - name: Preserve packages and checksums
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-packages
+          path: |
+            dist/windows/*.zip
+            dist/windows/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
 
   build:
     name: Build linux/${{ matrix.goarch }}

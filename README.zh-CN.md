@@ -59,6 +59,10 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 
 ### 接入你自己的 Mihomo
 
+**Windows 便携版：**从已发布的 [GitHub Release](https://github.com/Uddoo/mihomo-smart-selector/releases)
+下载匹配的 AMD64 / ARM64 ZIP，解压后运行 EXE。首次启动在程序同目录创建配置，无需安装 Go 或 Node.js。
+版本可用性、系统要求、配置与升级方式见 [Windows 使用指南](docs/windows.md)。
+
 | 使用位置 | 下一步 |
 | --- | --- |
 | **电脑本机** | 将 `config.example.yaml` 复制为 `config.yaml`，运行 `go run ./cmd/mihomo-smart-selector -config config.yaml`。在「偏好设置 → Mihomo 连接」填写地址和密钥，测试、保存后重启服务；也可继续使用 YAML、`MIHOMO_SECRET` 或 `mihomo.secret_file`。[图形化连接配置 →](docs/connection-settings.md) |
@@ -66,7 +70,10 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 
 本机使用保持默认 loopback 监听；标准 LAN 部署需要 token 与可信 CIDR 白名单。
 严格验证、出口验证还需要事先配置独立的探测 Selector 和本机代理入口。
-**当前为预发布阶段，从源码运行，尚未提供稳定版下载包。**
+仓库已包含 Windows 打包与测试后创建 Release 草稿的流程；可下载版本以 GitHub Releases 为准，项目仍处于预发布阶段。
+
+若业务组只包含下级策略组，工作台会提供可扫描的下级 Selector，并保留测试服务；
+确认切换作用于所选下级组，详见[嵌套策略组与影响范围](docs/nested-groups.md)。
 
 <a id="showcase"></a>
 ## 看清依据，再做选择

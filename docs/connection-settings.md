@@ -20,10 +20,15 @@
    不保存配置、不切换节点，也不更改扫描和监控的当前连接。修改表单后，旧测试结果会清除。
 5. 点击 **保存连接配置**。保存不依赖目标在线，因此也可先保存暂时不可达的连接。
    表单显示「已保存更改 · 待重启」，当前地址仍显示正在使用的连接。
-6. 结束正在运行的扫描等任务，再重启 **Mihomo Smart Selector 服务**。
-   手动启动时，在原终端按 Ctrl+C 等待退出，再运行原启动命令；使用 OpenWrt 服务脚本时，
-   执行 `/etc/init.d/mihomo-smart-selector restart`。无需重启 Mihomo 或整台设备。
+6. 结束正在运行的扫描，点击表单底部 **重启服务 → 确认重启服务**。
+   页面等待服务恢复并重新读取状态，后台监控会暂停后恢复。无需重启 Mihomo 或整台设备。
+   Controller 离线时也可完成服务重启。未保存连接编辑或扫描运行时，按钮不可用。
    刷新网页不会应用待重启配置。
+
+页面重启在同一个进程内重建服务，保留历史与已保存的监控方案；接收重启后禁止新任务进入。
+监听地址、访问权限或存储位置改变时，页面会要求从终端完整重启：按 Ctrl+C 等待退出后运行原命令，
+或在 OpenWrt 执行 `/etc/init.d/mihomo-smart-selector restart`。
+环境变量变化也需要启动新进程。无效配置会在重启前被拒绝，当前实例继续运行。
 
 **重新加载**会丢弃本表单的未保存编辑并读取服务端保存值。
 **恢复 YAML 默认连接**会保存恢复操作，清除本应用保存的新密钥，下一次重启恢复 YAML 地址、超时及服务器密钥来源。
@@ -64,10 +69,13 @@ Testing only reads `/version`, waits at most 10 seconds and does not save settin
 or switch nodes. It also works with unsaved credentials. Saving is allowed even
 when the Controller is offline.
 
-Use **Save connection**, finish running tasks and restart **Mihomo Smart Selector**
-with the original launch command. On OpenWrt, use
-`/etc/init.d/mihomo-smart-selector restart`. Refreshing the browser does not apply
-pending settings. The active address and restart-required state remain visible.
+Use **Save connection**, finish running scans, then **Restart service → Confirm restart**.
+The page waits for a new service generation, reloads settings and resumes monitoring,
+even when the saved Controller is offline. Unsaved connection edits and active scans block restart.
+This rebuilds the runtime in the same process. Invalid configuration is rejected before stopping it.
+Changes to the listener, access policy, storage path or process environment require a full terminal
+restart (on OpenWrt, `/etc/init.d/mihomo-smart-selector restart`). Refreshing the browser does not
+apply pending settings. The active address and restart-required state remain visible.
 
 Secret actions are **Keep configured secret**, **Enter a new secret**, **Use no
 secret**, and **Use server secret**. The last option uses `mihomo.secret_file`

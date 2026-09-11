@@ -1,0 +1,49 @@
+name: Draft Windows release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  draft:
+    name: Attach tested packages to a draft prerelease
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the tested tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Download packages from this workflow run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: windows-packages
+          path: dist/windows
+      - name: Verify attached archive checksums
+        working-directory: dist/windows
+        run: sha256sum --check SHA256SUMS.txt
+      - name: Create a draft for maintainer review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: >-
+          gh release create "$RELEASE_TAG"
+          dist/windows/*.zip dist/windows/SHA256SUMS.txt
+          --verify-tag --draft --prerelease
+          --title "Mihomo Smart Selector $RELEASE_TAG"
+          --notes-file docs/release-notes-windows.md

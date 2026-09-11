@@ -11,6 +11,16 @@ versioned releases begin.
 
 ### Added
 
+- Add a confirmed service restart in Settings. Drain requests and background work,
+  reload saved connections in the same process, and wait for the new instance even
+  when Mihomo is offline. Reject restart during scans or invalid configuration.
+- Offer nested Selector targets with paths, candidate counts and current-path
+  labels across Mihomo clients. Preserve the probe profile and filters when
+  navigating; keep selection explicit and disclose effects on shared child groups.
+- Add Windows AMD64/ARM64 portable ZIP packaging, SHA-256 checksums, first-run
+  configuration beside the EXE, native AMD64 package smoke tests and a tag-triggered
+  GitHub workflow that attaches tested packages to a draft prerelease.
+
 - Add a graphical Mihomo connection editor in Settings: Controller URL, timeout,
   secret keep/replace/clear/server-source actions, a read-only connection test,
   restart-required save state and restoration of YAML defaults. Persist overrides
