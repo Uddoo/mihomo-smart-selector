@@ -9,6 +9,16 @@ versioned releases begin.
 
 ## [Unreleased]
 
+### Added
+
+- Add a graphical Mihomo connection editor in Settings: Controller URL, timeout,
+  secret keep/replace/clear/server-source actions, a read-only connection test,
+  restart-required save state and restoration of YAML defaults. Persist overrides
+  in a separate private server file without returning secrets to the browser.
+- Associate scans and switch evidence with their Controller so changing the
+  connection cannot reuse another Controller's scan or reconcile its pending
+  switch. Preserve legacy history under the original YAML Controller on upgrade.
+
 ### Changed
 
 - Adopt Geist typography, self-hosted variable fonts and neutral light/dark

@@ -6,6 +6,7 @@ import {useWorkbench} from './useWorkbench'
 import ScanWorkbench from './ScanWorkbench.vue'
 import LanguageSelect from './LanguageSelect.vue'
 const SettingsPanel = defineAsyncComponent(() => import('./SettingsPanel.vue'))
+const ConnectionSettings = defineAsyncComponent(() => import('./ConnectionSettings.vue'))
 const StoragePanel = defineAsyncComponent(() => import('./StoragePanel.vue'))
 const NodeCatalog = defineAsyncComponent(() => import('./NodeCatalog.vue'))
 const SwitchHistory = defineAsyncComponent(() => import('./SwitchHistory.vue'))
@@ -64,6 +65,7 @@ const currentPage = computed(() => navigation.find(item => item.id === page.valu
       <SwitchHistory v-else-if="page === 'history'" :state="state"/>
 
       <section v-else>
+        <ConnectionSettings :connected="!!health?.mihomo_connected"/>
         <SettingsPanel :locked="configLocked" :groups="groups" :profiles="services?.profiles || []" @saved="load()"/>
 		<StoragePanel :locked="configLocked"/>
         <div class="settings">

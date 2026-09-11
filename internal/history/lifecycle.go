@@ -26,7 +26,7 @@ func (s *Store) RecoverInterrupted(ctx context.Context) error {
 
 // Summaries omit result payloads; the selected scan is fetched separately.
 func (s *Store) RecentScans(ctx context.Context, limit int) ([]model.Scan, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id,status,request_json,profile_json,started_at,completed_at,error,progress_json FROM scans ORDER BY started_at DESC LIMIT ?`, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT id,status,request_json,profile_json,started_at,completed_at,error,progress_json,controller_scope FROM scans ORDER BY started_at DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (s *Store) RecentScans(ctx context.Context, limit int) ([]model.Scan, error
 		var item model.Scan
 		var request, profile, started, reason, progress string
 		var completed *string
-		if err := rows.Scan(&item.ID, &item.Status, &request, &profile, &started, &completed, &reason, &progress); err != nil {
+		if err := rows.Scan(&item.ID, &item.Status, &request, &profile, &started, &completed, &reason, &progress, &item.ControllerScope); err != nil {
 			return nil, err
 		}
 		item.Error = reason

@@ -155,26 +155,28 @@ type NodeSummary struct {
 }
 
 type Scan struct {
-	ID          string              `json:"id"`
-	Status      ScanStatus          `json:"status"`
-	Request     ScanRequest         `json:"request"`
-	Profile     ProbeProfileSummary `json:"profile"`
-	Progress    ScanProgress        `json:"progress"`
-	StartedAt   time.Time           `json:"started_at"`
-	CompletedAt *time.Time          `json:"completed_at,omitempty"`
-	Error       string              `json:"error,omitempty"`
-	Results     []NodeResult        `json:"results,omitempty"`
+	ControllerScope string              `json:"-"`
+	ID              string              `json:"id"`
+	Status          ScanStatus          `json:"status"`
+	Request         ScanRequest         `json:"request"`
+	Profile         ProbeProfileSummary `json:"profile"`
+	Progress        ScanProgress        `json:"progress"`
+	StartedAt       time.Time           `json:"started_at"`
+	CompletedAt     *time.Time          `json:"completed_at,omitempty"`
+	Error           string              `json:"error,omitempty"`
+	Results         []NodeResult        `json:"results,omitempty"`
 }
 
 type SwitchEvent struct {
-	Status         string    `json:"status"`
-	RequestID      string    `json:"request_id,omitempty"`
-	AuditPersisted bool      `json:"audit_persisted"`
-	ID             int64     `json:"id"`
-	ScanID         string    `json:"scan_id"`
-	Group          string    `json:"group"`
-	Previous       string    `json:"previous,omitempty"`
-	Selected       string    `json:"selected"`
-	Reason         string    `json:"reason"`
-	CreatedAt      time.Time `json:"created_at"`
+	ControllerScope string    `json:"-"`
+	Status          string    `json:"status"`
+	RequestID       string    `json:"request_id,omitempty"`
+	AuditPersisted  bool      `json:"audit_persisted"`
+	ID              int64     `json:"id"`
+	ScanID          string    `json:"scan_id"`
+	Group           string    `json:"group"`
+	Previous        string    `json:"previous,omitempty"`
+	Selected        string    `json:"selected"`
+	Reason          string    `json:"reason"`
+	CreatedAt       time.Time `json:"created_at"`
 }

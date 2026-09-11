@@ -105,7 +105,7 @@ function Wait-HTTP {
 function Invoke-JSON {
     param(
         [Parameter(Mandatory)]
-        [ValidateSet('GET', 'POST')]
+        [ValidateSet('GET', 'POST', 'PUT')]
         [string]$Method,
 
         [Parameter(Mandatory)]
@@ -269,12 +269,46 @@ auto_switch:
     $history = @((Invoke-JSON -Method GET -Uri "$baseUri/api/v1/history?limit=5") | ForEach-Object { foreach ($item in $_) { $item } })
     Assert-True ($history.Count -ge 1 -and $history[0].selected -eq $best.name) 'Selection history was not persisted.'
 
+    # Prove next-start connection overrides through a real process restart.
+    $connection = Invoke-JSON -Method GET -Uri "$baseUri/api/v1/connection"
+    $originalAddress = $connection.active.controller
+    $connectionDraft = @{
+        revision = $connection.revision
+        controller = "http://localhost:$mockPort"
+        request_timeout_seconds = 7
+        secret_action = 'replace'
+        secret = 'smoke-ui-only'
+    }
+    $connectionTest = Invoke-JSON -Method POST -Uri "$baseUri/api/v1/connection/test" -Body $connectionDraft
+    Assert-True ($connectionTest.connected -and $connectionTest.version -eq 'dev-mock') 'Connection draft test failed.'
+    $savedConnection = Invoke-JSON -Method PUT -Uri "$baseUri/api/v1/connection" -Body $connectionDraft
+    Assert-True ($savedConnection.restart_required -and $savedConnection.active.controller -eq $originalAddress) 'Connection save changed the active Controller before restart.'
+    Assert-True (-not ($savedConnection | ConvertTo-Json -Depth 5).Contains('smoke-ui-only')) 'Connection response exposed the secret.'
+
+    Stop-Process -Id $appProcess.Id -Force
+    Assert-True ($appProcess.WaitForExit(5000)) 'Original smoke service did not stop.'
+    $appProcess = Start-OwnedProcess -FilePath $appBinary -ArgumentList @('-config', $configPath) -StandardOutput $appOut -StandardError $appErr
+    Wait-HTTP -Uri "$baseUri/api/v1/health" -Process $appProcess
+    $appliedConnection = Invoke-JSON -Method GET -Uri "$baseUri/api/v1/connection"
+    Assert-True (-not $appliedConnection.restart_required -and $appliedConnection.active.controller -eq $connectionDraft.controller -and $appliedConnection.active.secret_source -eq 'custom') 'Saved connection did not survive restart.'
+    $oldScan = Invoke-JSON -Method GET -Uri "$baseUri/api/v1/scans/$($created.id)"
+    Assert-True ($oldScan.results[0].selection_reason -eq '扫描不属于当前 Controller，请重新扫描') 'Old scan was usable against the changed Controller.'
+
+    $null = Invoke-JSON -Method PUT -Uri "$baseUri/api/v1/connection" -Body @{ revision = $appliedConnection.revision; use_server = $true }
+    Stop-Process -Id $appProcess.Id -Force
+    Assert-True ($appProcess.WaitForExit(5000)) 'Overridden smoke service did not stop.'
+    $appProcess = Start-OwnedProcess -FilePath $appBinary -ArgumentList @('-config', $configPath) -StandardOutput $appOut -StandardError $appErr
+    Wait-HTTP -Uri "$baseUri/api/v1/health" -Process $appProcess
+    $restoredConnection = Invoke-JSON -Method GET -Uri "$baseUri/api/v1/connection"
+    Assert-True (-not $restoredConnection.override -and -not $restoredConnection.restart_required -and $restoredConnection.active.controller -eq $originalAddress) 'YAML defaults did not survive restart.'
+
     [ordered]@{
         status          = 'passed'
         candidate_count = $preview.candidate_count
         result_count    = $results.Count
         best_node       = $best.name
         selected_node   = $selection.selected
+        connection_restart = 'passed'
     } | ConvertTo-Json -Compress
 }
 catch {

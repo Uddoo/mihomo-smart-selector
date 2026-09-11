@@ -40,7 +40,7 @@ onMounted(reload)
     <div class="panel settings-intro">
       <h2>{{ t('运行设置') }}</h2>
       <p>{{ t('保存到服务端，适用于访问此服务的所有浏览器。扫描进行中不能修改，现有扫描结果不会重新计分。') }}</p>
-      <p class="settings-note">{{ t('首次使用读取 YAML 默认值；保存后，本页运行参数优先于 YAML。连接地址、密钥与监听权限仍由服务器配置管理。') }}</p>
+      <p class="settings-note">{{ t('首次使用读取 YAML 默认值；保存后，本页运行参数优先于 YAML。Controller 连接请在上方单独配置；监听地址与访问权限仍由服务器配置管理。') }}</p>
       <p v-if="locked" role="status">{{ t('当前正在扫描或切换，请结束后保存设置。') }}</p>
       <p v-if="error" class="notice error" role="alert">{{ translateMessage(error) }}</p>
       <p v-if="notice" class="notice" role="status">{{ translateMessage(notice) }}</p>

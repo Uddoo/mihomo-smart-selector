@@ -3,6 +3,7 @@
 bin/
 dist/
 data/
+*.connection.json
 config.yaml
 config.dev.yaml
 config.lan.dev.yaml

@@ -22,6 +22,9 @@ func (m *Manager) SelectRequest(ctx context.Context, scanID, requestedNode, requ
 	defer m.settingsMu.Unlock()
 	existing, err := m.store.SwitchByRequest(ctx, requestID)
 	if err == nil {
+		if existing.ControllerScope != m.bindingScope() {
+			return model.SwitchEvent{}, fmt.Errorf("切换记录不属于当前 Controller，请连接原 Controller 后核对")
+		}
 		if existing.ScanID != scanID || (requestedNode != "" && existing.Selected != requestedNode) {
 			return model.SwitchEvent{}, fmt.Errorf("request_id belongs to a different selection")
 		}
@@ -76,14 +79,14 @@ func (m *Manager) SelectRequest(ctx context.Context, scanID, requestedNode, requ
 	if reason := m.selectionReason(scan, *selected, profile, time.Now()); reason != "" {
 		return model.SwitchEvent{}, fmt.Errorf("%s", reason)
 	}
-	unresolved, err := m.store.UnresolvedSwitch(ctx, group.Name)
+	unresolved, err := m.store.UnresolvedSwitch(ctx, group.Name, m.bindingScope())
 	if err != nil {
 		return model.SwitchEvent{}, err
 	}
 	if unresolved {
 		return model.SwitchEvent{}, fmt.Errorf("该策略组有未确认操作，请先在选择历史中核对结果")
 	}
-	event := model.SwitchEvent{ScanID: scan.ID, Group: group.Name, Previous: group.Now, Selected: selected.Name, Reason: "manual selection pending", CreatedAt: time.Now().UTC(), Status: "pending", RequestID: requestID}
+	event := model.SwitchEvent{ControllerScope: m.bindingScope(), ScanID: scan.ID, Group: group.Name, Previous: group.Now, Selected: selected.Name, Reason: "manual selection pending", CreatedAt: time.Now().UTC(), Status: "pending", RequestID: requestID}
 	event, err = m.store.RecordSwitch(ctx, event)
 	if err != nil {
 		return model.SwitchEvent{}, fmt.Errorf("无法保存待执行审计，未执行切换: %w", err)
@@ -133,6 +136,9 @@ func (m *Manager) ReconcileSwitch(ctx context.Context, id int64) (model.SwitchEv
 	}
 	if event.Status != "pending" && event.Status != "unknown" {
 		return event, nil
+	}
+	if event.ControllerScope == "" || event.ControllerScope != m.bindingScope() {
+		return event, fmt.Errorf("切换记录不属于当前 Controller，请连接原 Controller 后核对")
 	}
 	// A deliberate reconciliation records current observed state, not a replay.
 	return m.confirmSwitch(ctx, event, nil)

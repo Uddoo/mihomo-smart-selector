@@ -60,7 +60,7 @@ func TestAutomaticSwitchAuditCooldownMembershipAndUnresolved(t *testing.T) {
 				if scenario == "cooldown" {
 					status = "confirmed"
 				}
-				if _, err = store.RecordSwitch(ctx, model.SwitchEvent{Group: "g", Status: status, CreatedAt: time.Now()}); err != nil {
+				if _, err = store.RecordSwitch(ctx, model.SwitchEvent{ControllerScope: m.bindingScope(), Group: "g", Status: status, CreatedAt: time.Now()}); err != nil {
 					t.Fatal(err)
 				}
 			case "strict":

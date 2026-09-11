@@ -35,21 +35,21 @@ func (m *Manager) MonitorSwitch(ctx context.Context, p model.MonitorPlan, expect
 		return empty, err
 	}
 	if previous, err := m.store.SwitchByRequest(ctx, key); err == nil {
-		if previous.ScanID != "monitor:"+p.ID || previous.Group != p.Group || previous.Selected != node.Name || previous.Previous != expected {
+		if previous.ControllerScope != m.bindingScope() || previous.ScanID != "monitor:"+p.ID || previous.Group != p.Group || previous.Selected != node.Name || previous.Previous != expected {
 			return empty, fmt.Errorf("自动切换请求标识已用于其他操作")
 		}
 		return previous, nil
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return empty, err
 	}
-	unresolved, err := m.store.UnresolvedSwitch(ctx, p.Group)
+	unresolved, err := m.store.UnresolvedSwitch(ctx, p.Group, m.bindingScope())
 	if err != nil {
 		return empty, err
 	}
 	if unresolved {
 		return empty, fmt.Errorf("策略组有未确认切换，请先到选择历史核对")
 	}
-	last, err := m.store.LatestGroupSwitch(ctx, p.Group)
+	last, err := m.store.LatestGroupSwitch(ctx, p.Group, m.bindingScope())
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return empty, err
 	}
@@ -89,7 +89,7 @@ func (m *Manager) MonitorSwitch(ctx context.Context, p model.MonitorPlan, expect
 	if !exists || !strings.EqualFold(g.Type, "Selector") || g.Now != expected || !contains(g.All, node.Name) {
 		return empty, fmt.Errorf("策略组选择或成员已变化，未自动覆盖")
 	}
-	event := model.SwitchEvent{ScanID: "monitor:" + p.ID, Group: p.Group, Previous: expected, Selected: node.Name, Reason: "监控故障自动切换：候选按近24小时基准成功率优先，切换前复测通过", CreatedAt: time.Now().UTC(), Status: "pending", RequestID: key}
+	event := model.SwitchEvent{ControllerScope: m.bindingScope(), ScanID: "monitor:" + p.ID, Group: p.Group, Previous: expected, Selected: node.Name, Reason: "监控故障自动切换：候选按近24小时基准成功率优先，切换前复测通过", CreatedAt: time.Now().UTC(), Status: "pending", RequestID: key}
 	event, err = m.store.RecordSwitch(ctx, event)
 	if err != nil {
 		return empty, fmt.Errorf("无法保存自动切换审计，未执行切换")

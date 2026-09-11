@@ -100,7 +100,7 @@ func (m *Manager) Start(request model.ScanRequest) (model.Scan, error) {
 	// Freeze the resolved service so later binding edits cannot change this scan.
 	request.ProfileID = profile.ID
 	now := time.Now().UTC()
-	scan := model.Scan{ID: newID(), Status: model.ScanRunning, Request: request, Profile: m.profileSummary(profile), StartedAt: now}
+	scan := model.Scan{ID: newID(), ControllerScope: m.bindingScope(), Status: model.ScanRunning, Request: request, Profile: m.profileSummary(profile), StartedAt: now}
 	if err := m.store.CreateScan(context.Background(), scan); err != nil {
 		return model.Scan{}, err
 	}

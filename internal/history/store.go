@@ -87,6 +87,8 @@ CREATE TABLE IF NOT EXISTS runtime_settings (
 		return fmt.Errorf("migrate SQLite database: %w", err)
 	}
 	for _, column := range []struct{ table, name, definition string }{
+		{"scans", "controller_scope", "TEXT NOT NULL DEFAULT ''"},
+		{"switch_events", "controller_scope", "TEXT NOT NULL DEFAULT ''"},
 		{"scans", "profile_json", "TEXT NOT NULL DEFAULT '{}'"},
 		{"scans", "progress_json", "TEXT NOT NULL DEFAULT '{}'"},
 		{"switch_events", "status", "TEXT NOT NULL DEFAULT 'confirmed'"},
@@ -142,8 +144,8 @@ func (s *Store) CreateScan(ctx context.Context, scan model.Scan) error {
 		return fmt.Errorf("encode scan profile: %w", err)
 	}
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO scans(id, status, request_json, profile_json, started_at) VALUES (?, ?, ?, ?, ?)`,
-		scan.ID, scan.Status, request, profile, timestamp(scan.StartedAt),
+		`INSERT INTO scans(id, status, request_json, profile_json, started_at, controller_scope) VALUES (?, ?, ?, ?, ?, ?)`,
+		scan.ID, scan.Status, request, profile, timestamp(scan.StartedAt), scan.ControllerScope,
 	)
 	if err != nil {
 		return fmt.Errorf("create scan: %w", err)
@@ -198,8 +200,8 @@ func (s *Store) GetScan(ctx context.Context, id string) (model.Scan, error) {
 	var status string
 	var requestJSON, profileJSON, startedAt, completedAt, errorText, progressJSON sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT status, request_json, profile_json, started_at, completed_at, error, progress_json FROM scans WHERE id = ?`, id,
-	).Scan(&status, &requestJSON, &profileJSON, &startedAt, &completedAt, &errorText, &progressJSON)
+		`SELECT status, request_json, profile_json, started_at, completed_at, error, progress_json, controller_scope FROM scans WHERE id = ?`, id,
+	).Scan(&status, &requestJSON, &profileJSON, &startedAt, &completedAt, &errorText, &progressJSON, &scan.ControllerScope)
 	if err == sql.ErrNoRows {
 		return model.Scan{}, fmt.Errorf("scan %q not found", id)
 	}
@@ -260,8 +262,8 @@ func (s *Store) RecordSwitch(ctx context.Context, event model.SwitchEvent) (mode
 		event.Status = "confirmed"
 	}
 	result, err := s.db.ExecContext(ctx,
-		`INSERT INTO switch_events(scan_id, group_name, previous_member, selected_member, reason, created_at, status, request_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		event.ScanID, event.Group, event.Previous, event.Selected, event.Reason, timestamp(event.CreatedAt), event.Status, event.RequestID,
+		`INSERT INTO switch_events(scan_id, group_name, previous_member, selected_member, reason, created_at, status, request_id, controller_scope) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		event.ScanID, event.Group, event.Previous, event.Selected, event.Reason, timestamp(event.CreatedAt), event.Status, event.RequestID, event.ControllerScope,
 	)
 	if err != nil {
 		return model.SwitchEvent{}, fmt.Errorf("store switch event: %w", err)
@@ -277,7 +279,7 @@ func (s *Store) RecordSwitch(ctx context.Context, event model.SwitchEvent) (mode
 
 func (s *Store) ListSwitches(ctx context.Context, limit int) ([]model.SwitchEvent, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, scan_id, group_name, previous_member, selected_member, reason, created_at, status, request_id FROM switch_events
+		`SELECT id, scan_id, group_name, previous_member, selected_member, reason, created_at, status, request_id, controller_scope FROM switch_events
  WHERE status IN ('pending','unknown') OR id IN (SELECT id FROM switch_events WHERE status NOT IN ('pending','unknown') ORDER BY id DESC LIMIT ?)
  ORDER BY CASE WHEN status IN ('pending','unknown') THEN 0 ELSE 1 END, id DESC`,
 		limit,
@@ -290,7 +292,7 @@ func (s *Store) ListSwitches(ctx context.Context, limit int) ([]model.SwitchEven
 	for rows.Next() {
 		var event model.SwitchEvent
 		var createdAt string
-		if err := rows.Scan(&event.ID, &event.ScanID, &event.Group, &event.Previous, &event.Selected, &event.Reason, &createdAt, &event.Status, &event.RequestID); err != nil {
+		if err := rows.Scan(&event.ID, &event.ScanID, &event.Group, &event.Previous, &event.Selected, &event.Reason, &createdAt, &event.Status, &event.RequestID, &event.ControllerScope); err != nil {
 			return nil, fmt.Errorf("read switch event: %w", err)
 		}
 		parsed, err := parseTimestamp(createdAt)

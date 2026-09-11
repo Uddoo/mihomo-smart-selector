@@ -122,7 +122,7 @@ func TestSelectionEnforcesFreshnessPolicyAndFreshMembership(t *testing.T) {
 	fake := &fakeMihomo{proxies: map[string]mihomo.Proxy{"work": {Name: "work", Type: "Selector", Now: "old", All: []string{"a"}}, "a": {Name: "a", Type: "VLESS"}}, delays: map[string]int{"a": 100}}
 	m := NewManager(cfg, fake, store)
 	now := time.Now().UTC()
-	s := model.Scan{ID: "source", Status: model.ScanComplete, StartedAt: now, CompletedAt: &now, Request: model.ScanRequest{TargetGroup: "work", ProfileID: "internet-baseline", Mode: "stable"}, Results: []model.NodeResult{{Name: "a", Rank: 1, Stage: "refined", SuccessRate: 1, MeasuredAt: now.Add(-time.Hour)}}}
+	s := model.Scan{ID: "source", ControllerScope: m.bindingScope(), Status: model.ScanComplete, StartedAt: now, CompletedAt: &now, Request: model.ScanRequest{TargetGroup: "work", ProfileID: "internet-baseline", Mode: "stable"}, Results: []model.NodeResult{{Name: "a", Rank: 1, Stage: "refined", SuccessRate: 1, MeasuredAt: now.Add(-time.Hour)}}}
 	if err := store.CreateScan(context.Background(), s); err != nil {
 		t.Fatal(err)
 	}

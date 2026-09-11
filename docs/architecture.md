@@ -44,6 +44,10 @@ permitted to change traffic unattended.
 4. **Secrets remain server-side.** The application config contains an environment
    variable name or a private one-line `mihomo.secret_file` path, never the secret
    itself. A configured secret file takes precedence over the environment.
+   The optional connection UI accepts a new secret through the authenticated
+   service API and stores it in a separate private connection file; it never
+   returns the saved value or stores it in browser storage. Connection requests
+   reject cross-origin browser access and Controller redirects are not followed.
    Subscription URLs and
    node credentials are neither persisted nor logged.
 5. **Changing production traffic is explicit.** A scan has no effect on the
@@ -237,6 +241,9 @@ purchases, playback requests or other state-changing traffic.
 | `PUT /api/v1/bindings` | bind any Selector to a service; empty profile removes binding | persists binding |
 | `GET /api/v1/settings` | current editable runtime parameters and revision | none |
 | `PUT /api/v1/settings` | validate and save runtime parameters | persists overrides for subsequent scans |
+| `GET /api/v1/connection` | active/saved connection metadata, secret presence/source and revision; never the secret | none |
+| `PUT /api/v1/connection` | save connection settings or restore YAML defaults, with revision conflict protection | writes a private file; applies at next service restart |
+| `POST /api/v1/connection/test` | test the submitted connection via `GET /version`, bounded to 10 seconds | read-only Controller request; no save or switch |
 | `GET /api/v1/providers` | available proxy providers | none |
 | `GET /api/v1/regions` | built-in and custom classifier rules after additive merging, no secrets | none |
 | `GET /api/v1/nodes` | non-group catalogue with entry types, inferred regions and ambiguity evidence | none |
@@ -277,6 +284,22 @@ SQLite at the configured path stores operational evidence and user settings:
 
 Settings cannot change during a scan. Each scan freezes its selected service;
 verification-enabled scans cannot run concurrently against shared probe selectors.
+
+Connection settings are independent of scan parameters. They are saved to
+`<storage.path>.connection.json` and applied only on startup, before creating the
+scan and monitor managers. This keeps the active client and Controller-scoped
+bindings, runtime parameters and monitoring plans consistent. The file may
+contain a custom secret, is written through an owner-readable temporary file
+(Unix `0600`; inherited Windows ACLs), and is excluded from version control.
+YAML and the existing environment/secret file are not rewritten. See the
+[connection setup guide](connection-settings.md#english) for precedence and restart steps.
+
+Scans and switch records retain their Controller scope. Selection, retest,
+idempotent switch retries and pending-outcome reconciliation reject foreign
+records; unresolved-operation guards and automatic-switch cooldowns use the
+active Controller scope. Legacy records are associated with the original YAML
+Controller on upgrade, so that address must remain unchanged for the first
+upgraded startup. Already scoped records never move to another Controller.
 
 It deliberately does not store the Mihomo `secret`, subscription URLs, or
 complete provider/node configuration. Scan and audit retention limits now bound

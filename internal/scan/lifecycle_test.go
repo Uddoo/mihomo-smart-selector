@@ -140,7 +140,7 @@ func TestSwitchWriteAheadReadbackIdempotencyAndUnknownReconciliation(t *testing.
 	f := &uncertainController{fakeMihomo: &fakeMihomo{proxies: map[string]mihomo.Proxy{"g": {Name: "g", Type: "Selector", Now: "old", All: []string{"a"}}}}}
 	m := NewManager(cfg, f, store)
 	now := time.Now().UTC()
-	s := model.Scan{ID: "s", Status: model.ScanComplete, StartedAt: now, CompletedAt: &now, Request: model.ScanRequest{TargetGroup: "g", ProfileID: "internet-baseline", Mode: "quick"}, Results: []model.NodeResult{{Name: "a", Rank: 1, SuccessRate: 1, MeasuredAt: now}}}
+	s := model.Scan{ID: "s", ControllerScope: m.bindingScope(), Status: model.ScanComplete, StartedAt: now, CompletedAt: &now, Request: model.ScanRequest{TargetGroup: "g", ProfileID: "internet-baseline", Mode: "quick"}, Results: []model.NodeResult{{Name: "a", Rank: 1, SuccessRate: 1, MeasuredAt: now}}}
 	if err = store.CreateScan(context.Background(), s); err != nil {
 		t.Fatal(err)
 	}

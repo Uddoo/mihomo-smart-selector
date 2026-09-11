@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
+	"github.com/Uddoo/mihomo-smart-selector/internal/connection"
 	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 	"github.com/Uddoo/mihomo-smart-selector/internal/monitor"
@@ -32,6 +33,7 @@ type Server struct {
 	allowed    []netip.Prefix
 	exposed    bool
 	monitor    *monitor.Manager
+	connection *connection.Manager
 }
 
 func New(cfg config.HTTPConfig, manager *scan.Manager, controller mihomo.Client) (*Server, error) {
@@ -67,6 +69,8 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) route(writer http.ResponseWriter, request *http.Request) {
 	switch {
+	case request.URL.Path == "/api/v1/connection" || request.URL.Path == "/api/v1/connection/test":
+		s.connectionRoute(writer, request)
 	case request.URL.Path == "/api/v1/monitor" || strings.HasPrefix(request.URL.Path, "/api/v1/monitor/"):
 		s.monitorRoute(writer, request)
 	case request.URL.Path == "/api/v1/scans" && request.Method == http.MethodGet:

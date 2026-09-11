@@ -44,25 +44,40 @@ type HTTPClient struct {
 }
 
 func New(cfg config.MihomoConfig) (*HTTPClient, error) {
-	baseURL, err := url.Parse(cfg.Controller)
+	secret, err := ResolveSecret(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("parse controller URL: %w", err)
+		return nil, err
 	}
+	return NewWithSecret(cfg, secret)
+}
+
+func ResolveSecret(cfg config.MihomoConfig) (string, error) {
 	secret := os.Getenv(cfg.SecretEnv)
 	if cfg.SecretFile != "" {
 		data, err := os.ReadFile(cfg.SecretFile)
 		if err != nil {
-			return nil, fmt.Errorf("read Mihomo secret file: %w", err)
+			return "", fmt.Errorf("read Mihomo secret file: %w", err)
 		}
 		secret = strings.TrimRight(string(data), "\r\n")
 		if secret == "" || strings.ContainsAny(secret, "\r\n") {
-			return nil, fmt.Errorf("Mihomo secret file must contain one non-empty line")
+			return "", fmt.Errorf("Mihomo secret file must contain one non-empty line")
 		}
+	}
+	return secret, nil
+}
+
+// NewWithSecret also supports credentials supplied through the connection UI.
+// Never follow Controller redirects: a redirect must not forward credentials.
+func NewWithSecret(cfg config.MihomoConfig, secret string) (*HTTPClient, error) {
+	baseURL, err := url.Parse(cfg.Controller)
+	if err != nil {
+		return nil, fmt.Errorf("parse controller URL: %w", err)
 	}
 	return &HTTPClient{
 		baseURL: baseURL,
 		secret:  secret,
-		client:  &http.Client{Timeout: time.Duration(cfg.RequestTimeoutSeconds) * time.Second},
+		client: &http.Client{Timeout: time.Duration(cfg.RequestTimeoutSeconds) * time.Second,
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 	}, nil
 }
 

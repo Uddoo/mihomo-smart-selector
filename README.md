@@ -64,7 +64,7 @@ each process. Ports 9090 and 8788 must be available.
 
 | Where you want to run it | Next step |
 | --- | --- |
-| **On your computer** | Copy `config.example.yaml` to `config.yaml`, set the Controller address and provide its secret through `MIHOMO_SECRET` or `mihomo.secret_file`. Run `go run ./cmd/mihomo-smart-selector -config config.yaml`. [Configuration guide →](docs/service-adaptation.md) |
+| **On your computer** | Copy `config.example.yaml` to `config.yaml` and run `go run ./cmd/mihomo-smart-selector -config config.yaml`. Open **Settings → Mihomo connection**, enter the address and secret, test and save, then restart the service. YAML, `MIHOMO_SECRET` and `mihomo.secret_file` remain supported. [Graphical connection setup →](docs/connection-settings.md#english) |
 | **On an OpenClash router** | Identify the CPU architecture, build the binary and install the service using the [router deployment guide →](deploy/openwrt/README.md). |
 
 Keep the loopback listener for local use. LAN access requires a token and a

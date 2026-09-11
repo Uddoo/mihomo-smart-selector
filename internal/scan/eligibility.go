@@ -10,6 +10,9 @@ import (
 )
 
 func (m *Manager) selectionReason(s model.Scan, r model.NodeResult, p config.ProbeProfile, now time.Time) string {
+	if s.ControllerScope == "" || s.ControllerScope != m.bindingScope() {
+		return "扫描不属于当前 Controller，请重新扫描"
+	}
 	if s.Status != model.ScanComplete {
 		return "扫描完成后可选择"
 	}
@@ -61,6 +64,9 @@ func (m *Manager) Retest(ctx context.Context, id, node string) (model.Scan, erro
 	s, err := m.store.GetScan(ctx, id)
 	if err != nil {
 		return model.Scan{}, err
+	}
+	if s.ControllerScope == "" || s.ControllerScope != m.bindingScope() {
+		return model.Scan{}, fmt.Errorf("扫描不属于当前 Controller，请重新扫描")
 	}
 	if s.Status != model.ScanComplete {
 		return model.Scan{}, fmt.Errorf("只能复测已完成扫描的节点")

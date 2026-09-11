@@ -61,7 +61,7 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 
 | 使用位置 | 下一步 |
 | --- | --- |
-| **电脑本机** | 将 `config.example.yaml` 复制为 `config.yaml`，设置 Controller 地址，通过 `MIHOMO_SECRET` 或 `mihomo.secret_file` 提供密钥，再运行 `go run ./cmd/mihomo-smart-selector -config config.yaml`。[配置说明 →](docs/service-adaptation.md) |
+| **电脑本机** | 将 `config.example.yaml` 复制为 `config.yaml`，运行 `go run ./cmd/mihomo-smart-selector -config config.yaml`。在「偏好设置 → Mihomo 连接」填写地址和密钥，测试、保存后重启服务；也可继续使用 YAML、`MIHOMO_SECRET` 或 `mihomo.secret_file`。[图形化连接配置 →](docs/connection-settings.md) |
 | **OpenClash 路由器** | 确认 CPU 架构，构建程序并安装服务，步骤见[路由部署指南 →](deploy/openwrt/README.md)。 |
 
 本机使用保持默认 loopback 监听；标准 LAN 部署需要 token 与可信 CIDR 白名单。

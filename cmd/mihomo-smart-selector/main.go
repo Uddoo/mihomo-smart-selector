@@ -13,8 +13,8 @@ import (
 
 	"github.com/Uddoo/mihomo-smart-selector/internal/api"
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
+	"github.com/Uddoo/mihomo-smart-selector/internal/connection"
 	"github.com/Uddoo/mihomo-smart-selector/internal/history"
-	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
 	"github.com/Uddoo/mihomo-smart-selector/internal/monitor"
 	"github.com/Uddoo/mihomo-smart-selector/internal/scan"
 )
@@ -27,15 +27,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("configuration error: %v", err)
 	}
-	controller, err := mihomo.New(cfg.Mihomo)
+	originalController := cfg.Mihomo.Controller
+	connections, effectiveMihomo, controller, err := connection.Open(cfg.Mihomo, cfg.Storage.Path+".connection.json")
 	if err != nil {
 		log.Fatalf("controller configuration error: %v", err)
 	}
+	cfg.Mihomo = effectiveMihomo
 	store, err := history.Open(cfg.Storage.Path)
 	if err != nil {
 		log.Fatalf("storage error: %v", err)
 	}
 	defer store.Close()
+	if err := store.BindLegacyController(context.Background(), originalController); err != nil {
+		log.Fatalf("controller history migration error: %v", err)
+	}
 	if err := store.RecoverInterrupted(context.Background()); err != nil {
 		log.Fatalf("recovery error: %v", err)
 	}
@@ -54,6 +59,7 @@ func main() {
 		log.Fatalf("HTTP server configuration error: %v", err)
 	}
 	apiServer.WithMonitor(monitoring)
+	apiServer.WithConnection(connections)
 	monitoring.Start()
 	server := &http.Server{
 		Addr:              cfg.HTTP.Listen,

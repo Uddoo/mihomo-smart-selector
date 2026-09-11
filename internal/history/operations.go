@@ -10,7 +10,7 @@ import (
 func (s *Store) switchWhere(ctx context.Context, clause string, args ...any) (model.SwitchEvent, error) {
 	var event model.SwitchEvent
 	var created string
-	err := s.db.QueryRowContext(ctx, `SELECT id,scan_id,group_name,previous_member,selected_member,reason,created_at,status,request_id FROM switch_events WHERE `+clause, args...).Scan(&event.ID, &event.ScanID, &event.Group, &event.Previous, &event.Selected, &event.Reason, &created, &event.Status, &event.RequestID)
+	err := s.db.QueryRowContext(ctx, `SELECT id,scan_id,group_name,previous_member,selected_member,reason,created_at,status,request_id,controller_scope FROM switch_events WHERE `+clause, args...).Scan(&event.ID, &event.ScanID, &event.Group, &event.Previous, &event.Selected, &event.Reason, &created, &event.Status, &event.RequestID, &event.ControllerScope)
 	if err != nil {
 		return event, err
 	}
@@ -25,12 +25,12 @@ func (s *Store) SwitchByID(ctx context.Context, id int64) (model.SwitchEvent, er
 	return s.switchWhere(ctx, "id=?", id)
 }
 
-func (s *Store) LatestGroupSwitch(ctx context.Context, group string) (model.SwitchEvent, error) {
-	return s.switchWhere(ctx, "group_name=? ORDER BY id DESC LIMIT 1", group)
+func (s *Store) LatestGroupSwitch(ctx context.Context, group, scope string) (model.SwitchEvent, error) {
+	return s.switchWhere(ctx, "group_name=? AND controller_scope=? ORDER BY id DESC LIMIT 1", group, scope)
 }
-func (s *Store) UnresolvedSwitch(ctx context.Context, group string) (bool, error) {
+func (s *Store) UnresolvedSwitch(ctx context.Context, group, scope string) (bool, error) {
 	var id int64
-	err := s.db.QueryRowContext(ctx, `SELECT id FROM switch_events WHERE group_name=? AND status IN ('pending','unknown') LIMIT 1`, group).Scan(&id)
+	err := s.db.QueryRowContext(ctx, `SELECT id FROM switch_events WHERE group_name=? AND (controller_scope=? OR controller_scope='') AND status IN ('pending','unknown') LIMIT 1`, group, scope).Scan(&id)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
