@@ -120,15 +120,15 @@ test('discovery renders completed fields while a secondary request is stalled', 
   await expect(page.getByLabel('目标策略组', {exact: true})).not.toHaveValue('')
   await page.clock.runFor(10100)
   await expect(page.locator('.work > [role="alert"]')).toContainText('读取超时')
-  await expect(page.getByRole('button', {name: '开始扫描', exact: true})).toBeDisabled()
+  await expect(page.getByRole('button', {name: /^(开始扫描|重新扫描)$/})).toBeDisabled()
   await page.unroute('**/api/v1/nodes')
   await page.clock.runFor(30000)
-  await expect(page.getByRole('button', {name: '开始扫描', exact: true})).toBeEnabled()
+  await expect(page.getByRole('button', {name: /^(开始扫描|重新扫描)$/})).toBeEnabled()
 })
 
 test('lost switch response preserves request identity across reload and records only one switch', async ({page, request}) => {
   await page.goto('/')
-  await page.getByRole('button', {name: '开始扫描', exact: true}).click()
+  await page.getByRole('button', {name: /^(开始扫描|重新扫描)$/}).click()
   await expect(page.getByText('扫描完成', {exact: true})).toBeVisible()
   let operations = 0, original
   await page.route('**/api/v1/scans/*/select', async route => {

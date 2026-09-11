@@ -7,6 +7,7 @@ import {selectionKey, operationLabel, operationMessage} from './selectionState'
 import type {Group, Health, NodeResult, NodeSummary, ProbeProfileSummary, Provider, Region, Scan, ScanPreview, SwitchEvent, ServiceCatalog, RuntimeSettings} from './models'
 import {usePageRoute} from './pageRoute'
 import {useNodeCatalog} from './useNodeCatalog'
+import {t, formatRegion, formatNumber} from './i18n'
 
 // Owned by the app shell so navigation never interrupts an active scan or switch.
 export function useWorkbench() {
@@ -35,7 +36,11 @@ export function useWorkbench() {
   const preview = ref<ScanPreview | null>(null)
   const access = ref(false)
   const token = ref(sessionStorage.getItem('mss-api-token') || '')
-  const theme = ref<'light' | 'dark'>((localStorage.getItem('mss-theme') as 'light' | 'dark') || 'light')
+  function savedTheme(): 'light' | 'dark' {
+    try { return localStorage.getItem('mss-theme') === 'dark' ? 'dark' : 'light' }
+    catch { return 'light' }
+  }
+  const theme = ref<'light' | 'dark'>(savedTheme())
   const notice = ref('')
   const noticeWarning = ref(false)
   watch(notice, () => { noticeWarning.value = false }, {flush:'sync'})
@@ -94,7 +99,9 @@ export function useWorkbench() {
 
   watch(theme, value => {
     document.documentElement.dataset.theme = value
-    localStorage.setItem('mss-theme', value)
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content',
+      getComputedStyle(document.documentElement).getPropertyValue('--bg').trim())
+    try { localStorage.setItem('mss-theme', value) } catch { /* Keep the in-memory preference when storage is disabled. */ }
   }, {immediate: true})
   watch(group, () => { serviceID.value = ''; void preflight() })
   watch([serviceID, areas, providerSet, mode], () => void preflight())
@@ -268,6 +275,9 @@ export function useWorkbench() {
 
   function selectionReason(result?: NodeResult) {
     if (switching.value) return '正在切换'
+    if (scan.value?.status === 'failed') return '扫描失败，请重新扫描后选择'
+    if (scan.value?.status === 'interrupted') return '扫描已中断，请重新扫描后选择'
+    if (scan.value?.status === 'cancelled') return '扫描已停止，请重新扫描后选择'
     if (starting.value || scan.value?.status !== 'complete') return '扫描完成后可选择'
     if (loading.value || !discoveryValid.value) return '请先刷新并连接 Controller'
     if (!current.value) return '扫描目标策略组已失效'
@@ -325,12 +335,11 @@ export function useWorkbench() {
 
   function regionLabel(code?: string) {
     const region = regions.value.find(item => item.code === code)
-    const labels: Record<string, string> = {JP: '日本', US: '美国', KR: '韩国', HK: '香港', TW: '台湾', SG: '新加坡'}
-    return labels[code || ''] || region?.name || code || '未知'
+    return formatRegion(code, region?.name)
   }
 
-  function percentLabel(value: number) { return Math.round(value * 100) + '%' }
-  function latency(value?: number) { return value ? Math.round(value) + ' ms' : '—' }
+  function percentLabel(value: number) { return formatNumber(Math.round(value * 100)) + '%' }
+  function latency(value?: number) { return value ? formatNumber(Math.round(value)) + ' ms' : '—' }
   function clock(value?: number) { return value ? Math.floor(value / 60) + ':' + String(value % 60).padStart(2, '0') : '—' }
   function points(value?: number) { return value === undefined ? '—' : value.toFixed(1) }
 
@@ -344,7 +353,7 @@ export function useWorkbench() {
     probe_selector_switch_failed: '专用选择器切换失败', probe_proxy_invalid: '本地探测代理无效',
   }
 
-  function statusLabel(value?: string) { return statusText[value || ''] || value || '—' }
+  function statusLabel(value?: string) { return t(statusText[value || ''] || value || '—') }
   function statusTone(value?: string) {
     if (['available', 'passed', 'matched', 'not_restricted'].includes(value || '')) return 'good'
     if (['partial', 'not_configured', 'not_checked', 'not_requested', 'unverified', 'unknown', 'not_run_limit'].includes(value || '')) return 'neutral'

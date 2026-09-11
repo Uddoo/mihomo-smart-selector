@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import {t, translateMessage, formatDate, formatList} from './i18n'
 import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {api} from './api'
 import MonitorEvidence from './MonitorEvidence.vue'
-import {monitorPercent, monitorTime, activityKind, eventRange, eventBucket} from './monitoring'
+import {monitorPercent, monitorTime, activityKind, activityMessage, eventRange, eventBucket} from './monitoring'
 import type {MonitorOverview, MonitorRevision, MonitorSeries, MonitorTimeline, MonitorActivity, MonitorActivityPage} from './monitoring'
 
 const props = defineProps<{overview: MonitorOverview; window: string; seriesId: string; focusEvent: MonitorActivity | null}>()
@@ -78,29 +79,29 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(timer); controller?.abort(
 </script>
 
 <template>
-  <section class="history-panel" aria-label="节点趋势与历史">
-    <div class="history-heading"><div><h3>节点趋势与历史</h3><p>历史记录按节点与测量定义分开保存，移出监控列表后仍可查看。</p></div><label>观测序列<select v-model="selected" aria-label="观测序列" @change="selectSeries"><option v-if="!series.some(s => s.id === selected)" :value="selected">{{ selected ? '目标序列不可用' : '暂无观测序列' }}</option><option v-for="s in series" :key="s.id" :value="s.id">{{ s.node.name }} · {{ s.profile_id }} · {{ s.profile_hash.slice(0, 6) }}</option></select></label></div>
-    <div v-if="focus" class="event-focus" role="status"><b>已定位事件：{{ activityKind[focus.kind] || focus.kind }}</b><span>{{ monitorTime(focus.at) }} · {{ focus.message }}</span><small>显示包含此事件的 1 小时范围；蓝线与描边色块标出事件时间。</small><button @click="emit('clearFocus')">返回最近观察窗口</button></div>
-    <p v-if="!loading && !error && !series.length">尚无观测序列，首次采样后可查看历史。</p>
-    <div class="history-status"><span v-if="error" role="alert" class="bad">{{ timeline ? '刷新失败，保留上次数据：' : '' }}{{ error }}</span><span v-else role="status" aria-live="polite">{{ loading ? (timeline ? '正在更新，当前显示上次数据…' : '正在读取趋势…') : '' }}</span></div>
+  <section class="history-panel" :aria-label="t('节点趋势与历史')">
+    <div class="history-heading"><div><h3>{{ t('节点趋势与历史') }}</h3><p>{{ t('历史记录按节点与测量定义分开保存，移出监控列表后仍可查看。') }}</p></div><label>{{ t('观测序列') }}<select v-model="selected" :aria-label="t('观测序列')" @change="selectSeries"><option v-if="!series.some(s => s.id === selected)" :value="selected">{{ selected ? t('目标序列不可用') : t('暂无观测序列') }}</option><option v-for="s in series" :key="s.id" :value="s.id">{{ s.node.name }} · {{ s.profile_id }} · {{ s.profile_hash.slice(0, 6) }}</option></select></label></div>
+    <div v-if="focus" class="event-focus" role="status"><b>{{ t('已定位事件：{p0}', {p0: translateMessage(activityKind[focus.kind] || focus.kind)}) }}</b><span>{{ monitorTime(focus.at) }} · {{ activityMessage(focus) }}</span><small>{{ t('显示包含此事件的 1 小时范围；蓝线与描边色块标出事件时间。') }}</small><button @click="emit('clearFocus')">{{ t('返回最近观察窗口') }}</button></div>
+    <p v-if="!loading && !error && !series.length">{{ t('尚无观测序列，首次采样后可查看历史。') }}</p>
+    <div class="history-status"><span v-if="error" role="alert" class="bad">{{ timeline ? t('刷新失败，保留上次数据：') : '' }}{{ translateMessage(error) }}</span><span v-else role="status" aria-live="polite">{{ loading ? (timeline ? t('正在更新，当前显示上次数据…') : t('正在读取趋势…')) : '' }}</span></div>
     <template v-if="timeline">
-      <p><b>{{ timeline.series.node.name }}</b> · {{ timeline.active ? '当前监控序列' : '历史序列，未参与当前方案' }} · 首次纳入 {{ monitorTime(new Date(timeline.series.anchor * 1000).toISOString()) }}</p>
-      <div class="metric-explanation"><span>成功 {{ timeline.metrics.samples ? monitorPercent(timeline.metrics.success_rate) : '—' }}</span><span>失败 {{ timeline.metrics.incidents }} 段</span></div>
+      <p><b>{{ timeline.series.node.name }}</b> {{ t('· {p0} · 首次纳入 {p1}', {p0: timeline.active ? t('当前监控序列') : t('历史序列，未参与当前方案'), p1: monitorTime(new Date(timeline.series.anchor * 1000).toISOString())}) }}</p>
+      <div class="metric-explanation"><span>{{ t('成功 {p0}', {p0: timeline.metrics.samples ? monitorPercent(timeline.metrics.success_rate) : '—'}) }}</span><span>{{ t('失败 {p0} 段', {p0: timeline.metrics.incidents}) }}</span></div>
       <MonitorEvidence :metrics="timeline.metrics" :window="focus ? '1h' : window"/>
-      <div class="chart-legend" aria-label="趋势图图例"><span><i class="p50-swatch" aria-hidden="true"></i>P50 · 中位延迟</span><span><i class="p95-swatch" aria-hidden="true"></i>P95 · 95% 成功样本不超过此延迟</span><span><i class="event-swatch" aria-hidden="true"></i>灰色竖虚线 · 相关事件发生时间</span></div>
-      <div class="chart" role="img" :aria-label="`${timeline.series.node.name} 延迟趋势，P50 与 P95，仅连接有成功样本的区间`">
-        <svg viewBox="0 0 800 220" preserveAspectRatio="none"><line x1="42" y1="180" x2="772" y2="180" class="axis"/><line x1="42" y1="35" x2="772" y2="35" class="grid"/><line v-for="e in markers" :key="e.key" :x1="markerX(e.at)" :x2="markerX(e.at)" y1="30" y2="180" class="event-marker"><title>{{ activityKind[e.kind] }} · {{ monitorTime(e.at) }} · {{ e.message }}</title></line><line v-if="focus" :x1="markerX(focus.at)" :x2="markerX(focus.at)" y1="20" y2="185" class="focus-marker"><title>{{ monitorTime(focus.at) }} · {{ focus.message }}</title></line><path :d="line('p50_ms')" class="p50"/><path :d="line('p95_ms')" class="p95"/></svg>
+      <div class="chart-legend" :aria-label="t('趋势图图例')"><span><i class="p50-swatch" aria-hidden="true"></i>{{ t('P50 · 中位延迟') }}</span><span><i class="p95-swatch" aria-hidden="true"></i>{{ t('P95 · 95% 成功样本不超过此延迟') }}</span><span><i class="event-swatch" aria-hidden="true"></i>{{ t('灰色竖虚线 · 相关事件发生时间') }}</span></div>
+      <div class="chart" role="img" :aria-label="t('{p0} 延迟趋势，P50 与 P95，仅连接有成功样本的区间', {p0: timeline.series.node.name})">
+        <svg viewBox="0 0 800 220" preserveAspectRatio="none"><line x1="42" y1="180" x2="772" y2="180" class="axis"/><line x1="42" y1="35" x2="772" y2="35" class="grid"/><line v-for="e in markers" :key="e.key" :x1="markerX(e.at)" :x2="markerX(e.at)" y1="30" y2="180" class="event-marker"><title>{{ translateMessage(activityKind[e.kind]) }} · {{ monitorTime(e.at) }} · {{ activityMessage(e) }}</title></line><line v-if="focus" :x1="markerX(focus.at)" :x2="markerX(focus.at)" y1="20" y2="185" class="focus-marker"><title>{{ monitorTime(focus.at) }} · {{ activityMessage(focus) }}</title></line><path :d="line('p50_ms')" class="p50"/><path :d="line('p95_ms')" class="p95"/></svg>
         <span class="chart-maximum">{{ maximum }} ms</span><span class="chart-zero">0</span>
       </div>
       <div class="chart-range"><time>{{ monitorTime(timeline.from) }}</time><time>{{ monitorTime(timeline.to) }}</time></div>
-      <p v-if="focusedBucket >= 0">事件所在时段：{{ monitorTime(timeline.trend[focusedBucket]?.at) }} · 成功 {{ timeline.trend[focusedBucket]?.success }} / 失败 {{ timeline.trend[focusedBucket]?.failure }} / 缺测 {{ timeline.trend[focusedBucket]?.unknown }}</p>
-      <p class="legend">灰色竖虚线标记节点状态、环境状态、方案变更或切换事件；悬停虚线或点击下方事件查看详情。最多显示最近 12 个相关标记，完整记录见事件时间线。</p>
-      <div v-if="markers.length" class="marker-buttons"><button v-for="e in markers" :key="e.key" :aria-pressed="selectedMarker?.key === e.key" @click="selectedMarker = e">{{ activityKind[e.kind] }} · {{ new Date(e.at).toLocaleTimeString() }}</button></div><p v-if="selectedMarker">{{ monitorTime(selectedMarker.at) }} · {{ selectedMarker.message }}</p>
-      <p class="legend">折线断开表示该时段没有成功样本，不表示零延迟；下方灰色色块表示存在缺测，与事件虚线含义不同。</p>
-      <div class="health-strip"><span v-for="(p, index) in timeline.trend" :key="p.at" tabindex="0" :class="[!p.expected ? 'outside' : p.failure ? 'failed' : p.unknown ? 'unknown' : 'success', {'focused-bucket': index === focusedBucket}]" :title="`${monitorTime(p.at)}：成功 ${p.success} / 失败 ${p.failure} / 未知 ${p.unknown}；参考 ${p.expected}`" :aria-label="`${monitorTime(p.at)}，成功${p.success}，失败${p.failure}，未知${p.unknown}，参考${p.expected}`"></span></div>
-      <p class="legend">绿色成功 · 红色存在失败 · 灰色存在缺测 · 空心尚未纳入。1小时视图按2分钟展示，其他视图按小时汇总；可聚焦或悬停查看计数。</p>
+      <p v-if="focusedBucket >= 0">{{ t('事件所在时段：{p0} · 成功 {p1} / 失败 {p2} / 缺测 {p3}', {p0: monitorTime(timeline.trend[focusedBucket]?.at), p1: timeline.trend[focusedBucket]?.success, p2: timeline.trend[focusedBucket]?.failure, p3: timeline.trend[focusedBucket]?.unknown}) }}</p>
+      <p class="legend">{{ t('灰色竖虚线标记节点状态、环境状态、方案变更或切换事件；悬停虚线或点击下方事件查看详情。最多显示最近 12 个相关标记，完整记录见事件时间线。') }}</p>
+      <div v-if="markers.length" class="marker-buttons"><button v-for="e in markers" :key="e.key" :aria-pressed="selectedMarker?.key === e.key" @click="selectedMarker = e">{{ translateMessage(activityKind[e.kind]) }} · {{ formatDate(new Date(e.at), 'time') }}</button></div><p v-if="selectedMarker">{{ monitorTime(selectedMarker.at) }} · {{ activityMessage(selectedMarker) }}</p>
+      <p class="legend">{{ t('折线断开表示该时段没有成功样本，不表示零延迟；下方灰色色块表示存在缺测，与事件虚线含义不同。') }}</p>
+      <div class="health-strip"><span v-for="(p, index) in timeline.trend" :key="p.at" tabindex="0" :class="[!p.expected ? 'outside' : p.failure ? 'failed' : p.unknown ? 'unknown' : 'success', {'focused-bucket': index === focusedBucket}]" :title="t('{p0}：成功 {p1} / 失败 {p2} / 未知 {p3}；参考 {p4}', {p0: monitorTime(p.at), p1: p.success, p2: p.failure, p3: p.unknown, p4: p.expected})" :aria-label="t('{p0}，成功{p1}，失败{p2}，未知{p3}，参考{p4}', {p0: monitorTime(p.at), p1: p.success, p2: p.failure, p3: p.unknown, p4: p.expected})"></span></div>
+      <p class="legend">{{ t('绿色成功 · 红色存在失败 · 灰色存在缺测 · 空心尚未纳入。1小时视图按2分钟展示，其他视图按小时汇总；可聚焦或悬停查看计数。') }}</p>
     </template>
-    <details class="revisions"><summary>方案变更记录（最近 {{ revisions.length }} 条）</summary><ol><li v-for="r in revisions" :key="r.plan.revision"><time>{{ monitorTime(r.at) }}</time><b>修订 {{ r.plan.revision }} · {{ r.plan.group }}</b><span>{{ r.plan.enabled ? '运行' : '暂停' }} · 自动切换{{ r.plan.auto_switch ? '开启' : '关闭' }}</span><small>{{ r.plan.nodes.map(n => n.name).join('、') }}</small></li></ol></details>
+    <details class="revisions"><summary>{{ t('方案变更记录（最近 {p0} 条）', {p0: revisions.length}) }}</summary><ol><li v-for="r in revisions" :key="r.plan.revision"><time>{{ monitorTime(r.at) }}</time><b>{{ t('修订 {p0} · {p1}', {p0: r.plan.revision, p1: r.plan.group}) }}</b><span>{{ t('{p0} · 自动切换{p1}', {p0: r.plan.enabled ? t('运行') : t('暂停'), p1: r.plan.auto_switch ? t('开启') : t('关闭')}) }}</span><small>{{ formatList(r.plan.nodes.map(n => n.name)) }}</small></li></ol></details>
   </section>
 </template>
 

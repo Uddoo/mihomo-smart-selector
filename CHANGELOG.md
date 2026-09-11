@@ -9,6 +9,18 @@ versioned releases begin.
 
 ## [Unreleased]
 
+### Changed
+
+- Refine the existing Vue workbench with shared light/dark design tokens,
+  clearer controls, readable status text and complete mobile navigation.
+- Keep scan results closer to the top on phones with collapsible settings,
+  and present monitoring metrics and retest actions together in mobile lists.
+- Match failed, interrupted and stopped scans to their actual visual state and
+  recovery guidance; synchronize the browser theme color and declare the
+  Chinese page language. Preserve keyboard access and reduced-motion support.
+- Animate scan progress with transforms instead of width changes, keeping the
+  progress indicator from triggering layout on every animation frame.
+
 ### Fixed
 
 - Keep scan event streams alive past the ordinary HTTP response timeout, bound
@@ -28,6 +40,12 @@ versioned releases begin.
 
 ### Added
 
+- Chinese and English interfaces across scanning, monitoring, node browsing,
+  switch history, settings and LAN access. Language selection follows the
+  browser initially, persists locally and updates open views without reloading.
+- Localized dates, region names, known status/error messages and accessible
+  labels, with responsive English navigation and regression coverage for
+  language switching during scans, form editing and monitoring.
 - Browser reliability regressions for monitoring history and recovery, partial
   discovery, and idempotent switch retries after a lost response and page reload.
 - A built-in 40-region name dictionary merged with legacy custom aliases,

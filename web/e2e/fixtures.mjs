@@ -16,7 +16,7 @@ export const test = base.extend({
 })
 export {expect}
 
-export async function monitorFixture(page) {
+export async function monitorFixture(page, options = {}) {
   const now = Date.now(), at = new Date(now).toISOString()
   const nodes = [
     {id: 'a', series_id: 'series-a', name: 'JP-Tokyo-03', provider: 'demo', protocol: 'VLESS', anchor: Math.floor(now / 1000) - 86400},
@@ -29,7 +29,7 @@ export async function monitorFixture(page) {
     return {...metrics, expected: seconds / 120, samples: seconds / 120, observed_seconds: seconds, window_seconds: seconds, ...(window === '1h' ? {score: null, readiness: 'observational'} : {})}
   }
   const series = nodes.map(node => ({id: node.series_id, node, profile_id: plan.profile_id, profile_hash: plan.profile_hash, anchor: node.anchor}))
-  const event = {key: 'node:1', at: new Date(now - 15 * 60000).toISOString(), kind: 'node', status: 'unavailable', node: nodes[1].name, group: plan.group, series_id: nodes[1].series_id, message: '演示：连续探测失败'}
+  const event = {key: 'node:1', at: new Date(now - 15 * 60000).toISOString(), kind: 'node', status: 'unavailable', node: nodes[1].name, group: plan.group, series_id: nodes[1].series_id, message: options.eventMessage || '演示：连续探测失败'}
   const state = {overviewReads: 0, version: 1, mode: 'ok', held: [], timelineRequests: [], delayedSeries: '', delayed: []}
   await page.route('**/api/v1/monitor**', async route => {
     const url = new URL(route.request().url()), query = url.searchParams
@@ -37,11 +37,13 @@ export async function monitorFixture(page) {
     if (url.pathname === '/api/v1/monitor') {
       state.overviewReads++
       if (state.mode === 'hang') { state.held.push(route); return }
-      if (state.mode === 'error') return route.fulfill({status: 503, json: {error: '测试：服务暂不可用'}})
+      if (state.mode === 'error') return route.fulfill({status: 503, json: {error: options.errorMessage || '测试：服务暂不可用'}})
       return respond({plan, current: nodes[0].name, issue: '', suspended: false, failover_message: '', observed_at: at, now: at, next_at: at, retention_days: 7, window: query.get('window') || '24h', data_version: state.version, instance_id: 'fixture-boot', events: [], rows: nodes.map(node => ({...node, metrics, series: [], state: {status: 'healthy', last_at: at, last_success: at, failures: 0, successes: 720}}))})
     }
     if (url.pathname.endsWith('/series')) return respond(series)
     if (url.pathname.endsWith('/revisions')) return respond([{at, plan}])
+    if (url.pathname.endsWith('/catalog')) return respond({nodes, current: nodes[0].name, suggested: nodes.map(node => node.name), probe_count: 1})
+    if (url.pathname.endsWith('/storage')) return respond({policy: {revision: 1, raw_days: 7, aggregate_days: 30, event_days: 30, max_raw_samples: 100000, max_hourly: 20000}, raw_samples: 4320, hourly: 120, events: 1, pending_hours: 1, unmapped_legacy: 0, database_bytes: 1048576, wal_bytes: 32768, oldest_raw: at, oldest_hourly: at, last_aggregation: at})
     if (url.pathname.endsWith('/correlations')) return respond([])
     if (url.pathname.endsWith('/incidents')) return respond({items: [event]})
     if (url.pathname.endsWith('/timeline')) {

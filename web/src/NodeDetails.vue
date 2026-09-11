@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import {t, translateMessage, formatList} from './i18n'
 import {ref, watch} from 'vue'
 import {Copy, X} from '@lucide/vue'
 import type {NodeSummary} from './models'
@@ -13,22 +14,22 @@ async function copy(value: string, label: string) {
 }
 </script>
 <template>
-  <div class="detail-heading"><h2 id="catalog-detail-title">节点详情</h2><button aria-label="关闭节点详情" @click="$emit('close')"><X :size="18"/></button></div>
+  <div class="detail-heading"><h2 id="catalog-detail-title">{{ t('节点详情') }}</h2><button :aria-label="t('关闭节点详情')" @click="$emit('close')"><X :size="18"/></button></div>
   <h3>{{ node.name }}</h3>
-  <button class="copy-action" @click="copy(node.name, '节点名称')"><Copy :size="15"/>复制节点名称</button>
+  <button class="copy-action" @click="copy(node.name, '节点名称')"><Copy :size="15"/>{{ t('复制节点名称') }}</button>
   <dl>
-    <dt>条目类型</dt><dd>{{ entryKindLabel(node.entry_kind) }}</dd>
-    <dt>推断地区</dt><dd>{{ catalogRegionLabel(node, regionLabel) }}</dd>
-    <dt>判断依据</dt><dd>{{ regionSourceLabel(node.region_source) }}</dd>
-    <template v-if="node.region_candidates?.length"><dt>候选地区（待确认）</dt><dd>{{ node.region_candidates.map(code => regionLabel(code)).join('、') }}</dd></template>
-    <template v-if="node.region_evidence?.length"><dt>命中名称线索</dt><dd>{{ node.region_evidence.map(value => regionEvidenceLabel(value, regionLabel)).join('、') }}</dd></template>
-    <dt>节点来源</dt><dd>{{ providerLabel(node.provider) }}</dd>
-    <template v-if="node.provider"><dt>完整来源标识</dt><dd class="raw-provider">{{ node.provider }}</dd></template>
-    <dt>协议</dt><dd>{{ protocolLabel(node.protocol) }}</dd>
+    <dt>{{ t('条目类型') }}</dt><dd>{{ translateMessage(entryKindLabel(node.entry_kind)) }}</dd>
+    <dt>{{ t('推断地区') }}</dt><dd>{{ translateMessage(catalogRegionLabel(node, regionLabel)) }}</dd>
+    <dt>{{ t('判断依据') }}</dt><dd>{{ translateMessage(regionSourceLabel(node.region_source)) }}</dd>
+    <template v-if="node.region_candidates?.length"><dt>{{ t('候选地区（待确认）') }}</dt><dd>{{ formatList(node.region_candidates.map(code => regionLabel(code))) }}</dd></template>
+    <template v-if="node.region_evidence?.length"><dt>{{ t('命中名称线索') }}</dt><dd>{{ formatList(node.region_evidence.map(value => regionEvidenceLabel(value, regionLabel))) }}</dd></template>
+    <dt>{{ t('节点来源') }}</dt><dd>{{ providerLabel(node.provider) }}</dd>
+    <template v-if="node.provider"><dt>{{ t('完整来源标识') }}</dt><dd class="raw-provider">{{ node.provider }}</dd></template>
+    <dt>{{ t('协议') }}</dt><dd>{{ translateMessage(protocolLabel(node.protocol)) }}</dd>
   </dl>
-  <button v-if="node.provider" class="copy-action" @click="copy(node.provider, '来源标识')"><Copy :size="15"/>复制来源标识</button>
-  <p class="region-note">{{ regionReasonLabel(node) }}</p>
-  <p class="copy-message" role="status">{{ message }}</p>
+  <button v-if="node.provider" class="copy-action" @click="copy(node.provider, '来源标识')"><Copy :size="15"/>{{ t('复制来源标识') }}</button>
+  <p class="region-note">{{ translateMessage(regionReasonLabel(node)) }}</p>
+  <p class="copy-message" role="status">{{ translateMessage(message) }}</p>
 </template>
 <style scoped>
 .detail-heading{position:sticky;top:0;z-index:1;background:var(--surface);padding-bottom:6px}
