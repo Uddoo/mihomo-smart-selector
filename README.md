@@ -62,10 +62,12 @@ each process. Ports 9090 and 8788 must be available.
 
 ### Connect your own Mihomo
 
-**Windows portable build:** extract the matching AMD64 / ARM64 ZIP from a published
-[GitHub Release](https://github.com/Uddoo/mihomo-smart-selector/releases), then run the EXE.
+**Windows / macOS portable builds:** download the matching AMD64 / ARM64 package from
+[v0.1.0-rc.1](https://github.com/Uddoo/mihomo-smart-selector/releases/tag/v0.1.0-rc.1).
+Extract the Windows ZIP and run the EXE; on macOS, extract the TAR.GZ and run `start.command`.
 First launch creates configuration beside the executable. No Go or Node.js runtime is required.
-See the [Windows guide](docs/windows.md#english) for availability, supported systems, configuration and upgrades.
+See the [Windows guide](docs/windows.md#english) or [macOS guide](docs/macos.md#english)
+for supported systems, configuration and upgrades.
 
 | Where you want to run it | Next step |
 | --- | --- |
@@ -75,7 +77,7 @@ See the [Windows guide](docs/windows.md#english) for availability, supported sys
 Keep the loopback listener for local use. LAN access requires a token and a
 trusted-CIDR allow-list in the standard deployment configuration. Dedicated
 strict/egress validation requires a separately configured probe Selector and
-loopback listener. Windows packaging and a tested draft-release workflow are included;
+loopback listener. Windows/macOS packaging and a tested draft-release workflow are included;
 available published versions are listed on GitHub Releases. The project remains in pre-release.
 
 <a id="showcase"></a>
@@ -190,6 +192,7 @@ separately from performance scoring.
 | --- | --- |
 | Explore the current interface in English | [Live screenshot tour](docs/screenshots.md) |
 | Run a portable Windows EXE | [Windows installation and upgrades](docs/windows.md#english) |
+| Run on Apple Silicon or Intel Mac | [macOS installation and upgrades](docs/macos.md#english) |
 | Scan a service whose group contains other groups | [Nested Selector navigation and scope](docs/nested-groups.md#english) |
 | Use my own group names, services or private endpoints | [Service adaptation & persistent settings](docs/service-adaptation.md) |
 | Install on a router | [Deployment, preflight and rollback](deploy/openwrt/README.md) |

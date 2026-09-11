@@ -59,9 +59,10 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 
 ### 接入你自己的 Mihomo
 
-**Windows 便携版：**从已发布的 [GitHub Release](https://github.com/Uddoo/mihomo-smart-selector/releases)
-下载匹配的 AMD64 / ARM64 ZIP，解压后运行 EXE。首次启动在程序同目录创建配置，无需安装 Go 或 Node.js。
-版本可用性、系统要求、配置与升级方式见 [Windows 使用指南](docs/windows.md)。
+**Windows / macOS 便携版：**从 [v0.1.0-rc.1](https://github.com/Uddoo/mihomo-smart-selector/releases/tag/v0.1.0-rc.1)
+下载匹配的 AMD64 / ARM64 包。Windows 解压 ZIP 后运行 EXE，macOS 解压 TAR.GZ 后运行 `start.command`。
+首次启动在程序同目录创建配置，无需安装 Go 或 Node.js。
+系统要求、配置与升级方式见 [Windows 使用指南](docs/windows.md) 或 [macOS 使用指南](docs/macos.md)。
 
 | 使用位置 | 下一步 |
 | --- | --- |
@@ -70,7 +71,7 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 
 本机使用保持默认 loopback 监听；标准 LAN 部署需要 token 与可信 CIDR 白名单。
 严格验证、出口验证还需要事先配置独立的探测 Selector 和本机代理入口。
-仓库已包含 Windows 打包与测试后创建 Release 草稿的流程；可下载版本以 GitHub Releases 为准，项目仍处于预发布阶段。
+仓库已包含 Windows/macOS 打包与测试后创建 Release 草稿的流程；可下载版本以 GitHub Releases 为准，项目仍处于预发布阶段。
 
 若业务组只包含下级策略组，工作台会提供可扫描的下级 Selector，并保留测试服务；
 确认切换作用于所选下级组，详见[嵌套策略组与影响范围](docs/nested-groups.md)。

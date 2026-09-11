@@ -9,8 +9,13 @@ versioned releases begin.
 
 ## [Unreleased]
 
+## [v0.1.0-rc.1] - 2026-09-11
+
 ### Added
 
+- Add portable macOS packages for Apple Silicon and Intel, an executable Terminal
+  launcher, configuration beside the binary, native package runtime checks for both
+  architectures, and combined release checksums for all four desktop archives.
 - Add a confirmed service restart in Settings. Drain requests and background work,
   reload saved connections in the same process, and wait for the new instance even
   when Mihomo is offline. Reject restart during scans or invalid configuration.
@@ -190,4 +195,5 @@ versioned releases begin.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/commits/main
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.1...HEAD
+[v0.1.0-rc.1]: https://github.com/Uddoo/mihomo-smart-selector/releases/tag/v0.1.0-rc.1
