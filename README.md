@@ -16,8 +16,8 @@
   <a href="#compatibility"><img src="https://img.shields.io/badge/status-pre--release-f0b44c" alt="Pre-release" /></a>
 </p>
 
-![English scan workbench on the router: saved results, ranked nodes, and an expired candidate comparison](docs/assets/screenshots/scan-workbench-live-20260911-en.jpg)
-<p align="center"><sub>Live router deployment, captured in Microsoft Edge on 2026-09-11. The selected scan was recorded on 2026-09-09; its expiry warning is preserved. <a href="docs/screenshots.md">Browse all eight views in English.</a></sub></p>
+![English scan workbench on the router: saved results, ranked nodes, and an expired candidate comparison](docs/assets/screenshots/scan-workbench-live-20260911-en.png)
+<p align="center"><sub>Live router deployment, captured in Microsoft Edge on 2026-09-11 at 1440 × 1000 for readable controls. The selected scan was recorded on 2026-09-09; its expiry warning is preserved. <a href="docs/screenshots.md">Browse eight views and the expanded scan filters in English.</a></sub></p>
 <p align="center"><strong>Single binary · Manual scan selection · Opt-in monitoring failover</strong></p>
 
 ## Why try it?
@@ -63,7 +63,7 @@ each process. Ports 9090 and 8788 must be available.
 ### Connect your own Mihomo
 
 **Windows / macOS portable builds:** download the matching AMD64 / ARM64 package from
-[v0.1.0-rc.1](https://github.com/Uddoo/mihomo-smart-selector/releases/tag/v0.1.0-rc.1).
+[v0.1.0-rc.2](https://github.com/Uddoo/mihomo-smart-selector/releases/tag/v0.1.0-rc.2).
 Extract the Windows ZIP and run the EXE; on macOS, extract the TAR.GZ and run `start.command`.
 First launch creates configuration beside the executable. No Go or Node.js runtime is required.
 See the [Windows guide](docs/windows.md#english) or [macOS guide](docs/macos.md#english)
@@ -93,13 +93,17 @@ In the [live workbench capture](docs/screenshots.md#scan-workbench), the candida
 panel keeps its sample evidence and expiry warning visible. Historical results
 remain readable, while selection is unavailable until fresh evidence is collected.
 
+Regions in advanced scan filters appear only when present in the node catalog.
+Separate buttons support multiple selections and wrap onto new lines.
+[See the expanded filters →](docs/screenshots.md#scan-filters)
+
 ### 02 · Check the outcome
 
 Every switch starts with a durable pending intent. Controller readback records
 a confirmed, failed or unknown outcome; retrying the same request does not
 repeat the switch. Unknown outcomes remain available for reconciliation.
 
-![English switch history with existing automatic monitoring switches and confirmed Controller readback](docs/assets/screenshots/selection-history-live-20260911-en.jpg)
+![English switch history with existing automatic monitoring switches and confirmed Controller readback](docs/assets/screenshots/selection-history-live-20260911-en.png)
 
 *These are existing records from the live deployment's enabled monitoring
 failover. Capturing this page did not trigger a switch. A confirmed group selection
@@ -112,7 +116,7 @@ and the evidence behind the selected observation window. Open node details for
 history, the event timeline for incidents, or monitoring settings for the
 opt-in failover switch and diagnostics.
 
-![English live monitoring overview with current health, 24-hour HTTPS scores, coverage and ranking](docs/assets/screenshots/monitoring-overview-live-20260911-en.jpg)
+![English live monitoring overview with current health, 24-hour HTTPS scores, coverage and ranking](docs/assets/screenshots/monitoring-overview-live-20260911-en.png)
 
 *Live capture, 2026-09-11. The visible rows show a full 24-hour observation span
 and “Sufficient data”. A healthy current state can coexist with historical
@@ -128,7 +132,7 @@ entry scope and region status. The catalog uses its own filters, with an
 explicit action to copy the scan filters. Built-in aliases extend legacy
 configuration, while ambiguous transit names remain available for review.
 
-![English live node catalog: 299 matching entries out of 309, with ten built-in outbounds or suspected notices hidden](docs/assets/screenshots/node-catalog-live-20260911-en.jpg)
+![English live node catalog: 299 matching entries out of 309, with ten built-in outbounds or suspected notices hidden](docs/assets/screenshots/node-catalog-live-20260911-en.png)
 
 *Same live screenshot batch. The 299 / 309 counts describe this snapshot, not
 a product limit. Hidden entries remain accessible through “All entries”. Regions
@@ -144,7 +148,7 @@ Scan parameters, result validity, retention and optional verification are
 available in the settings page. The values shown belong to this deployment;
 capturing them did not save changes.
 
-![English runtime settings on the live router deployment](docs/assets/screenshots/preferences-live-20260911-en.jpg)
+![English runtime settings on the live router deployment](docs/assets/screenshots/preferences-live-20260911-en.png)
 
 </details>
 
@@ -176,7 +180,7 @@ ties), after a fresh check. Switches have durable audits and a two-minute cooldo
 | Evidence | Scope |
 | --- | --- |
 | **Local runtime** | Windows, using the included mock Controller and browser workflow tests. |
-| **Router runtime** | NanoPi R5S LTS / ARM64 with iStoreOS 24.10.8. The 2026-09-11 Edge captures show eight views in both interface languages at deployed commit `fe393a8`. Screenshots document the displayed state, not end-to-end service or long-connection reliability. |
+| **Router runtime** | NanoPi R5S LTS / ARM64 with iStoreOS 24.10.8. The 2026-09-11 Edge captures show eight views in both interface languages with UI assets matching commit `b0570dc`, at 1440 × 1000. Screenshots document the displayed state, not end-to-end service or long-connection reliability. |
 | **Build validation** | CI is configured to build Linux ARM64 and AMD64; use the live CI badge for the current result. Build success is not runtime validation on every device. |
 
 The project is under active development. Configuration and API compatibility

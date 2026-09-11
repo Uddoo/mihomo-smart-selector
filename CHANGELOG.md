@@ -9,6 +9,29 @@ versioned releases begin.
 
 ## [Unreleased]
 
+## [v0.1.0-rc.2] - 2026-09-11
+
+### Fixed
+
+- Separate the active/recent scan label from its dropdown, with wrapping on narrow screens.
+- Show only regions present in the discovered node catalog. Clear removed selections
+  after a complete successful refresh while preserving filters during failed reads and active scans.
+
+### Changed
+
+- Give advanced scan regions separate buttons, clear gaps, selected checkmarks and
+  responsive wrapping. Keep multiple selection and the All action.
+- Refresh English and Chinese README screenshots with 18 native 1440 × 1000 PNGs
+  captured from the live router in Edge, including the expanded scan filters and
+  verified asset provenance.
+
+### Added
+
+- Add a GitHub project link to the sidebar footer, available on desktop and mobile
+  and opening in a new tab.
+- Cover region discovery, selection recovery, keyboard interaction, language/theme
+  layouts and project-link navigation with browser regressions.
+
 ## [v0.1.0-rc.1] - 2026-09-11
 
 ### Added
@@ -195,5 +218,6 @@ versioned releases begin.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.1...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.2...HEAD
+[v0.1.0-rc.2]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.1...v0.1.0-rc.2
 [v0.1.0-rc.1]: https://github.com/Uddoo/mihomo-smart-selector/releases/tag/v0.1.0-rc.1

@@ -4,12 +4,16 @@
 
 These English interface screenshots were captured in Microsoft Edge on Windows
 on **2026-09-11**, from the running **NanoPi R5S LTS / ARM64, iStoreOS 24.10.8**
-deployment at commit `fe393a8303aec1f01a262a1bda4b5bf316b92c36`.
+deployment, with frontend assets matching UI commit
+`b0570dcf999d5f0445df06a61e3abed2681f2396`. The preview build was deployed before
+that commit was created; the [manifest](assets/screenshots/live-20260911.json) records its provenance.
 They show the application using its existing router data. Each image opens at
 its original resolution when clicked.
 
-The captures use the light theme and the browser's normal desktop viewport.
-Only navigation, the language picker and an existing node-trend link were used;
+All 18 captures use the light theme, a **1440 × 1000** CSS-pixel viewport and
+native PNG output at device scale 1. Text and controls remain readable without
+resizing the captured images. Only navigation, scrolling, the language picker,
+opening advanced filters and an existing node-trend link were used;
 no scans, retests, switches or configuration saves were triggered. Background
 monitoring continued, so timestamps and measurements can differ between the
 English and Chinese images. Node, provider and group identifiers keep their
@@ -18,6 +22,7 @@ original text; they are not interface translations.
 | View | What to look for |
 | --- | --- |
 | [Scan workbench](#scan-workbench) | Saved results, ranking, sample evidence and expiry |
+| [Expanded scan filters](#scan-filters) | Available regions, multiple selection and control spacing |
 | [Monitoring overview](#monitoring-overview) | Current health, historical score and coverage |
 | [Node details](#node-details) | P50/P95 trends, observation series and event markers |
 | [Event timeline](#event-timeline) | Provider hints, event filters and loaded-record scope |
@@ -29,7 +34,7 @@ original text; they are not interface translations.
 <a id="scan-workbench"></a>
 ## Scan workbench
 
-[![English scan workbench with existing results and an expired candidate comparison](assets/screenshots/scan-workbench-live-20260911-en.jpg)](assets/screenshots/scan-workbench-live-20260911-en.jpg)
+[![English scan workbench with existing results and an expired candidate comparison](assets/screenshots/scan-workbench-live-20260911-en.png)](assets/screenshots/scan-workbench-live-20260911-en.png)
 
 The selected stable scan was recorded on **2026-09-09** and contains 46 candidates.
 The screenshot date is later than the measurement date. “Results expired” and
@@ -37,10 +42,21 @@ disabled selection controls remain visible; historical timings are not presented
 as current measurements. Search stays above the table, and candidate evidence
 appears beside the ranking.
 
+<a id="scan-filters"></a>
+## Expanded scan filters
+
+[![English advanced scan filters with separate region buttons and clear selected states](assets/screenshots/scan-filters-live-20260911-en.png)](assets/screenshots/scan-filters-live-20260911-en.png)
+
+The region list reflects regions present in the node catalog, with Japan selected
+in this saved scan. Separate buttons have clear gaps, selected checkmarks and
+space to wrap. The active/recent scan label is separated from its dropdown. The
+sidebar footer links to the GitHub project in a new tab. Opening the panel does
+not start a scan or save a binding.
+
 <a id="monitoring-overview"></a>
 ## Monitoring overview
 
-[![English monitoring overview with current selection, attention summary and 24-hour ranking](assets/screenshots/monitoring-overview-live-20260911-en.jpg)](assets/screenshots/monitoring-overview-live-20260911-en.jpg)
+[![English monitoring overview with current selection, attention summary and 24-hour ranking](assets/screenshots/monitoring-overview-live-20260911-en.png)](assets/screenshots/monitoring-overview-live-20260911-en.png)
 
 The visible rows show a full 24-hour observation span and “Sufficient data”.
 Coverage measures whether baseline slots have observations; success rate
@@ -51,9 +67,9 @@ it is opt-in, and its candidate ordering is independent of the long-term score.
 <a id="node-details"></a>
 ## Node details
 
-[![English node history with observation evidence, P50/P95 trends and related event markers](assets/screenshots/monitoring-node-history-live-20260911-en.jpg)](assets/screenshots/monitoring-node-history-live-20260911-en.jpg)
+[![English node history with observation evidence, P50/P95 trends and related event markers](assets/screenshots/monitoring-node-history-live-20260911-en.png)](assets/screenshots/monitoring-node-history-live-20260911-en.png)
 
-The selected series is the current node, `JP4-HY2`. P50 is green and P95 is blue;
+The selected series is the current node, `日本aw3`. P50 is green and P95 is blue;
 gray dashed vertical lines mark related events. A red hourly block means the
 hour contains failures, not that the entire hour was offline. Gaps in the line
 mean no successful samples were available for that interval, not zero latency.
@@ -63,7 +79,7 @@ the chart.
 <a id="event-timeline"></a>
 ## Event timeline
 
-[![English event timeline with provider correlation explanation and loaded event filters](assets/screenshots/monitoring-events-live-20260911-en.jpg)](assets/screenshots/monitoring-events-live-20260911-en.jpg)
+[![English event timeline with provider correlation explanation and loaded event filters](assets/screenshots/monitoring-events-live-20260911-en.png)](assets/screenshots/monitoring-events-live-20260911-en.png)
 
 “No correlated incident is currently confirmed” does not mean there were no
 node failures. The displayed list has 50 loaded records, and its filters apply
@@ -73,7 +89,7 @@ IDs support detail and trend links; opening this page does not perform a retest.
 <a id="monitor-settings"></a>
 ## Monitor settings
 
-[![English monitoring settings with failover enabled and collapsed diagnostic controls](assets/screenshots/monitoring-settings-live-20260911-en.jpg)](assets/screenshots/monitoring-settings-live-20260911-en.jpg)
+[![English monitoring settings with failover enabled and collapsed diagnostic controls](assets/screenshots/monitoring-settings-live-20260911-en.png)](assets/screenshots/monitoring-settings-live-20260911-en.png)
 
 The existing plan has automatic failover enabled. The screenshot records that
 setting without changing it. Storage retention and diagnostic export sections
@@ -84,7 +100,7 @@ that existing connections migrated.
 <a id="node-catalog"></a>
 ## Node catalog
 
-[![English node catalog with search, natural sorting, inferred regions and bottom pagination](assets/screenshots/node-catalog-live-20260911-en.jpg)](assets/screenshots/node-catalog-live-20260911-en.jpg)
+[![English node catalog with search, natural sorting, inferred regions and bottom pagination](assets/screenshots/node-catalog-live-20260911-en.png)](assets/screenshots/node-catalog-live-20260911-en.png)
 
 The deployment has **309 entries**, with **299** matching the default proxy-node
 scope and **10** built-in outbounds or possible subscription notices hidden.
@@ -97,7 +113,7 @@ differently.
 <a id="switch-history"></a>
 ## Switch history
 
-[![English switch history showing existing automatic switches and confirmed readback](assets/screenshots/selection-history-live-20260911-en.jpg)](assets/screenshots/selection-history-live-20260911-en.jpg)
+[![English switch history showing existing automatic switches and confirmed readback](assets/screenshots/selection-history-live-20260911-en.png)](assets/screenshots/selection-history-live-20260911-en.png)
 
 The visible records are previous automatic monitoring switches. “Confirmed”
 reports Controller readback for the target group selection. No manual switch
@@ -107,12 +123,12 @@ login, streaming access or long-lived connection continuity.
 <a id="runtime-settings"></a>
 ## Runtime settings
 
-[![English runtime settings showing scan budgets, optional exit checks and retention](assets/screenshots/preferences-live-20260911-en.jpg)](assets/screenshots/preferences-live-20260911-en.jpg)
+[![English runtime settings showing scan budgets and optional exit checks](assets/screenshots/preferences-live-20260911-en.png)](assets/screenshots/preferences-live-20260911-en.png)
 
 The page shows the deployment's stored scan parameters and optional verification
 controls. These values are not advertised as universal defaults. Connection
-secrets remain in the server configuration and are not shown. The capture covers
-the visible desktop viewport; further settings continue below it. Nothing was
+secrets remain in the server configuration and are not shown. The page was scrolled to Runtime settings so the connection editor remains
+outside the capture. Further settings continue below the visible viewport. Nothing was
 saved or cleaned up during capture.
 
 For detailed behavior, see the [monitoring guide (Chinese)](monitoring.md) and

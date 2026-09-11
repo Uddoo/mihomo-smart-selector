@@ -7,14 +7,22 @@
     "device": "NanoPi R5S LTS",
     "architecture": "ARM64",
     "operating_system": "iStoreOS 24.10.8",
-    "source_commit": "fe393a8303aec1f01a262a1bda4b5bf316b92c36"
+    "ui_source_commit": "b0570dcf999d5f0445df06a61e3abed2681f2396",
+    "build_base_commit": "b8ab6e4a83c3f91a37b7a0a392e785ecdbd11be2",
+    "build_working_tree_modified": true,
+    "binary_sha256": "4d73e4183544dc262b0f73853823a03516b999dde1cf99c24ff07ccf535e8e10",
+    "provenance": "Deployed before committing, as requested. All 18 served frontend assets were verified byte-for-byte against the files subsequently committed in ui_source_commit."
   },
   "capture": {
     "theme": "light",
-    "viewport": "Normal desktop viewport, without a viewport override",
-    "method": "Native browser viewport screenshots",
-    "format": "JPEG bytes returned by the browser screenshot API",
-    "post_processing": "None; no crop, resizing, repainting, redaction or metric replacement",
+    "viewport": {
+      "width": 1440,
+      "height": 1000,
+      "device_scale_factor": 1
+    },
+    "method": "Native Edge Page.captureScreenshot PNG at the current viewport scroll position",
+    "format": "PNG",
+    "post_processing": "None; no resizing, repainting, redaction or metric replacement",
     "languages": [
       "zh-CN",
       "en"
@@ -25,171 +33,302 @@
       "The selected scan is dated 2026-09-09; expiry warnings are preserved.",
       "Background monitoring continued between captures.",
       "Node, provider and group identifiers retain their original text.",
-      "Screenshots exclude browser chrome, access tokens and subscription URLs.",
-      "No scans, retests, manual switches, configuration saves or exports were initiated.",
-      "Interface language was restored to Simplified Chinese and the task tab was closed."
+      "Runtime settings was scrolled into view to keep the connection editor outside the capture.",
+      "Screenshots exclude browser chrome, access tokens, private router addresses and subscription URLs.",
+      "No scans, retests, manual switches, configuration saves, cleanup or exports were initiated.",
+      "Interface language was restored to Simplified Chinese, the viewport override reset and the task tab closed."
     ]
   },
+  "served_frontend_assets": [
+    {
+      "path": "assets/ConnectionSettings-BBPnWJw6.css",
+      "sha256": "a80d8cb92819ca0ba691e453757e258a0327947ffa306addec84deba3bba1990"
+    },
+    {
+      "path": "assets/ConnectionSettings-CufRg-in.js",
+      "sha256": "e707eb1856e25788c943afdcd86db6d38b1ad4963f28eefad7f562d9af69da97"
+    },
+    {
+      "path": "assets/Geist-DPGgOCY9.woff2",
+      "sha256": "2ffebe993e969069a9789d15164b7715d42491b5835516c5e3b935d5f81b05f1"
+    },
+    {
+      "path": "assets/GeistMono-Vc9u_qg9.woff2",
+      "sha256": "afaacc4c5fbba89d2ebf7a02dc4070208540874592a5504d57175782fe893101"
+    },
+    {
+      "path": "assets/i18n-qZQrRO86.js",
+      "sha256": "e5adc3f907b528e7fa08b965361241b6a72bc64ad32814acd986727261a1465a"
+    },
+    {
+      "path": "assets/index-3JXmpzwH.css",
+      "sha256": "deb10c6ada8dfd1abb80e7b0e439b5e008ab8aa622b7d44cf2368c1071f3c5bd"
+    },
+    {
+      "path": "assets/index-rqFuhu0z.js",
+      "sha256": "e463cb2ae00d238227ecb328fea78a2198db7c5b992d2380a36172eeee235257"
+    },
+    {
+      "path": "assets/MonitoringPage-BBhpUWbR.js",
+      "sha256": "0e145ecbc7af18e19b8338436511a001fa649f692e1f1cf10cbd0ffc19b84b7f"
+    },
+    {
+      "path": "assets/MonitoringPage-Brhh8-Uo.css",
+      "sha256": "3fc82266892cf09122ce8a1882be4e423fb2cfb52af6c38af32adbb570937813"
+    },
+    {
+      "path": "assets/NodeCatalog-DAmkZdKL.js",
+      "sha256": "f565109a662b9d4d524e4a1bd54b0aff1e5065dadd244e257288efdc7c32ac55"
+    },
+    {
+      "path": "assets/NodeCatalog-DTSDzSks.css",
+      "sha256": "fe4f215f9f736fac6bea224fa1f7a8c8ef39f03b222e7b068345898cdb5d3e6c"
+    },
+    {
+      "path": "assets/SettingsPanel-CiOdZyJI.js",
+      "sha256": "0b6f3c96d635c403d935f6368483e1a21667bb3e0d5c693fd2e10fec55ee0dbc"
+    },
+    {
+      "path": "assets/StoragePanel-B7XPGhJ5.js",
+      "sha256": "46f28f1ef39ae45c5c40d69ba9f3dad538f87eb47a8440cab43214e7424eabac"
+    },
+    {
+      "path": "assets/SwitchHistory-Cjj5uHiQ.js",
+      "sha256": "0031dfd5bb457812b482e48693ed36b1c746ff7dace9b2319f987e194901d7f8"
+    },
+    {
+      "path": "favicon-32.png",
+      "sha256": "406f8d3959979ffcc8160aca7c8663495e47f3f76c65e102c459dfdca61dd505"
+    },
+    {
+      "path": "favicon.ico",
+      "sha256": "240b4d2877675e466b6fc201fdebb2e9067e981c8e225eb2845c198f3a6f84cf"
+    },
+    {
+      "path": "index.html",
+      "sha256": "08d2edb3598b6171a082a00d29fa9fa34cb9c94a7002fc8929bf50b317bda795"
+    },
+    {
+      "path": "licenses/Geist-OFL.txt",
+      "sha256": "e5e56b793839774266243b8dd89c618f2962f098a2076757a5f2839c27eaaabd"
+    }
+  ],
   "files": [
     {
-      "file": "monitoring-events-live-20260911-en.jpg",
+      "file": "monitoring-events-live-20260911-en.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "en",
-      "captured_at": "2026-09-11T03:49:14.5693473Z",
-      "width": 2519,
-      "height": 1351,
-      "format": "Jpeg",
-      "bytes": 138696,
-      "sha256": "2a1c1825d81b7b4f9a30ce2f92f86cb312a9c7d8256f9c897a6fbca5f6500f81"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:54:36.346Z",
+      "scroll_y": 0,
+      "bytes": 133239,
+      "sha256": "d112c83aa2eab28ef980435925403752d27209e6afbb0fcb401c1b0d7a6f5392",
+      "format": "PNG"
     },
     {
-      "file": "monitoring-events-live-20260911-zh-CN.jpg",
+      "file": "monitoring-events-live-20260911-zh-CN.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "zh-CN",
-      "captured_at": "2026-09-11T03:49:23.9885967Z",
-      "width": 2519,
-      "height": 1351,
-      "format": "Jpeg",
-      "bytes": 119543,
-      "sha256": "b149a52c5adb78f99cea63ed2b72694f02ac9c1956f6c79b874c876649020283"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:54:36.131Z",
+      "scroll_y": 0,
+      "bytes": 98349,
+      "sha256": "675571a741b1b45b169c18d81cf6fe4948642f5e0b2e35137ed2609de350d35b",
+      "format": "PNG"
     },
     {
-      "file": "monitoring-node-history-live-20260911-en.jpg",
+      "file": "monitoring-node-history-live-20260911-en.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "en",
-      "captured_at": "2026-09-11T03:49:07.8350271Z",
-      "width": 2504,
-      "height": 1343,
-      "format": "Jpeg",
-      "bytes": 156357,
-      "sha256": "d96f032ec4540da38eec3b84c9b5f051b89d007f34bffde1d052536d54ac03d2"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:54:11.009Z",
+      "scroll_y": 0,
+      "bytes": 134297,
+      "sha256": "5d6aba98d0520ed979a10d32a4bc4285b865d3956aefcc608b385286bee6391c",
+      "format": "PNG"
     },
     {
-      "file": "monitoring-node-history-live-20260911-zh-CN.jpg",
+      "file": "monitoring-node-history-live-20260911-zh-CN.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "zh-CN",
-      "captured_at": "2026-09-11T03:49:02.0576176Z",
-      "width": 2504,
-      "height": 1343,
-      "format": "Jpeg",
-      "bytes": 141089,
-      "sha256": "fe1fd4b755f4c3a72107b4bd9f9782418944a9982df04431275bc7a6ebeec075"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:54:11.190Z",
+      "scroll_y": 0,
+      "bytes": 105947,
+      "sha256": "a59e9c157275fb78d0fb47f67032e92b98b159e8cc8cdf807858b135682476f2",
+      "format": "PNG"
     },
     {
-      "file": "monitoring-overview-live-20260911-en.jpg",
+      "file": "monitoring-overview-live-20260911-en.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "en",
-      "captured_at": "2026-09-11T03:48:34.3227013Z",
-      "width": 2504,
-      "height": 1343,
-      "format": "Jpeg",
-      "bytes": 150500,
-      "sha256": "f4472f4ca397716fd63629b15769bdbd3cba753b6a22a4b22ad07a8a0b4b4faa"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:54:00.566Z",
+      "scroll_y": 0,
+      "bytes": 148044,
+      "sha256": "e5f206ccc22ba83c32842a1103d33485c23e08510db17c554676c90e7eea134b",
+      "format": "PNG"
     },
     {
-      "file": "monitoring-overview-live-20260911-zh-CN.jpg",
+      "file": "monitoring-overview-live-20260911-zh-CN.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "zh-CN",
-      "captured_at": "2026-09-11T03:48:53.5184869Z",
-      "width": 2504,
-      "height": 1343,
-      "format": "Jpeg",
-      "bytes": 133812,
-      "sha256": "1a1c04a36b5bb29cda95cd5cf4c4408bfb5aaee855b5e108ecd03e46448be1ce"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:54:00.333Z",
+      "scroll_y": 0,
+      "bytes": 116660,
+      "sha256": "9be633c3edff161170b0bafdb142a5d7b2caf9a8a0b8b10279d6e1b43b5a16d6",
+      "format": "PNG"
     },
     {
-      "file": "monitoring-settings-live-20260911-en.jpg",
+      "file": "monitoring-settings-live-20260911-en.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "en",
-      "captured_at": "2026-09-11T03:49:42.1874793Z",
-      "width": 2519,
-      "height": 1351,
-      "format": "Jpeg",
-      "bytes": 114211,
-      "sha256": "f07ff3a9beb8264147e4c563ac10292afe2b260d481080e5d7e48858e140e46c"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:54:37.224Z",
+      "scroll_y": 0,
+      "bytes": 114287,
+      "sha256": "d969299bcafe1bc00764ffb37695b4e202e04c9c493db30fc538e277f9e0ba1f",
+      "format": "PNG"
     },
     {
-      "file": "monitoring-settings-live-20260911-zh-CN.jpg",
+      "file": "monitoring-settings-live-20260911-zh-CN.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "zh-CN",
-      "captured_at": "2026-09-11T03:49:32.5927817Z",
-      "width": 2519,
-      "height": 1351,
-      "format": "Jpeg",
-      "bytes": 96479,
-      "sha256": "d9a3b645a5a2aeea503cc564244726399acee9aa814ebae92003359fbd4c3645"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:54:37.473Z",
+      "scroll_y": 0,
+      "bytes": 82899,
+      "sha256": "19d547d86c19db1a9212294d8799235a3bae9cf7e115e4683eb1bb157568f7c8",
+      "format": "PNG"
     },
     {
-      "file": "node-catalog-live-20260911-en.jpg",
+      "file": "node-catalog-live-20260911-en.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "en",
-      "captured_at": "2026-09-11T03:49:56.0220393Z",
-      "width": 2519,
-      "height": 1351,
-      "format": "Jpeg",
-      "bytes": 158137,
-      "sha256": "992c0e0d633a6427af70a94dea84ccb96ec6afa3e18bc98ec174eaef046f0bec"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:57:02.887Z",
+      "scroll_y": 0,
+      "bytes": 135651,
+      "sha256": "d708ebead31285a9119723b8a46b7543ca2d6cc8968de117c1f1d75afd160f38",
+      "format": "PNG"
     },
     {
-      "file": "node-catalog-live-20260911-zh-CN.jpg",
+      "file": "node-catalog-live-20260911-zh-CN.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "zh-CN",
-      "captured_at": "2026-09-11T03:50:04.5203181Z",
-      "width": 2519,
-      "height": 1351,
-      "format": "Jpeg",
-      "bytes": 149011,
-      "sha256": "b9832a2452df9232fbafe9515f3d738d15e7668e529fb6ce4f54fb6644cae94c"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:57:02.617Z",
+      "scroll_y": 0,
+      "bytes": 106298,
+      "sha256": "86939b7468fd1d3fa681b77d220f89ee4b88d2c0e91f75434e93905a0f2cc4cf",
+      "format": "PNG"
     },
     {
-      "file": "preferences-live-20260911-en.jpg",
+      "file": "preferences-live-20260911-en.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "en",
-      "captured_at": "2026-09-11T03:50:30.6858632Z",
-      "width": 2504,
-      "height": 1343,
-      "format": "Jpeg",
-      "bytes": 167842,
-      "sha256": "c6c075bd1f58000bae5cb2256250d49c95ce77cecce20bdfb5407befda5ab1cc"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:57:56.351Z",
+      "scroll_y": 660,
+      "bytes": 126218,
+      "sha256": "ce92505e48068b811b27b066c55e410c0bca4828a03ae1b0941d13958be88716",
+      "format": "PNG"
     },
     {
-      "file": "preferences-live-20260911-zh-CN.jpg",
+      "file": "preferences-live-20260911-zh-CN.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "zh-CN",
-      "captured_at": "2026-09-11T03:50:48.1294326Z",
-      "width": 2504,
-      "height": 1343,
-      "format": "Jpeg",
-      "bytes": 150841,
-      "sha256": "76ab6588faf456fedf1347b569c10cd7fdd2948b462f0cc9a612254eb3bc12db"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:57:50.637Z",
+      "scroll_y": 616,
+      "bytes": 102714,
+      "sha256": "762eb5edce3417ca992aa31fe144c283feb1625f256c5a4e45723c28407f2cf1",
+      "format": "PNG"
     },
     {
-      "file": "scan-workbench-live-20260911-en.jpg",
+      "file": "scan-filters-live-20260911-en.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "en",
-      "captured_at": "2026-09-11T03:48:16.2734805Z",
-      "width": 2504,
-      "height": 1343,
-      "format": "Jpeg",
-      "bytes": 157975,
-      "sha256": "134c721bfc7e0236ca7baa220a89b150c087bcfaff948b92c98413cba60e8e3d"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:53:30.572Z",
+      "scroll_y": 0,
+      "bytes": 153847,
+      "sha256": "9b0ca55a2da57d07c6c1a92dd34115421621e90fc19d27c2c10113f6fb9db309",
+      "format": "PNG"
     },
     {
-      "file": "scan-workbench-live-20260911-zh-CN.jpg",
+      "file": "scan-filters-live-20260911-zh-CN.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "zh-CN",
-      "captured_at": "2026-09-11T03:47:55.3382888Z",
-      "width": 2504,
-      "height": 1343,
-      "format": "Jpeg",
-      "bytes": 149639,
-      "sha256": "868a4710b91dbd09092c20955f24fe3bd9c94f999c0f1b5055905bb2e6196934"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:53:30.264Z",
+      "scroll_y": 0,
+      "bytes": 109074,
+      "sha256": "299a4988de758a6095c2ffb8ce5986d6588ac5bcd4ab99adeffbe88f882243d8",
+      "format": "PNG"
     },
     {
-      "file": "selection-history-live-20260911-en.jpg",
+      "file": "scan-workbench-live-20260911-en.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "en",
-      "captured_at": "2026-09-11T03:50:20.1893021Z",
-      "width": 2504,
-      "height": 1343,
-      "format": "Jpeg",
-      "bytes": 125238,
-      "sha256": "98ba289b7bd36c311e285339f9607b33742d5c2be461efd88f036d102e413db5"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:53:45.532Z",
+      "scroll_y": 0,
+      "bytes": 165621,
+      "sha256": "cb8dd8348df6d746419e9088b95caa845a5b9cff831feba50f72233f3a633ced",
+      "format": "PNG"
     },
     {
-      "file": "selection-history-live-20260911-zh-CN.jpg",
+      "file": "scan-workbench-live-20260911-zh-CN.png",
+      "dpr": 1,
+      "height": 1000,
       "locale": "zh-CN",
-      "captured_at": "2026-09-11T03:50:14.6077116Z",
-      "width": 2504,
-      "height": 1343,
-      "format": "Jpeg",
-      "bytes": 112701,
-      "sha256": "9f0cc7a9b76c1236eebeea8874b072f5a8bc00cc10a6cda19d384a764177990e"
+      "width": 1440,
+      "captured_at": "2026-09-11T08:53:45.781Z",
+      "scroll_y": 0,
+      "bytes": 123818,
+      "sha256": "2ccffbe25e49d3827cc3538fa065a4686eb53432d61f2569aafee1cd18322b2e",
+      "format": "PNG"
+    },
+    {
+      "file": "selection-history-live-20260911-en.png",
+      "dpr": 1,
+      "height": 1000,
+      "locale": "en",
+      "width": 1440,
+      "captured_at": "2026-09-11T08:57:26.578Z",
+      "scroll_y": 0,
+      "bytes": 132430,
+      "sha256": "28f3c6e839e8b5240bbf000b8129422086f2a9f7c9c13973a68e6e7bc37097c4",
+      "format": "PNG"
+    },
+    {
+      "file": "selection-history-live-20260911-zh-CN.png",
+      "dpr": 1,
+      "height": 1000,
+      "locale": "zh-CN",
+      "width": 1440,
+      "captured_at": "2026-09-11T08:57:26.814Z",
+      "scroll_y": 0,
+      "bytes": 101187,
+      "sha256": "1d506023ba10165fddd6981774fe02aae51424aa3933a4f568d4cfb847d5580f",
+      "format": "PNG"
     }
   ]
 }

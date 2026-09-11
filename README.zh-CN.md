@@ -16,8 +16,8 @@
   <a href="#compatibility"><img src="https://img.shields.io/badge/status-pre--release-f0b44c" alt="预发布状态" /></a>
 </p>
 
-![中文实机工作台：历史扫描结果、节点排名与已过期的候选比较](docs/assets/screenshots/scan-workbench-live-20260911-zh-CN.jpg)
-<p align="center"><sub>2026-09-11 通过 Microsoft Edge 截取的路由器实机界面。当前查看的是 2026-09-09 的扫描记录，保留真实过期提示。<a href="docs/screenshots.zh-CN.md">查看全部八个页面。</a></sub></p>
+![中文实机工作台：历史扫描结果、节点排名与已过期的候选比较](docs/assets/screenshots/scan-workbench-live-20260911-zh-CN.png)
+<p align="center"><sub>2026-09-11 通过 Microsoft Edge 以 1440 × 1000 截取，便于看清文字与控件。当前查看的是 2026-09-09 的扫描记录，保留真实过期提示。<a href="docs/screenshots.zh-CN.md">查看八个页面与展开的扫描筛选。</a></sub></p>
 <p align="center"><strong>单文件部署 · 扫描手动选择 · 监控按需自动切换</strong></p>
 
 ## 它能帮你做什么？
@@ -59,7 +59,7 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 
 ### 接入你自己的 Mihomo
 
-**Windows / macOS 便携版：**从 [v0.1.0-rc.1](https://github.com/Uddoo/mihomo-smart-selector/releases/tag/v0.1.0-rc.1)
+**Windows / macOS 便携版：**从 [v0.1.0-rc.2](https://github.com/Uddoo/mihomo-smart-selector/releases/tag/v0.1.0-rc.2)
 下载匹配的 AMD64 / ARM64 包。Windows 解压 ZIP 后运行 EXE，macOS 解压 TAR.GZ 后运行 `start.command`。
 首次启动在程序同目录创建配置，无需安装 Go 或 Node.js。
 系统要求、配置与升级方式见 [Windows 使用指南](docs/windows.md) 或 [macOS 使用指南](docs/macos.md)。
@@ -87,12 +87,15 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 在[实机工作台截图](docs/screenshots.zh-CN.md#scan-workbench)中，候选详情同时保留采样依据和过期提示。
 历史结果仍可阅读，补充新证据后才能重新选择。
 
+高级扫描筛选只列出节点目录中实际存在的地区，独立按钮支持多选并自然换行。
+[查看展开的地区筛选 →](docs/screenshots.zh-CN.md#scan-filters)
+
 ### 02 · 切换之后，核对实际结果
 
 每次切换都会先保存待执行记录，再回读 Controller，区分已确认、失败或未知结果。
 同一次请求重试不会重复切换；未确认操作会持续保留，供你核对。
 
-![中文实机选择历史：已有的监控自动切换及 Controller 回读确认结果](docs/assets/screenshots/selection-history-live-20260911-zh-CN.jpg)
+![中文实机选择历史：已有的监控自动切换及 Controller 回读确认结果](docs/assets/screenshots/selection-history-live-20260911-zh-CN.png)
 
 *截图展示此部署已开启的监控自动切换所产生的历史记录，截图操作没有触发切换。
 策略组选择已确认不代表已有连接已经迁移。*
@@ -102,7 +105,7 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 “概览”集中显示策略组当前选择、需要关注的节点，以及所选观察窗口的证据范围。
 从节点名称进入“节点详情”查看趋势，在“事件时间线”追踪变化，在“监控设置”管理自动切换与诊断。
 
-![中文实机持续监控概览：当前健康、24 小时 HTTPS 健康分、覆盖率和排名](docs/assets/screenshots/monitoring-overview-live-20260911-zh-CN.jpg)
+![中文实机持续监控概览：当前健康、24 小时 HTTPS 健康分、覆盖率和排名](docs/assets/screenshots/monitoring-overview-live-20260911-zh-CN.png)
 
 *2026-09-11 实机截图，可见排名行已覆盖完整 24 小时观测跨度并显示“数据充足”。
 当前健康与历史失败可以同时存在；覆盖率和成功率表示不同含义。
@@ -116,7 +119,7 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 目录筛选独立于扫描配置，提供明确的“沿用扫描筛选”入口。
 内置地区词典会扩展旧配置，中转或名称冲突条目保留为待确认。
 
-![中文实机节点目录：309 个条目中默认匹配 299 个，隐藏 10 个内置出站或疑似订阅提示](docs/assets/screenshots/node-catalog-live-20260911-zh-CN.jpg)
+![中文实机节点目录：309 个条目中默认匹配 299 个，隐藏 10 个内置出站或疑似订阅提示](docs/assets/screenshots/node-catalog-live-20260911-zh-CN.png)
 
 *同批实机截图。299 / 309 是该次运行快照的数量，不是产品容量上限。
 隐藏条目仍可通过“全部条目”查看；地区来自名称或配置推断，不是出口实测结果。
@@ -129,7 +132,7 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 
 在偏好设置中管理扫描参数、结果有效期、保留策略与可选验证。图中数值属于当前部署；截图时没有保存修改。
 
-![中文实机运行设置：扫描参数、可选出口验证和历史保留策略](docs/assets/screenshots/preferences-live-20260911-zh-CN.jpg)
+![中文实机运行设置：扫描参数与可选出口验证](docs/assets/screenshots/preferences-live-20260911-zh-CN.png)
 
 </details>
 
@@ -155,7 +158,7 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 | 验证类型 | 范围 |
 | --- | --- |
 | **本地运行** | Windows，使用内置 mock Controller 和浏览器流程测试。 |
-| **路由器运行** | NanoPi R5S LTS / ARM64，iStoreOS 24.10.8。2026-09-11 通过 Edge 截取部署版本 `fe393a8` 的八个页面，中英文各一套。截图展示当时的界面状态，不作为端到端业务或长连接可靠性的证明。 |
+| **路由器运行** | NanoPi R5S LTS / ARM64，iStoreOS 24.10.8。2026-09-11 通过 Edge 以 1440 × 1000 截取八个页面及展开的扫描筛选，共 18 张双语图，前端资源对应提交 `b0570dc`。截图展示当时的界面状态，不作为端到端业务或长连接可靠性的证明。 |
 | **构建验证** | CI 配置覆盖 Linux ARM64、AMD64；当前结果以顶部实时 CI 徽章为准。构建成功不等同于所有设备均已实机验证。 |
 
 项目仍在开发中，`v1.0.0` 前配置和 API 兼容性可能变化。界面支持简体中文和英文，可通过页头语言选择器切换。

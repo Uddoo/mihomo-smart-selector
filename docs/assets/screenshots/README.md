@@ -3,10 +3,12 @@
 <a id="live-20260911"></a>
 ## Edge captures from the deployed router — 2026-09-11
 
-The maintainer explicitly authorized this live capture batch. All **16 images**
+The maintainer explicitly authorized this live capture batch. All **18 images**
 were captured through **Microsoft Edge on Windows** from the running
-**NanoPi R5S LTS / ARM64, iStoreOS 24.10.8** deployment at commit
-`fe393a8303aec1f01a262a1bda4b5bf316b92c36`. English documentation uses the `-en`
+**NanoPi R5S LTS / ARM64, iStoreOS 24.10.8** deployment with frontend assets matching UI commit
+`b0570dcf999d5f0445df06a61e3abed2681f2396`. The preview was deployed before
+committing; the manifest records its base commit, modified build state and binary
+hash. All 18 served frontend assets match the subsequently committed files. English documentation uses the `-en`
 images, while Chinese documentation uses `-zh-CN`.
 
 Read the [English screenshot tour](../../screenshots.md) or
@@ -14,22 +16,24 @@ Read the [English screenshot tour](../../screenshots.md) or
 
 | View | English | 简体中文 |
 | --- | --- | --- |
-| Scan workbench | [English](scan-workbench-live-20260911-en.jpg) | [中文](scan-workbench-live-20260911-zh-CN.jpg) |
-| Monitoring overview | [English](monitoring-overview-live-20260911-en.jpg) | [中文](monitoring-overview-live-20260911-zh-CN.jpg) |
-| Node trends and history | [English](monitoring-node-history-live-20260911-en.jpg) | [中文](monitoring-node-history-live-20260911-zh-CN.jpg) |
-| Event timeline | [English](monitoring-events-live-20260911-en.jpg) | [中文](monitoring-events-live-20260911-zh-CN.jpg) |
-| Monitor settings | [English](monitoring-settings-live-20260911-en.jpg) | [中文](monitoring-settings-live-20260911-zh-CN.jpg) |
-| Node catalog | [English](node-catalog-live-20260911-en.jpg) | [中文](node-catalog-live-20260911-zh-CN.jpg) |
-| Switch history | [English](selection-history-live-20260911-en.jpg) | [中文](selection-history-live-20260911-zh-CN.jpg) |
-| Runtime settings | [English](preferences-live-20260911-en.jpg) | [中文](preferences-live-20260911-zh-CN.jpg) |
+| Scan workbench | [English](scan-workbench-live-20260911-en.png) | [中文](scan-workbench-live-20260911-zh-CN.png) |
+| Expanded scan filters | [English](scan-filters-live-20260911-en.png) | [中文](scan-filters-live-20260911-zh-CN.png) |
+| Monitoring overview | [English](monitoring-overview-live-20260911-en.png) | [中文](monitoring-overview-live-20260911-zh-CN.png) |
+| Node trends and history | [English](monitoring-node-history-live-20260911-en.png) | [中文](monitoring-node-history-live-20260911-zh-CN.png) |
+| Event timeline | [English](monitoring-events-live-20260911-en.png) | [中文](monitoring-events-live-20260911-zh-CN.png) |
+| Monitor settings | [English](monitoring-settings-live-20260911-en.png) | [中文](monitoring-settings-live-20260911-zh-CN.png) |
+| Node catalog | [English](node-catalog-live-20260911-en.png) | [中文](node-catalog-live-20260911-zh-CN.png) |
+| Switch history | [English](selection-history-live-20260911-en.png) | [中文](selection-history-live-20260911-zh-CN.png) |
+| Runtime settings | [English](preferences-live-20260911-en.png) | [中文](preferences-live-20260911-zh-CN.png) |
 
-The files contain the browser screenshot API's original **JPEG** bytes, with
-matching `.jpg` extensions. They capture the normal desktop viewport in the
-light theme, without browser chrome or a viewport override. No crop, resizing,
-repainting, redaction or metric replacement was applied. The browser returned
-2504 × 1343 or 2519 × 1351 images; individual dimensions, capture timestamps and
-SHA-256 hashes are recorded in [the manifest](live-20260911.json). The complete
-batch is approximately 2.12 MiB.
+The files contain native **PNG** bytes from Edge, captured at a **1440 × 1000**
+CSS-pixel viewport and device scale 1 in the light theme. This smaller viewport
+keeps text and controls readable in documentation. No image resizing, repainting,
+redaction or metric replacement was applied. Runtime settings was scrolled into
+view to keep the connection editor outside the capture. Dimensions, scroll
+positions, capture timestamps and SHA-256 hashes are recorded in
+[the manifest](live-20260911.json). The batch is approximately
+2.09 MiB. These PNGs replace the earlier same-day JPEG batch.
 
 The workbench shows an existing **2026-09-09** stable scan, including its real
 expiry warning. Monitoring continued in the background during capture, so
@@ -39,12 +43,13 @@ these are snapshot counts. Interface text and region labels are localized, while
 node, provider and group identifiers retain their original text. Natural sorting
 can order names differently between locales.
 
-Capture actions were limited to page navigation, the language picker and opening
-an existing node trend. No scan, retest, manual switch, configuration save,
+Capture actions were limited to page navigation, scrolling, the language picker,
+opening advanced filters and an existing node trend. No scan, retest, manual switch, configuration save,
 cleanup or diagnostic export was triggered. The existing monitor plan and
 failover setting were left in place. Access tokens, Controller credentials,
 subscription URLs and the router's address are not visible in these images.
-The task tab was closed after restoring the original Simplified Chinese locale.
+The task tab was closed after restoring the original Simplified Chinese locale
+and resetting the temporary viewport override.
 
 These images show runtime UI state, not an independent network benchmark,
 streaming-unlock test or proof of long-lived connection continuity. The 24-hour
