@@ -11,6 +11,10 @@ func TestPortableDefaultsDoNotDependOnWorkingDirectoryOrOverwriteSettings(t *tes
 	portable := filepath.Join(root, "便携版 with spaces")
 	executable := filepath.Join(portable, "mihomo-smart-selector.exe")
 	other := filepath.Join(root, "other-working-directory")
+	mac, err := DefaultPath("", filepath.Join(portable, "mihomo-smart-selector"), other, "darwin")
+	if err != nil || mac != filepath.Join(portable, "config.yaml") {
+		t.Fatalf("macOS portable path=%s err=%v", mac, err)
+	}
 	path, err := DefaultPath("", executable, other, "windows")
 	if err != nil || path != filepath.Join(portable, "config.yaml") {
 		t.Fatalf("portable path=%s err=%v", path, err)

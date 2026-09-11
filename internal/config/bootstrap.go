@@ -8,13 +8,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DefaultPath keeps a Windows portable installation independent of the caller's
+// DefaultPath keeps Windows and macOS portable installations independent of the caller's
 // working directory. Explicit -config paths always retain their CLI semantics.
 func DefaultPath(explicit, executable, workingDirectory, goos string) (string, error) {
 	path := explicit
 	if path == "" {
 		base := workingDirectory
-		if goos == "windows" {
+		if goos == "windows" || goos == "darwin" {
 			base = filepath.Dir(executable)
 		}
 		path = filepath.Join(base, "config.yaml")

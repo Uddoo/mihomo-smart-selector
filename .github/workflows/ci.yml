@@ -96,6 +96,65 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  macos:
+    name: Package and run macOS ${{ matrix.goarch }}
+    needs: verify
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            goarch: arm64
+          - runner: macos-15-intel
+            goarch: amd64
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Test native macOS behavior
+        run: go test ./...
+      - name: Build the native portable package
+        env:
+          PACKAGE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
+          PACKAGE_ARCH: ${{ matrix.goarch }}
+        run: python3 tools/build-macos.py --version "$PACKAGE_VERSION" --arch "$PACKAGE_ARCH"
+      - name: Run the extracted native package
+        env:
+          PACKAGE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
+          PACKAGE_ARCH: ${{ matrix.goarch }}
+        run: >-
+          python3 tools/test-macos-package.py
+          --archive-path "dist/macos/mihomo-smart-selector-$PACKAGE_VERSION-darwin-$PACKAGE_ARCH.tar.gz"
+          --expected-version "$PACKAGE_VERSION"
+      - name: Verify clean source metadata
+        run: |
+          mkdir -p dist/metadata
+          tar -xzf dist/macos/*.tar.gz -C dist/metadata mihomo-smart-selector
+          go version -m dist/metadata/mihomo-smart-selector > dist/metadata/build.txt
+          cat dist/metadata/build.txt
+          if grep -Eq 'vcs.modified=true|\+dirty' dist/metadata/build.txt; then
+            echo 'Built binary reports a dirty source tree.' >&2
+            exit 1
+          fi
+          grep -q 'vcs.modified=false' dist/metadata/build.txt
+      - name: Preserve packages and checksums
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: macos-${{ matrix.goarch }}-packages
+          path: |
+            dist/macos/*.tar.gz
+            dist/macos/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
   build:
     name: Build linux/${{ matrix.goarch }}
     needs: verify

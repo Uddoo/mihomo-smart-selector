@@ -16,7 +16,7 @@ import (
 var version = "dev"
 
 func main() {
-	configFlag := flag.String("config", "", "configuration path (Windows: config.yaml beside the executable; other systems: ./config.yaml)")
+	configFlag := flag.String("config", "", "configuration path (Windows/macOS: config.yaml beside the executable; other systems: ./config.yaml)")
 	initOnly := flag.Bool("init", false, "create the configuration if missing, then exit")
 	showVersion := flag.Bool("version", false, "print version and platform, then exit")
 	flag.Parse()
