@@ -45,6 +45,17 @@ type ScanPreview struct {
 	Profile          ProbeProfileSummary `json:"profile"`
 	Ready            bool                `json:"ready"`
 	Reason           string              `json:"reason,omitempty"`
+	ReasonCode       string              `json:"reason_code,omitempty"`
+	NestedSelectors  []NestedSelector    `json:"nested_selectors,omitempty"`
+}
+
+// NestedSelector suggests an explicit change of scan target. Its members are
+// never flattened into the parent selector or selected through the parent.
+type NestedSelector struct {
+	Group          string   `json:"group"`
+	Path           []string `json:"path"`
+	CandidateCount int      `json:"candidate_count"`
+	OnCurrentPath  bool     `json:"on_current_path"`
 }
 
 type ProbeTargetSummary struct {

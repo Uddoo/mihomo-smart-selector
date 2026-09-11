@@ -81,6 +81,9 @@ func TestAdmissionGlobalBudgetAndShutdown(t *testing.T) {
 	if _, err = m.Cleanup(context.Background(), m.Settings().Revision); err == nil {
 		t.Fatal("cleanup allowed during scan")
 	}
+	if err := m.PrepareRestart(); err == nil {
+		t.Fatal("restart admitted during scan")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if err = m.Shutdown(ctx); err != nil {
@@ -95,6 +98,28 @@ func TestAdmissionGlobalBudgetAndShutdown(t *testing.T) {
 	saved, err := store.GetScan(ctx, first.ID)
 	if err != nil || saved.Status != model.ScanCancelled {
 		t.Fatalf("shutdown state=%+v err=%v", saved, err)
+	}
+}
+
+func TestPrepareRestartSealsNewWork(t *testing.T) {
+	cfg := config.Defaults()
+	store, err := history.Open(t.TempDir() + "/db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	m := NewManager(cfg, &fakeMihomo{}, store)
+	if err := m.PrepareRestart(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.Start(model.ScanRequest{TargetGroup: "any"}); err == nil {
+		t.Fatal("scan admitted after restart reservation")
+	}
+	if err := m.PrepareRestart(); err == nil {
+		t.Fatal("duplicate restart reservation accepted")
+	}
+	if err := m.Shutdown(context.Background()); err != nil {
+		t.Fatal(err)
 	}
 }
 

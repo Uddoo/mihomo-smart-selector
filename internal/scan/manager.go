@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"maps"
 	"sort"
@@ -132,15 +131,13 @@ func (m *Manager) Preflight(ctx context.Context, request model.ScanRequest) (mod
 	if len(profile.Probes) == 0 {
 		return model.ScanPreview{}, fmt.Errorf("probe profile %q has no reachable probes", profile.Label)
 	}
-	candidates, err := m.discoverCandidates(ctx, request)
+	group, proxies, providerByNode, err := m.discoverMembership(ctx, request)
 	if err != nil {
-		if errors.Is(err, errNoCandidates) {
-			return model.ScanPreview{
-				Profile: m.profileSummary(profile), Ready: false,
-				Reason: "此选择器当前未直接包含可选择的叶子节点；为避免越过嵌套策略组，扫描已保持禁用。",
-			}, nil
-		}
 		return model.ScanPreview{}, err
+	}
+	candidates := m.filterCandidates(group, proxies, providerByNode, request)
+	if len(candidates) == 0 {
+		return m.emptyPreview(group, proxies, providerByNode, request, profile), nil
 	}
 	if len(candidates) > m.currentConfig().Scanner.MaxTotalCandidates {
 		return model.ScanPreview{}, fmt.Errorf("%d candidates exceed scanner.max_total_candidates (%d); narrow regions or providers", len(candidates), m.currentConfig().Scanner.MaxTotalCandidates)
@@ -416,15 +413,27 @@ func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult
 }
 
 func (m *Manager) discoverCandidates(ctx context.Context, request model.ScanRequest) ([]candidate, error) {
+	group, proxies, providerByNode, err := m.discoverMembership(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	candidates := m.filterCandidates(group, proxies, providerByNode, request)
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("%w matched the requested filters", errNoCandidates)
+	}
+	return candidates, nil
+}
+
+func (m *Manager) discoverMembership(ctx context.Context, request model.ScanRequest) (mihomo.Proxy, map[string]mihomo.Proxy, map[string]string, error) {
 	proxies, err := m.client.ListProxies(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("discover proxies: %w", err)
+		return mihomo.Proxy{}, nil, nil, fmt.Errorf("discover proxies: %w", err)
 	}
 	// Provider enrichment belongs to this scan, not the controller's shared snapshot.
 	proxies = maps.Clone(proxies)
 	group, exists := proxies[request.TargetGroup]
 	if !exists || !strings.EqualFold(group.Type, "Selector") {
-		return nil, fmt.Errorf("target group %q is not a Mihomo Selector", request.TargetGroup)
+		return mihomo.Proxy{}, nil, nil, fmt.Errorf("target group %q is not a Mihomo Selector", request.TargetGroup)
 	}
 	providerByNode := map[string]string{}
 	providers, providerErr := m.client.ListProviders(ctx)
@@ -443,13 +452,9 @@ func (m *Manager) discoverCandidates(ctx context.Context, request model.ScanRequ
 			}
 		}
 	} else if len(request.Providers) > 0 {
-		return nil, fmt.Errorf("discover providers for selected provider filter: %w", providerErr)
+		return mihomo.Proxy{}, nil, nil, fmt.Errorf("discover providers for selected provider filter: %w", providerErr)
 	}
-	candidates := m.filterCandidates(group, proxies, providerByNode, request)
-	if len(candidates) == 0 {
-		return nil, fmt.Errorf("%w matched the requested filters", errNoCandidates)
-	}
-	return candidates, nil
+	return group, proxies, providerByNode, nil
 }
 
 func normaliseRequest(request model.ScanRequest) (model.ScanRequest, error) {

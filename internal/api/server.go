@@ -34,6 +34,7 @@ type Server struct {
 	exposed    bool
 	monitor    *monitor.Manager
 	connection *connection.Manager
+	service    *serviceControl
 }
 
 func New(cfg config.HTTPConfig, manager *scan.Manager, controller mihomo.Client) (*Server, error) {
@@ -68,7 +69,14 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) route(writer http.ResponseWriter, request *http.Request) {
+	if s.service != nil && s.service.pending.Load() && strings.HasPrefix(request.URL.Path, "/api/") && request.URL.Path != "/api/v1/service" && request.URL.Path != "/api/v1/service/restart" {
+		writer.Header().Set("Retry-After", "1")
+		writeError(writer, http.StatusServiceUnavailable, "服务正在重启，请等待恢复")
+		return
+	}
 	switch {
+	case request.URL.Path == "/api/v1/service" || request.URL.Path == "/api/v1/service/restart":
+		s.serviceRoute(writer, request)
 	case request.URL.Path == "/api/v1/connection" || request.URL.Path == "/api/v1/connection/test":
 		s.connectionRoute(writer, request)
 	case request.URL.Path == "/api/v1/monitor" || strings.HasPrefix(request.URL.Path, "/api/v1/monitor/"):

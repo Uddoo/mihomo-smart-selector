@@ -61,7 +61,7 @@ func (m *Manager) filterCandidates(group mihomo.Proxy, proxies map[string]mihomo
 		if !exists {
 			continue
 		}
-		if isPolicyGroup(proxy.Type) {
+		if !isLeafProxy(proxy) {
 			continue
 		}
 		provider := proxy.ProviderName

@@ -131,3 +131,31 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 		return ctx.Err()
 	}
 }
+
+// PrepareRestart shares the scan/selection gate, so accepting a restart cannot
+// race a new scan or an in-flight selection. Background monitoring is drained
+// by the application runtime and resumes from its persisted plan afterwards.
+func (m *Manager) PrepareRestart() error {
+	m.settingsMu.Lock()
+	defer m.settingsMu.Unlock()
+	if m.stopping {
+		return fmt.Errorf("服务正在重启，请等待恢复")
+	}
+	if m.hasRunningScan() {
+		return fmt.Errorf("有扫描正在运行，请等待完成或停止扫描后重启服务")
+	}
+	m.stopping = true
+	return nil
+}
+
+func (m *Manager) ActiveScans() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	count := 0
+	for _, item := range m.active {
+		if item.Status == model.ScanRunning {
+			count++
+		}
+	}
+	return count
+}
