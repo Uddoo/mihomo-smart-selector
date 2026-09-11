@@ -1,0 +1,39 @@
+{
+  "installedAt": "2026-09-11",
+  "scope": "project",
+  "skills": [
+    {
+      "name": "impeccable",
+      "repository": "https://github.com/pbakaus/impeccable",
+      "tag": "skill-v4.3.1",
+      "revision": "cd12f8660e2dde57b9615c8a6b8ea674101f9cfc",
+      "skillVersion": "4.3.1",
+      "installerVersion": "4.1.0",
+      "engineVersion": "0.1.5",
+      "installation": "npx.cmd --yes impeccable@4.1.0 install --providers=codex --scope=project",
+      "localChanges": [
+        "Removed trailing whitespace and extra EOF blank line in extract, harden and optimize references; instructions unchanged."
+      ]
+    },
+    {
+      "name": "vue-best-practices",
+      "repository": "https://github.com/vuejs-ai/skills",
+      "path": "skills/vue-best-practices",
+      "revision": "c9d355ff23f654309dd02006be671859df0a134c",
+      "skillVersion": "18.0.0",
+      "installation": "skill-installer with --method git --dest .agents/skills",
+      "localChanges": [
+        "Reworded script setup in frontmatter description to remove angle brackets required by the Codex validator; body unchanged."
+      ]
+    },
+    {
+      "name": "web-design-guidelines",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "path": "skills/web-design-guidelines",
+      "revision": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "skillVersion": "1.0.0",
+      "installation": "skill-installer with --method git --dest .agents/skills",
+      "localChanges": []
+    }
+  ]
+}
