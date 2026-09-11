@@ -1,5 +1,57 @@
 # Documentation screenshots and provenance
 
+<a id="live-20260911"></a>
+## Edge captures from the deployed router — 2026-09-11
+
+The maintainer explicitly authorized this live capture batch. All **16 images**
+were captured through **Microsoft Edge on Windows** from the running
+**NanoPi R5S LTS / ARM64, iStoreOS 24.10.8** deployment at commit
+`fe393a8303aec1f01a262a1bda4b5bf316b92c36`. English documentation uses the `-en`
+images, while Chinese documentation uses `-zh-CN`.
+
+Read the [English screenshot tour](../../screenshots.md) or
+[中文实机导览](../../screenshots.zh-CN.md) for the displayed states and their meaning.
+
+| View | English | 简体中文 |
+| --- | --- | --- |
+| Scan workbench | [English](scan-workbench-live-20260911-en.jpg) | [中文](scan-workbench-live-20260911-zh-CN.jpg) |
+| Monitoring overview | [English](monitoring-overview-live-20260911-en.jpg) | [中文](monitoring-overview-live-20260911-zh-CN.jpg) |
+| Node trends and history | [English](monitoring-node-history-live-20260911-en.jpg) | [中文](monitoring-node-history-live-20260911-zh-CN.jpg) |
+| Event timeline | [English](monitoring-events-live-20260911-en.jpg) | [中文](monitoring-events-live-20260911-zh-CN.jpg) |
+| Monitor settings | [English](monitoring-settings-live-20260911-en.jpg) | [中文](monitoring-settings-live-20260911-zh-CN.jpg) |
+| Node catalog | [English](node-catalog-live-20260911-en.jpg) | [中文](node-catalog-live-20260911-zh-CN.jpg) |
+| Switch history | [English](selection-history-live-20260911-en.jpg) | [中文](selection-history-live-20260911-zh-CN.jpg) |
+| Runtime settings | [English](preferences-live-20260911-en.jpg) | [中文](preferences-live-20260911-zh-CN.jpg) |
+
+The files contain the browser screenshot API's original **JPEG** bytes, with
+matching `.jpg` extensions. They capture the normal desktop viewport in the
+light theme, without browser chrome or a viewport override. No crop, resizing,
+repainting, redaction or metric replacement was applied. The browser returned
+2504 × 1343 or 2519 × 1351 images; individual dimensions, capture timestamps and
+SHA-256 hashes are recorded in [the manifest](live-20260911.json). The complete
+batch is approximately 2.12 MiB.
+
+The workbench shows an existing **2026-09-09** stable scan, including its real
+expiry warning. Monitoring continued in the background during capture, so
+timestamps, current states and measurements can differ between language pairs.
+The catalog contains 309 entries, with 299 matching its default proxy-node scope;
+these are snapshot counts. Interface text and region labels are localized, while
+node, provider and group identifiers retain their original text. Natural sorting
+can order names differently between locales.
+
+Capture actions were limited to page navigation, the language picker and opening
+an existing node trend. No scan, retest, manual switch, configuration save,
+cleanup or diagnostic export was triggered. The existing monitor plan and
+failover setting were left in place. Access tokens, Controller credentials,
+subscription URLs and the router's address are not visible in these images.
+The task tab was closed after restoring the original Simplified Chinese locale.
+
+These images show runtime UI state, not an independent network benchmark,
+streaming-unlock test or proof of long-lived connection continuity. The 24-hour
+monitoring views report sufficient data; that label is not a 7-day reliability
+study. Older mock and maintainer-supplied captures remain below as historical
+assets, with their original provenance.
+
 ## Local mock showcase
 
 The three mock showcase images below were captured from the real application at UI source commit
@@ -21,8 +73,8 @@ demo provenance. The main screenshot includes the application's own demo label.
 
 `scan-workbench.png`, `node-catalog.png`, `selection-history.png`, and
 `preferences.png` are earlier deployment captures. Existing images are retained
-for historical references. The README labels its older preferences view; the
-current node-catalog showcase uses the dated live capture below.
+for historical references. Both READMEs now use the 2026-09-11 live batch above;
+the mock comparison remains an input to the older sharing-cover artwork.
 
 <a id="live-20260909"></a>
 ## Maintainer-supplied live captures — 2026-09-09
@@ -34,7 +86,7 @@ They retain the node/provider names and measurements visible in the supplied ima
 The source commit is not encoded in the screenshots; the date describes this
 capture batch, not a promise that future UI or runtime state will remain identical.
 
-| File | View | Documentation use |
+| File | View | Original documentation use (historical) |
 | --- | --- | --- |
 | [monitoring-overview-live-20260909.png](monitoring-overview-live-20260909.png) | Monitoring overview, current selection and provisional 24-hour ranking | Both READMEs and monitoring guide |
 | [monitoring-node-history-live-20260909.png](monitoring-node-history-live-20260909.png) | Observation series, history, coverage and event markers | Monitoring guide |

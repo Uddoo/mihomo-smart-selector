@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/branding/social-preview.png" width="1280" alt="Mihomo Smart Selector — scan, compare, and confirm. Application preview uses demo data." />
+  <img src="docs/assets/branding/logo.png" width="112" alt="Mihomo Smart Selector logo" />
 </p>
 <h1 align="center">Mihomo Smart Selector</h1>
 <p align="center"><strong>Choose your next node with evidence.</strong></p>
@@ -16,8 +16,8 @@
   <a href="#compatibility"><img src="https://img.shields.io/badge/status-pre--release-f0b44c" alt="Pre-release" /></a>
 </p>
 
-![Completed scan: five ranked nodes, sample evidence, and a current-versus-candidate comparison](docs/assets/screenshots/workbench-results.png)
-<p align="center"><sub>Actual application, local mock data. The interface is currently in Simplified Chinese. Shown timings illustrate the workflow, not a network benchmark.</sub></p>
+![English scan workbench on the router: saved results, ranked nodes, and an expired candidate comparison](docs/assets/screenshots/scan-workbench-live-20260911-en.jpg)
+<p align="center"><sub>Live router deployment, captured in Microsoft Edge on 2026-09-11. The selected scan was recorded on 2026-09-09; its expiry warning is preserved. <a href="docs/screenshots.md">Browse all eight views in English.</a></sub></p>
 <p align="center"><strong>Single binary · Manual scan selection · Opt-in monitoring failover</strong></p>
 
 ## Why try it?
@@ -54,8 +54,8 @@ In terminal 2, from the same repository directory:
 go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 ```
 
-Open **[localhost:8788](http://127.0.0.1:8788)**, select **稳定** (stable), and start a
-scan. The mock runs entirely on loopback, returns simulated node timings and
+Open **[localhost:8788](http://127.0.0.1:8788)**, choose **English** in the language
+picker if needed, select **Stable** mode, and start a scan. The mock runs entirely on loopback, returns simulated node timings and
 requires no subscription or real Controller secret. Both commands work in
 PowerShell and a POSIX shell. First run downloads Go dependencies; Ctrl+C stops
 each process. Ports 9090 and 8788 must be available.
@@ -82,7 +82,9 @@ The current member and candidate stay visible together. Sample counts and
 measurement times explain how much evidence is behind the ranking. Expired
 results need a retest and a new confirmation.
 
-<p align="center"><img src="docs/assets/screenshots/node-comparison.png" width="430" alt="Candidate detail showing the current node at 188 ms P95, candidate at 109 ms, and three successful simulated samples" /></p>
+In the [live workbench capture](docs/screenshots.md#scan-workbench), the candidate
+panel keeps its sample evidence and expiry warning visible. Historical results
+remain readable, while selection is unavailable until fresh evidence is collected.
 
 ### 02 · Check the outcome
 
@@ -90,10 +92,11 @@ Every switch starts with a durable pending intent. Controller readback records
 a confirmed, failed or unknown outcome; retrying the same request does not
 repeat the switch. Unknown outcomes remain available for reconciliation.
 
-![Two manual switches with confirmed Controller readback, captured against the local mock](docs/assets/screenshots/switch-audit.png)
+![English switch history with existing automatic monitoring switches and confirmed Controller readback](docs/assets/screenshots/selection-history-live-20260911-en.jpg)
 
-*All three showcase images use the built-in mock and actual application flows.
-They are not evidence of streaming unlock, account access or production latency.*
+*These are existing records from the live deployment's enabled monitoring
+failover. Capturing this page did not trigger a switch. A confirmed group selection
+does not prove that existing connections migrated.*
 
 ### 03 · Observe health over time
 
@@ -102,14 +105,14 @@ and the evidence behind the selected observation window. Open node details for
 history, the event timeline for incidents, or monitoring settings for the
 opt-in failover switch and diagnostics.
 
-![Live monitoring overview with current state, provisional HTTPS scores, coverage and recent 24-hour ranking](docs/assets/screenshots/monitoring-overview-live-20260909.png)
+![English live monitoring overview with current health, 24-hour HTTPS scores, coverage and ranking](docs/assets/screenshots/monitoring-overview-live-20260911-en.jpg)
 
-*Maintainer-supplied live capture, 2026-09-09. A node can be healthy now while
-its historical success rate is low. The pictured scores are provisional:
-about 14 hours of observation and 46% coverage do not establish a full 24-hour
-record. Enabled failover is this deployment's setting, not the default.*
+*Live capture, 2026-09-11. The visible rows show a full 24-hour observation span
+and “Sufficient data”. A healthy current state can coexist with historical
+failures; coverage and success rate measure different things. Enabled failover
+is this deployment's setting, not the default.*
 
-[All four monitoring tabs and how to read them →](docs/monitoring.md#live-screenshots)
+[All four monitoring tabs in English and how to read them →](docs/screenshots.md#monitoring-overview)
 
 ### 04 · Find nodes and inspect region evidence
 
@@ -118,22 +121,23 @@ entry scope and region status. The catalog uses its own filters, with an
 explicit action to copy the scan filters. Built-in aliases extend legacy
 configuration, while ambiguous transit names remain available for review.
 
-![Live node catalog: 299 visible entries out of 309, with ten built-in outbounds or suspected notices hidden](docs/assets/screenshots/node-catalog-live-20260909.png)
+![English live node catalog: 299 matching entries out of 309, with ten built-in outbounds or suspected notices hidden](docs/assets/screenshots/node-catalog-live-20260911-en.jpg)
 
 *Same live screenshot batch. The 299 / 309 counts describe this snapshot, not
-a product limit. Hidden entries remain accessible through “全部条目” (all
-entries). Regions are inferred from names/configuration, not measured exits.*
+a product limit. Hidden entries remain accessible through “All entries”. Regions
+are inferred from names/configuration, not measured exits. Node and group names
+retain the original subscription/configuration text in either interface language.*
 
 [Region inference, entry types and manual overrides →](docs/region-classification.md)
 
 <details>
-<summary><strong>Earlier view: preferences</strong></summary>
+<summary><strong>Runtime settings</strong></summary>
 
-This earlier deployment capture is retained for reference; it may predate the
-current layout. See the [screenshot provenance](docs/assets/screenshots/README.md)
-for the distinction between local mock images and live captures.
+Scan parameters, result validity, retention and optional verification are
+available in the settings page. The values shown belong to this deployment;
+capturing them did not save changes.
 
-![Earlier preferences view for scan settings and optional verification](docs/assets/screenshots/preferences.png)
+![English runtime settings on the live router deployment](docs/assets/screenshots/preferences-live-20260911-en.jpg)
 
 </details>
 
@@ -165,12 +169,12 @@ ties), after a fresh check. Switches have durable audits and a two-minute cooldo
 | Evidence | Scope |
 | --- | --- |
 | **Local runtime** | Windows, using the included mock Controller and browser workflow tests. |
-| **Router runtime** | NanoPi R5S LTS / ARM64 with iStoreOS 24.10.8. The 2026-09-09 live captures show monitoring and the expanded node catalog; they do not establish full-window reliability or long-connection continuity. |
+| **Router runtime** | NanoPi R5S LTS / ARM64 with iStoreOS 24.10.8. The 2026-09-11 Edge captures show eight views in both interface languages at deployed commit `fe393a8`. Screenshots document the displayed state, not end-to-end service or long-connection reliability. |
 | **Build validation** | CI is configured to build Linux ARM64 and AMD64; use the live CI badge for the current result. Build success is not runtime validation on every device. |
 
 The project is under active development. Configuration and API compatibility
-may change before `v1.0.0`. The dashboard is in Simplified Chinese; English UI
-localization is not complete. HTTP reachability does not prove login, playback
+may change before `v1.0.0`. The dashboard supports Simplified Chinese and English,
+with a language picker in the page header. HTTP reachability does not prove login, playback
 or regional unlock. Strict checks and egress verification are reported
 separately from performance scoring.
 
@@ -179,9 +183,10 @@ separately from performance scoring.
 
 | I want to… | Read |
 | --- | --- |
+| Explore the current interface in English | [Live screenshot tour](docs/screenshots.md) |
 | Use my own group names, services or private endpoints | [Service adaptation & persistent settings](docs/service-adaptation.md) |
 | Install on a router | [Deployment, preflight and rollback](deploy/openwrt/README.md) |
-| Read monitoring health, trends, events and failover settings | [Monitoring guide with live screenshots](docs/monitoring.md) |
+| Read monitoring health, trends, events and failover settings | [English screenshot tour](docs/screenshots.md#monitoring-overview) · [Detailed guide (Chinese)](docs/monitoring.md) |
 | Understand inferred, ambiguous or hidden catalog entries | [Region inference and entry types](docs/region-classification.md) |
 | Understand scores, isolation or the API | [Architecture & verification boundaries](docs/architecture.md) |
 | Understand restart recovery, audit states or cleanup | [Long-running operation](docs/operations.md) |

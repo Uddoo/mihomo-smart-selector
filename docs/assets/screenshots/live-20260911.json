@@ -1,0 +1,195 @@
+{
+  "capture_date": "2026-09-11",
+  "timezone": "Asia/Shanghai",
+  "browser": "Microsoft Edge",
+  "browser_host": "Windows",
+  "deployment": {
+    "device": "NanoPi R5S LTS",
+    "architecture": "ARM64",
+    "operating_system": "iStoreOS 24.10.8",
+    "source_commit": "fe393a8303aec1f01a262a1bda4b5bf316b92c36"
+  },
+  "capture": {
+    "theme": "light",
+    "viewport": "Normal desktop viewport, without a viewport override",
+    "method": "Native browser viewport screenshots",
+    "format": "JPEG bytes returned by the browser screenshot API",
+    "post_processing": "None; no crop, resizing, repainting, redaction or metric replacement",
+    "languages": [
+      "zh-CN",
+      "en"
+    ],
+    "production_mutations_triggered": false,
+    "notes": [
+      "Existing router data; not a mock fixture.",
+      "The selected scan is dated 2026-09-09; expiry warnings are preserved.",
+      "Background monitoring continued between captures.",
+      "Node, provider and group identifiers retain their original text.",
+      "Screenshots exclude browser chrome, access tokens and subscription URLs.",
+      "No scans, retests, manual switches, configuration saves or exports were initiated.",
+      "Interface language was restored to Simplified Chinese and the task tab was closed."
+    ]
+  },
+  "files": [
+    {
+      "file": "monitoring-events-live-20260911-en.jpg",
+      "locale": "en",
+      "captured_at": "2026-09-11T03:49:14.5693473Z",
+      "width": 2519,
+      "height": 1351,
+      "format": "Jpeg",
+      "bytes": 138696,
+      "sha256": "2a1c1825d81b7b4f9a30ce2f92f86cb312a9c7d8256f9c897a6fbca5f6500f81"
+    },
+    {
+      "file": "monitoring-events-live-20260911-zh-CN.jpg",
+      "locale": "zh-CN",
+      "captured_at": "2026-09-11T03:49:23.9885967Z",
+      "width": 2519,
+      "height": 1351,
+      "format": "Jpeg",
+      "bytes": 119543,
+      "sha256": "b149a52c5adb78f99cea63ed2b72694f02ac9c1956f6c79b874c876649020283"
+    },
+    {
+      "file": "monitoring-node-history-live-20260911-en.jpg",
+      "locale": "en",
+      "captured_at": "2026-09-11T03:49:07.8350271Z",
+      "width": 2504,
+      "height": 1343,
+      "format": "Jpeg",
+      "bytes": 156357,
+      "sha256": "d96f032ec4540da38eec3b84c9b5f051b89d007f34bffde1d052536d54ac03d2"
+    },
+    {
+      "file": "monitoring-node-history-live-20260911-zh-CN.jpg",
+      "locale": "zh-CN",
+      "captured_at": "2026-09-11T03:49:02.0576176Z",
+      "width": 2504,
+      "height": 1343,
+      "format": "Jpeg",
+      "bytes": 141089,
+      "sha256": "fe1fd4b755f4c3a72107b4bd9f9782418944a9982df04431275bc7a6ebeec075"
+    },
+    {
+      "file": "monitoring-overview-live-20260911-en.jpg",
+      "locale": "en",
+      "captured_at": "2026-09-11T03:48:34.3227013Z",
+      "width": 2504,
+      "height": 1343,
+      "format": "Jpeg",
+      "bytes": 150500,
+      "sha256": "f4472f4ca397716fd63629b15769bdbd3cba753b6a22a4b22ad07a8a0b4b4faa"
+    },
+    {
+      "file": "monitoring-overview-live-20260911-zh-CN.jpg",
+      "locale": "zh-CN",
+      "captured_at": "2026-09-11T03:48:53.5184869Z",
+      "width": 2504,
+      "height": 1343,
+      "format": "Jpeg",
+      "bytes": 133812,
+      "sha256": "1a1c04a36b5bb29cda95cd5cf4c4408bfb5aaee855b5e108ecd03e46448be1ce"
+    },
+    {
+      "file": "monitoring-settings-live-20260911-en.jpg",
+      "locale": "en",
+      "captured_at": "2026-09-11T03:49:42.1874793Z",
+      "width": 2519,
+      "height": 1351,
+      "format": "Jpeg",
+      "bytes": 114211,
+      "sha256": "f07ff3a9beb8264147e4c563ac10292afe2b260d481080e5d7e48858e140e46c"
+    },
+    {
+      "file": "monitoring-settings-live-20260911-zh-CN.jpg",
+      "locale": "zh-CN",
+      "captured_at": "2026-09-11T03:49:32.5927817Z",
+      "width": 2519,
+      "height": 1351,
+      "format": "Jpeg",
+      "bytes": 96479,
+      "sha256": "d9a3b645a5a2aeea503cc564244726399acee9aa814ebae92003359fbd4c3645"
+    },
+    {
+      "file": "node-catalog-live-20260911-en.jpg",
+      "locale": "en",
+      "captured_at": "2026-09-11T03:49:56.0220393Z",
+      "width": 2519,
+      "height": 1351,
+      "format": "Jpeg",
+      "bytes": 158137,
+      "sha256": "992c0e0d633a6427af70a94dea84ccb96ec6afa3e18bc98ec174eaef046f0bec"
+    },
+    {
+      "file": "node-catalog-live-20260911-zh-CN.jpg",
+      "locale": "zh-CN",
+      "captured_at": "2026-09-11T03:50:04.5203181Z",
+      "width": 2519,
+      "height": 1351,
+      "format": "Jpeg",
+      "bytes": 149011,
+      "sha256": "b9832a2452df9232fbafe9515f3d738d15e7668e529fb6ce4f54fb6644cae94c"
+    },
+    {
+      "file": "preferences-live-20260911-en.jpg",
+      "locale": "en",
+      "captured_at": "2026-09-11T03:50:30.6858632Z",
+      "width": 2504,
+      "height": 1343,
+      "format": "Jpeg",
+      "bytes": 167842,
+      "sha256": "c6c075bd1f58000bae5cb2256250d49c95ce77cecce20bdfb5407befda5ab1cc"
+    },
+    {
+      "file": "preferences-live-20260911-zh-CN.jpg",
+      "locale": "zh-CN",
+      "captured_at": "2026-09-11T03:50:48.1294326Z",
+      "width": 2504,
+      "height": 1343,
+      "format": "Jpeg",
+      "bytes": 150841,
+      "sha256": "76ab6588faf456fedf1347b569c10cd7fdd2948b462f0cc9a612254eb3bc12db"
+    },
+    {
+      "file": "scan-workbench-live-20260911-en.jpg",
+      "locale": "en",
+      "captured_at": "2026-09-11T03:48:16.2734805Z",
+      "width": 2504,
+      "height": 1343,
+      "format": "Jpeg",
+      "bytes": 157975,
+      "sha256": "134c721bfc7e0236ca7baa220a89b150c087bcfaff948b92c98413cba60e8e3d"
+    },
+    {
+      "file": "scan-workbench-live-20260911-zh-CN.jpg",
+      "locale": "zh-CN",
+      "captured_at": "2026-09-11T03:47:55.3382888Z",
+      "width": 2504,
+      "height": 1343,
+      "format": "Jpeg",
+      "bytes": 149639,
+      "sha256": "868a4710b91dbd09092c20955f24fe3bd9c94f999c0f1b5055905bb2e6196934"
+    },
+    {
+      "file": "selection-history-live-20260911-en.jpg",
+      "locale": "en",
+      "captured_at": "2026-09-11T03:50:20.1893021Z",
+      "width": 2504,
+      "height": 1343,
+      "format": "Jpeg",
+      "bytes": 125238,
+      "sha256": "98ba289b7bd36c311e285339f9607b33742d5c2be461efd88f036d102e413db5"
+    },
+    {
+      "file": "selection-history-live-20260911-zh-CN.jpg",
+      "locale": "zh-CN",
+      "captured_at": "2026-09-11T03:50:14.6077116Z",
+      "width": 2504,
+      "height": 1343,
+      "format": "Jpeg",
+      "bytes": 112701,
+      "sha256": "9f0cc7a9b76c1236eebeea8874b072f5a8bc00cc10a6cda19d384a764177990e"
+    }
+  ]
+}

@@ -46,6 +46,9 @@ versioned releases begin.
 
 ### Added
 
+- Paired Chinese/English documentation screenshots captured in Microsoft Edge
+  from the deployed `fe393a8` router build on 2026-09-11, with localized screenshot
+  tours, refreshed README examples and capture provenance.
 - Chinese and English interfaces across scanning, monitoring, node browsing,
   switch history, settings and LAN access. Language selection follows the
   browser initially, persists locally and updates open views without reloading.

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/branding/social-preview.png" width="1280" alt="Mihomo Smart Selector — 扫描、对比、确认切换。界面预览使用演示数据。" />
+  <img src="docs/assets/branding/logo.png" width="112" alt="Mihomo Smart Selector 项目标识" />
 </p>
 <h1 align="center">Mihomo Smart Selector</h1>
 <p align="center"><strong>按服务选节点，让每次切换都有依据。</strong></p>
@@ -16,8 +16,8 @@
   <a href="#compatibility"><img src="https://img.shields.io/badge/status-pre--release-f0b44c" alt="预发布状态" /></a>
 </p>
 
-![扫描完成后的五节点排名、样本依据与当前节点对比](docs/assets/screenshots/workbench-results.png)
-<p align="center"><sub>真实运行界面 · 本地模拟数据。图中数值用于展示使用流程，不代表真实网络性能。</sub></p>
+![中文实机工作台：历史扫描结果、节点排名与已过期的候选比较](docs/assets/screenshots/scan-workbench-live-20260911-zh-CN.jpg)
+<p align="center"><sub>2026-09-11 通过 Microsoft Edge 截取的路由器实机界面。当前查看的是 2026-09-09 的扫描记录，保留真实过期提示。<a href="docs/screenshots.zh-CN.md">查看全部八个页面。</a></sub></p>
 <p align="center"><strong>单文件部署 · 扫描手动选择 · 监控按需自动切换</strong></p>
 
 ## 它能帮你做什么？
@@ -76,26 +76,28 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 当前节点与候选节点同时可见。成功数、采样次数和测量时间帮助你判断排名有多少依据；
 结果过期后，需要复测并再次确认。
 
-<p align="center"><img src="docs/assets/screenshots/node-comparison.png" width="430" alt="候选详情特写：模拟场景中当前节点 P95 为 188 ms，候选为 109 ms，三次采样均成功" /></p>
+在[实机工作台截图](docs/screenshots.zh-CN.md#scan-workbench)中，候选详情同时保留采样依据和过期提示。
+历史结果仍可阅读，补充新证据后才能重新选择。
 
 ### 02 · 切换之后，核对实际结果
 
 每次切换都会先保存待执行记录，再回读 Controller，区分已确认、失败或未知结果。
 同一次请求重试不会重复切换；未确认操作会持续保留，供你核对。
 
-![模拟 Controller 上通过真实确认流程生成的两条已确认切换记录](docs/assets/screenshots/switch-audit.png)
+![中文实机选择历史：已有的监控自动切换及 Controller 回读确认结果](docs/assets/screenshots/selection-history-live-20260911-zh-CN.jpg)
 
-*以上三张展示图均使用仓库内置 mock 和真实应用流程，不作为帐号登录、流媒体解锁或生产网络时延的证明。*
+*截图展示此部署已开启的监控自动切换所产生的历史记录，截图操作没有触发切换。
+策略组选择已确认不代表已有连接已经迁移。*
 
 ### 03 · 持续观察健康状态与历史依据
 
 “概览”集中显示策略组当前选择、需要关注的节点，以及所选观察窗口的证据范围。
 从节点名称进入“节点详情”查看趋势，在“事件时间线”追踪变化，在“监控设置”管理自动切换与诊断。
 
-![实机持续监控概览：当前状态、暂定 HTTPS 健康分、覆盖率和最近 24 小时排名](docs/assets/screenshots/monitoring-overview-live-20260909.png)
+![中文实机持续监控概览：当前健康、24 小时 HTTPS 健康分、覆盖率和排名](docs/assets/screenshots/monitoring-overview-live-20260911-zh-CN.jpg)
 
-*维护者提供的 2026-09-09 实机截图。当前“健康”与历史成功率低可以同时成立；
-图中约 14 小时观测、约 46% 覆盖率，因此评分仍为暂定分，不代表已有完整 24 小时记录。
+*2026-09-11 实机截图，可见排名行已覆盖完整 24 小时观测跨度并显示“数据充足”。
+当前健康与历史失败可以同时存在；覆盖率和成功率表示不同含义。
 自动切换“已开启”是该部署的设置，产品默认关闭。*
 
 [四个监控页签的截图与读图说明 →](docs/monitoring.md#live-screenshots)
@@ -106,19 +108,20 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 目录筛选独立于扫描配置，提供明确的“沿用扫描筛选”入口。
 内置地区词典会扩展旧配置，中转或名称冲突条目保留为待确认。
 
-![实机节点目录：309 个条目中默认显示 299 个，隐藏 10 个内置出站或疑似订阅提示](docs/assets/screenshots/node-catalog-live-20260909.png)
+![中文实机节点目录：309 个条目中默认匹配 299 个，隐藏 10 个内置出站或疑似订阅提示](docs/assets/screenshots/node-catalog-live-20260911-zh-CN.jpg)
 
 *同批实机截图。299 / 309 是该次运行快照的数量，不是产品容量上限。
-隐藏条目仍可通过“全部条目”查看；地区来自名称或配置推断，不是出口实测结果。*
+隐藏条目仍可通过“全部条目”查看；地区来自名称或配置推断，不是出口实测结果。
+切换界面语言后，节点名和策略组名保留订阅或配置中的原文。*
 
 [地区推断、条目分类与手动覆盖说明 →](docs/region-classification.md)
 
 <details>
-<summary><strong>较早版本界面：偏好设置</strong></summary>
+<summary><strong>运行参数与偏好设置</strong></summary>
 
-这张较早的实机截图保留作参考，可能早于当前布局。模拟图与实机图的来源区别见[截图说明](docs/assets/screenshots/README.md)。
+在偏好设置中管理扫描参数、结果有效期、保留策略与可选验证。图中数值属于当前部署；截图时没有保存修改。
 
-![较早版本的扫描参数和可选验证设置](docs/assets/screenshots/preferences.png)
+![中文实机运行设置：扫描参数、可选出口验证和历史保留策略](docs/assets/screenshots/preferences-live-20260911-zh-CN.jpg)
 
 </details>
 
@@ -144,10 +147,10 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 | 验证类型 | 范围 |
 | --- | --- |
 | **本地运行** | Windows，使用内置 mock Controller 和浏览器流程测试。 |
-| **路由器运行** | NanoPi R5S LTS / ARM64，iStoreOS 24.10.8。2026-09-09 实机截图展示持续监控及扩展后的节点目录，不作为完整观察窗口可靠性或长连接连续性的证明。 |
+| **路由器运行** | NanoPi R5S LTS / ARM64，iStoreOS 24.10.8。2026-09-11 通过 Edge 截取部署版本 `fe393a8` 的八个页面，中英文各一套。截图展示当时的界面状态，不作为端到端业务或长连接可靠性的证明。 |
 | **构建验证** | CI 配置覆盖 Linux ARM64、AMD64；当前结果以顶部实时 CI 徽章为准。构建成功不等同于所有设备均已实机验证。 |
 
-项目仍在开发中，`v1.0.0` 前配置和 API 兼容性可能变化。当前界面以简体中文为主，英文 UI 尚未完成。
+项目仍在开发中，`v1.0.0` 前配置和 API 兼容性可能变化。界面支持简体中文和英文，可通过页头语言选择器切换。
 HTTP 可达不等于登录、播放或地区解锁成功；严格验证和出口验证独立展示，不混同于性能评分。
 
 <a id="docs"></a>
@@ -155,6 +158,7 @@ HTTP 可达不等于登录、播放或地区解锁成功；严格验证和出口
 
 | 我想…… | 文档 |
 | --- | --- |
+| 浏览当前中文版界面 | [实机截图导览](docs/screenshots.zh-CN.md) |
 | 使用自己的组名、服务或私有地址 | [服务适配与持久化设置](docs/service-adaptation.md) |
 | 安装到路由器 | [部署、预检与回滚](deploy/openwrt/README.md) |
 | 看懂监控状态、趋势、事件与自动切换 | [持续监控说明与实机截图](docs/monitoring.md) |
