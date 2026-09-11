@@ -1,6 +1,9 @@
 // Chinese source messages are the stable lookup keys and the complete zh-CN catalog.
 // Keep placeholders identical across languages. Product data is never translated here.
 export const en = {
+  "可多选": "Select multiple",
+  "开源项目": "Open source project",
+  "在新标签页打开 Mihomo Smart Selector 开源项目": "Open the Mihomo Smart Selector project in a new tab",
   "服务重启": "Service restart",
   "重启服务": "Restart service",
   "正在重启服务…": "Restarting service…",

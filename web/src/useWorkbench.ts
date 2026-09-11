@@ -18,6 +18,14 @@ export function useWorkbench() {
   const providers = ref<Provider[]>([])
   const regions = ref<Region[]>([])
   const nodes = ref<NodeSummary[]>([])
+  const availableRegions = computed<Region[]>(() => {
+    const present = new Set(nodes.value.map(node => node.inferred_region).filter((code): code is string => !!code))
+    const known = new Set(regions.value.map(region => region.code))
+    return [
+      ...regions.value.filter(region => present.has(region.code)),
+      ...[...present].filter(code => !known.has(code)).map(code => ({code, name: code})),
+    ]
+  })
   const catalog = useNodeCatalog(nodes, regionLabel)
   const history = ref<SwitchEvent[]>([])
   const group = ref('')
@@ -97,6 +105,15 @@ export function useWorkbench() {
   const invalidBindings = computed(() => services.value?.bindings.filter(item => item.status !== 'valid') || [])
   const serviceSource = computed(() => serviceID.value ? '本次手动选择；保存绑定后下次自动使用' : binding.value ? (binding.value.status === 'valid' ? '使用已保存的服务绑定' : '绑定已失效，请选择服务重新绑定或移除绑定') : services.value?.suggestions[group.value] ? '按组名推荐；可另选服务并保存绑定' : '未绑定服务，当前仅使用默认探测配置')
   const profileReady = computed(() => discoveryValid.value && !loading.value && !groupMissing.value && !!profile.value && !profile.value.requires_configuration && (running.value || preview.value?.ready === true))
+
+  watch([availableRegions, areas, loading, discoveryValid, configLocked], () => {
+    // Only reconcile against a complete discovery; failed reads and active scans
+    // must not discard the user's filters or change a running scan's request.
+    if (loading.value || !discoveryValid.value || configLocked.value) return
+    const available = new Set(availableRegions.value.map(region => region.code))
+    const selected = areas.value.filter(code => available.has(code))
+    if (selected.length !== areas.value.length) areas.value = selected
+  })
 
   watch(theme, value => {
     document.documentElement.dataset.theme = value
@@ -207,10 +224,6 @@ export function useWorkbench() {
 
   function body() {
     return {target_group: group.value, profile_id: serviceID.value || undefined, regions: areas.value, providers: providerSet.value, mode: mode.value}
-  }
-
-  function area(code: string) {
-    areas.value = areas.value.includes(code) ? areas.value.filter(x => x !== code) : [...areas.value, code]
   }
 
   function provider(name: string) {
@@ -400,10 +413,10 @@ export function useWorkbench() {
     syncError, refreshScan: refresh, connectionMode, focusedName, page, health, groups, services, access, token,
     theme, notice, noticeWarning, failure, pendingChoice, choiceDialog, switching,
     current, configLocked, load, unlock, confirmChoice, openMonitorScan, regionLabel,
-    statusLabel, scan, providers, regions, group, serviceID, loading,
+    statusLabel, scan, providers, regions, availableRegions, group, serviceID, loading,
     discoveryValid, areas, providerSet, mode, preview, starting, showProfile,
     results, candidate, scanLabel, progress, percent, profile, groupMissing,
-    binding, invalidBindings, serviceSource, profileReady, openRecent, saveBinding, area,
+    binding, invalidBindings, serviceSource, profileReady, openRecent, saveBinding,
     provider, start, stop, selectionReason, choose, percentLabel, latency,
     clock, statusTone, probeKind, running, recent, now, best,
     currentResult, retest, points, hasJitterEvidence, evidence, nodes,

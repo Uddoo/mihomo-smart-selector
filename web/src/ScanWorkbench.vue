@@ -7,10 +7,11 @@ import TableSearch from './TableSearch.vue'
 import type {Workbench} from './useWorkbench'
 import {RefreshCw, ChevronDown, CheckCircle2, Radio, CircleAlert, CirclePause, ScanLine} from '@lucide/vue'
 const {state} = defineProps<{state: Workbench}>()
-const { syncError, refreshScan, connectionMode, health, groups, providers, regions, group, serviceID, services, loading, discoveryValid, areas, providerSet, mode, preview, failure, switching, starting, showProfile, current, results, candidate, scanLabel, configLocked, progress, percent, profile, groupMissing, binding, invalidBindings, serviceSource, profileReady, openRecent, load, saveBinding, area, provider, start, stop, selectionReason, choose, regionLabel, percentLabel, latency, clock, statusLabel, statusTone, probeKind, scan, running, recent } = state
+const { syncError, refreshScan, connectionMode, health, groups, providers, availableRegions, group, serviceID, services, loading, discoveryValid, areas, providerSet, mode, preview, failure, switching, starting, showProfile, current, results, candidate, scanLabel, configLocked, progress, percent, profile, groupMissing, binding, invalidBindings, serviceSource, profileReady, openRecent, load, saveBinding, provider, start, stop, selectionReason, choose, regionLabel, percentLabel, latency, clock, statusLabel, statusTone, probeKind, scan, running, recent } = state
 import {ref, nextTick, onMounted, onBeforeUnmount, useTemplateRef, watch} from 'vue'
 import CandidateDetails from './CandidateDetails.vue'
 import ScanCompatibility from './ScanCompatibility.vue'
+import ScanRegionFilter from './ScanRegionFilter.vue'
 const resultQuery = ref('')
 const filteredResults = computed(() => results.value.filter(row => !resultQuery.value || row.name.toLowerCase().includes(resultQuery.value.toLowerCase())))
 const {page: resultPage, pageCount, visible: pageResults, locate} = usePagination(filteredResults)
@@ -49,7 +50,7 @@ onBeforeUnmount(() => { closeDetails(); mobileQuery.removeEventListener('change'
 <template>
       <section class="scan-workbench">
         <p v-if="syncError" class="notice warning" role="alert">{{ t('{p0}。保留上次结果，等待恢复。', {p0: translateMessage(syncError)}) }}<button @click="refreshScan">{{ t('重新读取扫描') }}</button></p>
-        <label v-if="recent.length" class="profile-scope">{{ t('活动 / 最近扫描') }}<select :value="scan?.id" :disabled="starting || switching" @change="openRecent"><option v-for="item in recent" :key="item.id" :value="item.id">{{ item.request.target_group }} · {{ t(scanStatus(item.status)) }} · {{ formatDate(new Date(item.started_at)) }}</option></select></label>
+        <label v-if="recent.length" class="profile-scope recent-scan"><span>{{ t('活动 / 最近扫描') }}</span><select :value="scan?.id" :disabled="starting || switching" @change="openRecent"><option v-for="item in recent" :key="item.id" :value="item.id">{{ item.request.target_group }} · {{ t(scanStatus(item.status)) }} · {{ formatDate(new Date(item.started_at)) }}</option></select></label>
         <div class="workbench-status"><span>{{ t('当前节点') }} <b>{{ current?.now || t('等待 Controller 回读') }}</b></span><span :class="health?.mihomo_connected ? 'good' : 'bad'">{{ health?.mihomo_connected ? t('Controller 已连接') : t('Controller 不可用') }}</span></div>
         <div v-if="compactConfig" class="scan-quick-config">
           <button ref="configToggle" class="scan-config-toggle" :aria-expanded="configExpanded" aria-controls="scan-configuration" @click="configExpanded = !configExpanded"><span>{{ t('扫描设置') }}<small>{{ translateMessage(profile?.label || t('等待评分配置')) }}</small></span><ChevronDown :size="16" :class="{expanded: configExpanded}" aria-hidden="true"/></button>
@@ -65,11 +66,7 @@ onBeforeUnmount(() => { closeDetails(); mobileQuery.removeEventListener('change'
         <details class="advanced-config">
           <summary><span>{{ t('高级筛选与服务绑定') }}</span><small>{{ areas.length ? areas.map(regionLabel).join(' / ') : t('全部地区') }} · {{ providerSet.length ? providerSet.length + t(' 个 Provider') : t('全部 Provider') }} · {{ mode === 'stable' ? t('稳定模式') : t('快速模式') }}</small><ChevronDown :size="16"/></summary>
           <fieldset class="command advanced-fields" :disabled="configLocked || loading"><legend class="sr-only">{{ t('高级扫描配置') }}</legend>
-          <div class="chips">
-            <b>{{ t('地区') }}</b>
-            <button :class="{active: !areas.length}" :aria-pressed="!areas.length" @click="areas = []">{{ t('全部') }}</button>
-            <button v-for="item in regions" :key="item.code" :class="{active: areas.includes(item.code)}" :aria-pressed="areas.includes(item.code)" @click="area(item.code)">{{ regionLabel(item.code) }}</button>
-          </div>
+          <ScanRegionFilter v-model="areas" :regions="availableRegions" :region-label="regionLabel"/>
           <details class="providers">
             <summary>Provider <span>{{ providerSet.length || t('全部') }}</span><ChevronDown :size="14"/></summary>
             <div class="provider-options"><label v-for="item in providers" :key="item.name"><input type="checkbox" :checked="providerSet.includes(item.name)" @change="provider(item.name)">{{ item.name }}</label></div>

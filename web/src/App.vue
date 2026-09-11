@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {t, translateMessage} from './i18n'
 import {computed, defineAsyncComponent, useTemplateRef} from 'vue'
-import {Network, ScanLine, List, History, Settings, Moon, Sun, Radio, ArrowRight} from '@lucide/vue'
+import {Network, ScanLine, List, History, Settings, Moon, Sun, Radio, ArrowRight, CodeXml, ExternalLink} from '@lucide/vue'
 import {useWorkbench} from './useWorkbench'
 import ScanWorkbench from './ScanWorkbench.vue'
 import LanguageSelect from './LanguageSelect.vue'
@@ -42,7 +42,12 @@ const currentPage = computed(() => navigation.find(item => item.id === page.valu
       <nav :aria-label="t('主导航')">
         <button v-for="item in navigation" :key="item.id" :class="{active: page === item.id}" :aria-current="page === item.id ? 'page' : undefined" @click="page = item.id"><component :is="item.icon" aria-hidden="true"/><span class="nav-full">{{ t(item.label) }}</span><span class="nav-short">{{ t(item.shortLabel) }}</span></button>
       </nav>
-      <footer :class="{offline: !health?.mihomo_connected}"><span class="connection-dot"></span>{{ health?.mihomo_connected ? t('Controller 已连接') : t('Controller 不可用') }}<small>{{ t('扫描手动选择 · 监控可自动切换') }}</small></footer>
+      <footer class="sidebar-footer">
+        <div class="sidebar-connection" :class="{offline: !health?.mihomo_connected}"><span class="connection-dot"></span>{{ health?.mihomo_connected ? t('Controller 已连接') : t('Controller 不可用') }}<small>{{ t('扫描手动选择 · 监控可自动切换') }}</small></div>
+        <a class="project-link" href="https://github.com/Uddoo/mihomo-smart-selector" target="_blank" rel="noopener noreferrer" :aria-label="t('在新标签页打开 Mihomo Smart Selector 开源项目')">
+          <CodeXml :size="18" aria-hidden="true"/><span>GitHub<span class="project-link-description">{{ t('开源项目') }}</span></span><ExternalLink :size="14" class="project-link-external" aria-hidden="true"/>
+        </a>
+      </footer>
     </aside>
 
     <main id="workspace" ref="workspace" class="work" tabindex="-1">
