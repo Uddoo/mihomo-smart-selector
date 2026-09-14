@@ -9,6 +9,8 @@ versioned releases begin.
 
 ## [Unreleased]
 
+## [v0.1.0-rc.5] - 2026-09-14
+
 ### Fixed
 
 - Bind existing Controller secrets to their original endpoint, including scheme,
@@ -278,7 +280,8 @@ versioned releases begin.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.4...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.5...HEAD
+[v0.1.0-rc.5]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.4...v0.1.0-rc.5
 [v0.1.0-rc.4]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.3...v0.1.0-rc.4
 [v0.1.0-rc.3]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.2...v0.1.0-rc.3
 [v0.1.0-rc.2]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.1...v0.1.0-rc.2
