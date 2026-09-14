@@ -87,6 +87,7 @@ func TestSaveRestartKeepClearAndRestore(t *testing.T) {
 	}
 	server := update(restarted)
 	server.SecretAction = "server"
+	server.Controller = base.Controller
 	if _, err := restarted.Save(server); err != nil {
 		t.Fatal(err)
 	}
@@ -225,6 +226,7 @@ func TestInvalidAndStaleUpdatesAndFailedWritesPreserveState(t *testing.T) {
 	m.path = t.TempDir() // Rename over a directory must fail on every supported OS.
 	u = update(m)
 	u.Controller = "https://controller.example"
+	u.SecretAction = "none"
 	if _, err := m.Save(u); err == nil {
 		t.Fatal("write should fail")
 	}

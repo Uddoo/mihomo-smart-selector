@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -66,20 +67,35 @@ func ResolveSecret(cfg config.MihomoConfig) (string, error) {
 	return secret, nil
 }
 
-// NewWithSecret also supports credentials supplied through the connection UI.
-// Never follow Controller redirects: a redirect must not forward credentials.
+// NewWithSecret creates a client for an operator-configured Controller.
 func NewWithSecret(cfg config.MihomoConfig, secret string) (*HTTPClient, error) {
-	baseURL, err := url.Parse(cfg.Controller)
-	if err != nil {
-		return nil, fmt.Errorf("parse controller URL: %w", err)
+	return NewForConnection(cfg, secret, cfg.Controller)
+}
+
+// NewForConnection restricts GUI-selected destinations to local/private IPs or
+// the exact operator-configured URL. Saved GUI settings cannot expand this trust.
+func NewForConnection(cfg config.MihomoConfig, secret, configuredController string) (*HTTPClient, error) {
+	if err := ValidateConnectionTarget(cfg.Controller, configuredController); err != nil {
+		return nil, err
 	}
+	baseURL, err := config.ParseControllerURL(cfg.Controller)
+	if err != nil {
+		return nil, err
+	}
+	dialer := &net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}
+	policy := controllerDialer{trusted: config.SameController(cfg.Controller, configuredController), lookup: net.DefaultResolver.LookupNetIP, dial: dialer.DialContext}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
+	transport.DialContext = policy.DialContext
 	return &HTTPClient{
 		baseURL: baseURL,
 		secret:  secret,
-		client: &http.Client{Timeout: time.Duration(cfg.RequestTimeoutSeconds) * time.Second,
+		client: &http.Client{Timeout: time.Duration(cfg.RequestTimeoutSeconds) * time.Second, Transport: transport,
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 	}, nil
 }
+
+func (c *HTTPClient) CloseIdleConnections() { c.client.CloseIdleConnections() }
 
 func (c *HTTPClient) Reachable(ctx context.Context) (string, error) {
 	response, err := c.request(ctx, http.MethodGet, []string{"version"}, nil)

@@ -275,9 +275,8 @@ func (c Config) Validate() error {
 			return fmt.Errorf("invalid http.allowed_cidrs entry %q: %w", value, err)
 		}
 	}
-	controller, err := url.ParseRequestURI(c.Mihomo.Controller)
-	if err != nil || controller.Scheme == "" || controller.Host == "" {
-		return fmt.Errorf("mihomo.controller must be an absolute URL")
+	if _, err := ParseControllerURL(c.Mihomo.Controller); err != nil {
+		return fmt.Errorf("mihomo.controller: %w", err)
 	}
 	if c.Mihomo.RequestTimeoutSeconds <= 0 {
 		return fmt.Errorf("mihomo.request_timeout_seconds must be positive")

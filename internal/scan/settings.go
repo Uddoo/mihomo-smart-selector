@@ -43,8 +43,12 @@ func (m *Manager) LoadSettings(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("saved runtime settings: %w", err)
 	}
+	concurrency := cfg.Scanner.Concurrency
+	if concurrency < 1 || concurrency > 16 {
+		return fmt.Errorf("scanner.concurrency must be in 1..16")
+	}
 	m.cfg.Store(&cfg)
-	m.probeSlots = make(chan struct{}, cfg.Scanner.Concurrency)
+	m.probeSlots = make(chan struct{}, concurrency)
 	m.settingsRevision = s.Revision
 	return nil
 }
@@ -70,7 +74,12 @@ func (m *Manager) SaveSettings(ctx context.Context, s config.RuntimeSettings) (c
 	if err != nil {
 		return s, err
 	}
-	if next.Scanner.Concurrency != cap(m.probeSlots) && len(m.probeSlots) > 0 {
+	// Keep the bound on the exact value used for allocation, before persistence.
+	concurrency := next.Scanner.Concurrency
+	if concurrency < 1 || concurrency > 16 {
+		return s, fmt.Errorf("scanner.concurrency must be in 1..16")
+	}
+	if concurrency != cap(m.probeSlots) && len(m.probeSlots) > 0 {
 		return s, fmt.Errorf("后台监控正在探测，请稍后重试更改并发数，或先暂停监控")
 	}
 	for _, v := range []struct {
@@ -98,8 +107,8 @@ func (m *Manager) SaveSettings(ctx context.Context, s config.RuntimeSettings) (c
 		return s, fmt.Errorf("无法保存运行设置")
 	}
 	m.cfg.Store(&next)
-	if cap(m.probeSlots) != next.Scanner.Concurrency {
-		m.probeSlots = make(chan struct{}, next.Scanner.Concurrency)
+	if cap(m.probeSlots) != concurrency {
+		m.probeSlots = make(chan struct{}, concurrency)
 	}
 	m.settingsRevision = s.Revision
 	return s, nil

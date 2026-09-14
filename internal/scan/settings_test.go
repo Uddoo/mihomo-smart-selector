@@ -2,6 +2,7 @@ package scan
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -42,6 +43,52 @@ func TestEgressUsesNewConnectionForEachCandidate(t *testing.T) {
 	}
 	if fake.proxies["probe"].Now != "original" {
 		t.Fatal("selection not restored")
+	}
+}
+
+func TestRuntimeConcurrencyBoundsPreserveSettingsAndStorage(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.Defaults()
+	store, err := history.Open(filepath.Join(t.TempDir(), "bounds.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	manager := NewManager(cfg, nil, store)
+	for _, value := range []int{1, 16} {
+		s := manager.Settings()
+		s.Concurrency = value
+		if _, err := manager.SaveSettings(ctx, s); err != nil || cap(manager.probeSlots) != value {
+			t.Fatal("valid concurrency was rejected", value, err)
+		}
+	}
+	before, err := store.RuntimeSettings(ctx, manager.bindingScope())
+	if err != nil {
+		t.Fatal(err)
+	}
+	revision := manager.Settings().Revision
+	for _, value := range []int{-1, 0, 17, 99, int(^uint(0) >> 1)} {
+		s := manager.Settings()
+		s.Concurrency = value
+		if _, err := manager.SaveSettings(ctx, s); err == nil {
+			t.Fatal("invalid concurrency was accepted", value)
+		}
+		after, err := store.RuntimeSettings(ctx, manager.bindingScope())
+		if err != nil || string(before) != string(after) || manager.Settings().Revision != revision || cap(manager.probeSlots) != 16 {
+			t.Fatal("invalid concurrency changed settings, storage or probe capacity", value, err)
+		}
+		// Loading corrupted persisted settings must also fail before applying them.
+		data, _ := json.Marshal(s)
+		if err := store.SaveRuntimeSettings(ctx, manager.bindingScope(), data); err != nil {
+			t.Fatal(err)
+		}
+		reloaded := NewManager(cfg, nil, store)
+		if err := reloaded.LoadSettings(ctx); err == nil || cap(reloaded.probeSlots) != cfg.Scanner.Concurrency || reloaded.Settings().Revision != 0 {
+			t.Fatal("invalid persisted concurrency was applied", value, err)
+		}
+		if err := store.SaveRuntimeSettings(ctx, manager.bindingScope(), before); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 

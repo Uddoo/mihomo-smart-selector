@@ -7,10 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -90,7 +88,7 @@ func Open(base config.MihomoConfig, path string) (*Manager, config.MihomoConfig,
 	if err != nil {
 		return nil, base, nil, err
 	}
-	client, err := mihomo.NewWithSecret(cfg, secret)
+	client, err := mihomo.NewForConnection(cfg, secret, m.base.Controller)
 	if err != nil {
 		return nil, base, nil, err
 	}
@@ -143,6 +141,9 @@ func (m *Manager) prepare(u Update) (record, error) {
 	}
 	switch u.SecretAction {
 	case "keep":
+		if next.SecretSource == "custom" && !config.SameController(next.Controller, m.saved.Controller) {
+			return record{}, fmt.Errorf("更换 Controller 地址后，请输入新密钥或选择不使用密钥")
+		}
 	case "replace":
 		next.SecretSource, next.Secret = "custom", u.Secret
 	case "none":
@@ -152,19 +153,18 @@ func (m *Manager) prepare(u Update) (record, error) {
 	default:
 		return record{}, fmt.Errorf("请选择有效的密钥操作")
 	}
-	return next, validate(next)
+	if err := validate(next); err != nil {
+		return record{}, err
+	}
+	if err := mihomo.ValidateConnectionTarget(next.Controller, m.base.Controller); err != nil {
+		return record{}, err
+	}
+	return next, nil
 }
 
 func validate(r record) error {
-	u, err := url.Parse(r.Controller)
-	if err != nil || len(r.Controller) > 2048 || u.Hostname() == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || strings.ContainsAny(r.Controller, "?#") || strings.IndexFunc(r.Controller, unicode.IsSpace) >= 0 {
-		return fmt.Errorf("Controller 地址必须是无用户名、密码、查询参数或片段的完整 HTTP(S) URL")
-	}
-	if port := u.Port(); port != "" {
-		value, err := strconv.Atoi(port)
-		if err != nil || value < 1 || value > 65535 {
-			return fmt.Errorf("Controller 端口必须在 1–65535 之间")
-		}
+	if _, err := config.ParseControllerURL(r.Controller); err != nil {
+		return err
 	}
 	if r.RequestTimeoutSeconds < 1 || r.RequestTimeoutSeconds > 30 {
 		return fmt.Errorf("连接超时必须在 1–30 秒之间")
@@ -194,6 +194,9 @@ func (m *Manager) resolve(r record) (config.MihomoConfig, string, error) {
 		if err != nil {
 			return cfg, "", fmt.Errorf("无法读取服务器密钥，请检查密钥文件或输入新密钥")
 		}
+		if secret != "" && !config.SameController(cfg.Controller, m.base.Controller) {
+			return cfg, "", fmt.Errorf("服务器密钥仅用于 YAML 中的 Controller；更换地址后，请输入新密钥或选择不使用密钥")
+		}
 		return cfg, secret, nil
 	}
 	return cfg, r.Secret, nil
@@ -210,10 +213,11 @@ func (m *Manager) Test(ctx context.Context, u Update) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	client, err := mihomo.NewWithSecret(cfg, secret)
+	client, err := mihomo.NewForConnection(cfg, secret, m.base.Controller)
 	if err != nil {
 		return "", fmt.Errorf("无法创建 Controller 连接")
 	}
+	defer client.CloseIdleConnections()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	version, err := client.Reachable(ctx)
