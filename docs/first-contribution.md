@@ -9,21 +9,23 @@
 
 ### 先选一件事
 
-下面是可讨论的贡献方向，不是已经创建或分配的 Issue，也不是版本交付承诺。
-先[搜索现有 Issue](https://github.com/Uddoo/mihomo-smart-selector/issues)，
-在相关任务中说明意向；没有对应任务时，通过[问题入口](https://github.com/Uddoo/mihomo-smart-selector/issues/new/choose)
-说明场景、准备修改的范围与验收方式。小范围文档纠错可以直接发 PR。
+下面列出已创建的具体任务，背景、预期行为与验收要求以对应 Issue 为准。
+认领前先查看任务状态和讨论，并在评论中说明意向；若任务已关闭，先[浏览开放 Issue](https://github.com/Uddoo/mihomo-smart-selector/issues)。
+没有对应任务时，通过[问题入口](https://github.com/Uddoo/mihomo-smart-selector/issues/new/choose)
+说明场景、准备修改的范围与验收方式。任务入口不代表已分配或承诺交付日期，小范围文档纠错可以直接发 PR。
 
 | 方向 | 从哪里看 | 怎样算完成 | 本次不扩展到 |
 | --- | --- | --- | --- |
-| **补充一台设备的验证记录** | [Windows](windows.md)、[macOS](macos.md)、[OpenWrt](../deploy/openwrt/README.md) | 记录应用版本、系统、CPU 架构、客户端/内核版本；逐项说明启动、连接、扫描的结果及未测环节。使用[安装反馈表单](https://github.com/Uddoo/mihomo-smart-selector/issues/new?template=installation_feedback.yml)。 | 宣称支持整个设备系列；要求为反馈而切换日常业务节点。 |
-| **讲清一个卡住新人的步骤** | [连接设置](connection-settings.md)与两份 README | 给出一个真实困惑、可跟随的操作步骤和脱敏示例；涉及共享 README 说明时同步两种语言，检查链接。 | 重写所有文档或引入新的部署方式。 |
-| **校对一个页面的双语提示** | `web/src/i18n/messages.ts` 与对应页面 | 限定一个页面的空状态或错误提示；中英文语义一致，检查按钮与窄屏展示，附前后对照和验证结果。 | 改动评分、选择条件或页面架构。 |
-| **补充一个地区分类边界用例** | `internal/regions/regions_test.go` | 用虚构名称说明预期地区或“待确认”，先对齐预期，再补充表驱动测试并运行 `go test ./internal/regions`。 | 把名称推断写成实测出口；提交真实订阅；顺带重写分类器。 |
-| **完善 Linux 发布分发** | `tools/build-openwrt.ps1`、`tools/collect-release-assets.py`、`.github/workflows/release.yml` | 先开 Feature Issue，约定架构、包内容、校验和、安装验证与回滚边界；实现后提供构建证据，并区分交叉构建与实机结果。 | 将桌面包视作路由器安装包；承诺所有 OpenWrt 设备都可运行。 |
+| **[验证 Windows 11 ARM64 便携包 · #15](https://github.com/Uddoo/mihomo-smart-selector/issues/15)** | [Windows 指南](windows.md)；需要真实 ARM64 Windows 设备 | 记录版本、架构、校验和、安装步骤及启动/连接/扫描结果；未测项如实标注，可先提供安装反馈再整理文档。 | 修改打包或 CI；把 AMD64 仿真结果当作 ARM64 原生验证；切换日常业务节点。 |
+| **[补充跨设备连接示例 · #16](https://github.com/Uddoo/mihomo-smart-selector/issues/16)** | [连接设置](connection-settings.md)的中英文部分 | 用两组地址示例区分浏览器、后端和 Controller 所在设备，说明监控在哪运行；按实际页面流程走查并检查链接。 | 改监听/鉴权行为；重写全部文档；增加部署方式。 |
+| **[校对节点目录英文提示 · #14](https://github.com/Uddoo/mihomo-smart-selector/issues/14)** | `web/src/i18n/messages.ts`、`web/src/NodeCatalog.vue` | 审阅 Issue 列出的 6 条空状态与恢复提示，保留准确文案；检查中英文和窄屏，附对照并同步内嵌资源。 | 改动筛选、分页、评分、切换或页面架构。 |
+| **[补充复杂名称分类测试 · #13](https://github.com/Uddoo/mihomo-smart-selector/issues/13)** | `internal/regions/regions_test.go` | 按 Issue 中已核对的 4 组输入与预期补充表驱动测试，运行 `go test -count=1 ./internal/regions`。 | 修改分类算法；提交真实订阅；把名称推断当作实测出口。 |
+| **[补齐 Linux amd64/arm64 发布流程 · #17](https://github.com/Uddoo/mihomo-smart-selector/issues/17)** | `tools/`、`.github/workflows/`、`deploy/openwrt/` | 先确认包契约，再补齐构建、校验、失败退出、安装验证和回滚；生成可核对的发布草稿，区分交叉构建、仿真与实机结果。 | 扩大到其他架构；承诺所有 Linux/OpenWrt 设备可用；改核心切换逻辑。 |
 
 前四类适合从小范围开始；Linux 打包涉及发布工作流，适合有 Go、CI 或 OpenWrt 经验的贡献者。
-是否标记 `good first issue` 或 `help wanted`，由维护者根据具体 Issue 的范围判断。
+可从 [`good first issue`](https://github.com/Uddoo/mihomo-smart-selector/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22)
+寻找小范围任务，Linux 发布流程使用 `help wanted`；实时状态以 Issue 为准。
+文档、前端和后端的第一轮检查，以及维护者能提供的协助，见[贡献规范开头的分流](../CONTRIBUTING.md#your-first-contribution)。
 
 ### 从反馈到 PR
 
@@ -45,23 +47,27 @@ complete their first scan. Documentation, tests and focused code changes help to
 
 ### Pick a starting point
 
-These are ideas to scope together, not created or assigned issues or release
-commitments. [Search open issues](https://github.com/Uddoo/mihomo-smart-selector/issues)
-and comment on a matching task. Otherwise, [open an issue](https://github.com/Uddoo/mihomo-smart-selector/issues/new/choose)
-with the scenario, proposed scope and completion criteria. Small documentation
+The tasks below have corresponding issues with background, expected behavior and
+acceptance criteria. Check each issue's status and discussion before commenting
+to claim it. If it is closed, [browse open issues](https://github.com/Uddoo/mihomo-smart-selector/issues)
+or [propose a scoped task](https://github.com/Uddoo/mihomo-smart-selector/issues/new/choose).
+These entries do not imply assignment or a delivery date. Small documentation
 corrections can go directly to a PR.
 
 | Direction | Where to start | Completion criteria | Keep out of scope |
 | --- | --- | --- | --- |
-| **Validate one device** | [Windows](windows.md#english), [macOS](macos.md#english), [OpenWrt](../deploy/openwrt/README.md) | Record app version, OS, CPU architecture and client/core versions; report launch, connection and scan results, including untested steps, through the [installation form](https://github.com/Uddoo/mihomo-smart-selector/issues/new?template=installation_feedback.yml). | Claims about an entire device family; switching everyday traffic just to submit a report. |
-| **Clarify one setup step** | [Connection settings](connection-settings.md#english) and both READMEs | Explain a real point of confusion with followable steps and a redacted example; keep shared README instructions bilingual and check links. | Rewriting every guide or adding a deployment method. |
-| **Review one page's wording** | `web/src/i18n/messages.ts` and the affected page | Limit the change to empty states or errors on one page; preserve meaning in both languages, check controls at narrow widths, and include before/after evidence. | Scoring, selection rules or page architecture. |
-| **Add a region-classification case** | `internal/regions/regions_test.go` | Agree on the expected region or ambiguous outcome for a fictional name; add a table-driven case and run `go test ./internal/regions`. | Treating name inference as a measured exit; real subscriptions; classifier rewrites. |
-| **Improve Linux distribution** | `tools/build-openwrt.ps1`, `tools/collect-release-assets.py`, `.github/workflows/release.yml` | Start with a Feature Issue covering architectures, archive contents, checksums, installation checks and rollback; distinguish cross-build evidence from native device results. | Treating desktop packages as router packages or promising every OpenWrt device works. |
+| **[Validate Windows 11 ARM64 · #15](https://github.com/Uddoo/mihomo-smart-selector/issues/15)** | [Windows guide](windows.md#english); requires a real ARM64 Windows device | Record version, architecture, checksum, installation steps and launch/connection/scan results. Disclose untested steps; an installation report can precede a docs PR. | Packaging/CI changes; AMD64 emulation presented as native ARM64 evidence; switching everyday traffic. |
+| **[Add cross-device connection examples · #16](https://github.com/Uddoo/mihomo-smart-selector/issues/16)** | Both language sections of [connection settings](connection-settings.md#english) | Show two URL examples separating the browser, backend and Controller hosts, including where monitoring runs. Walk through the actual UI steps and check links. | Listener/authentication changes; rewriting all guides; new deployment methods. |
+| **[Review node-catalog English copy · #14](https://github.com/Uddoo/mihomo-smart-selector/issues/14)** | `web/src/i18n/messages.ts`, `web/src/NodeCatalog.vue` | Review the six empty/recovery messages in the issue, retain accurate copy, check both languages and narrow widths, and synchronize embedded assets. | Filtering, pagination, scoring, switching or page-architecture changes. |
+| **[Test complex region names · #13](https://github.com/Uddoo/mihomo-smart-selector/issues/13)** | `internal/regions/regions_test.go` | Add table-driven tests for the four verified input/expectation pairs in the issue; run `go test -count=1 ./internal/regions`. | Classifier changes; real subscriptions; name inference presented as measured exit location. |
+| **[Complete Linux amd64/arm64 releases · #17](https://github.com/Uddoo/mihomo-smart-selector/issues/17)** | `tools/`, `.github/workflows/`, `deploy/openwrt/` | Agree on the package contract, then cover builds, checksums, failure exits, installation and rollback. Produce a reviewable draft; distinguish cross-builds, emulation and native tests. | Other architectures; claims covering every Linux/OpenWrt device; core switching changes. |
 
 The first four directions can be kept small. Linux packaging spans the release
-workflow and suits contributors familiar with Go, CI or OpenWrt. Maintainers
-decide whether a scoped issue fits `good first issue` or `help wanted`.
+workflow and suits contributors familiar with Go, CI or OpenWrt. Browse
+[`good first issue`](https://github.com/Uddoo/mihomo-smart-selector/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22)
+for small tasks; Linux release work uses `help wanted`. Live status belongs to the issue.
+See the [contribution quick paths](../CONTRIBUTING.md#your-first-contribution)
+for initial docs/frontend/backend checks and maintainer assistance.
 
 ### From a report to a PR
 

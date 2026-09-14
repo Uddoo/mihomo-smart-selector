@@ -10,24 +10,45 @@ Do not submit provider credentials, subscription URLs, Controller secrets,
 private service addresses, complete proxy configurations, or logs that contain
 them. Follow [SECURITY.md](SECURITY.md) for vulnerability reports.
 
-## Your first contribution
+<a id="your-first-contribution"></a>
+## 第一次贡献 / Your first contribution
 
-Start with the bilingual [first-contribution guide](docs/first-contribution.md)
-for five concrete starting points, relevant files and completion criteria.
-You can contribute a device report, a clearer setup step or a translation without
-understanding the entire Go/Vue application. Chinese and English are welcome.
+先从[首次贡献指南中的具体任务](docs/first-contribution.md#中文)选择一项，在 Issue 中说明意向。
+欢迎中文和英文；一次只处理一个页面、一个说明或一组测试，无需先理解整个 Go/Vue 系统。
+
+| 你的改动 | 从哪里开始 | 第一轮本地检查 |
+| --- | --- | --- |
+| 只改文档 | 对应的 `docs/` 指南；共享说明同步 [中文 README](README.md) 与 [英文 README](README.en.md) | 跟着修改后的步骤走一遍，在 Markdown 预览中检查链接、锚点和图片；修改截图时核对来源、语言、可读性和脱敏。运行 `git diff --check`。 |
+| 只改前端或文案 | `web/src/`，翻译在 `web/src/i18n/messages.ts` | 按[本地 Mock 演示](README.md#development)启动模拟 Controller 与应用，只验证受影响页面的中英文、空状态和错误恢复；运行 `pnpm --dir web test`，然后 `pnpm --dir web build` 与 `./tools/check-web-assets.ps1`。 |
+| 只改后端或测试 | 对应的 `internal/` 包 | 先运行相关包测试，例如 `go test ./internal/regions`；使用虚构数据，确认预期行为后再完成全量验证。 |
+
+只提供[设备安装记录](https://github.com/Uddoo/mihomo-smart-selector/issues/new?template=installation_feedback.yml)
+不需要编译源码：记录准确版本、架构、步骤、结果和未验证项即可。
+截图规范见[截图来源说明](docs/assets/screenshots/README.md)。
+
+**合并质量门槛保持不变。** 上表用于开始排查和验证；仍须完成下方的
+[完整验证](#required-verification)，前端改动也必须保持内嵌资源一致。
+第一次 PR 遇到检查失败时，请附命令、第一条有效错误、系统/架构及已完成的检查，可先提交草稿 PR 请求协助。
+维护者可以协助解释失败、复现环境问题，或生成和复核需要维护者介入的构建产物。
+未执行的检查应如实标记；合并前仍须通过规定检查，不删除检查、降低断言或手工伪造产物来换取通过。
+
+Start with a scoped issue in the [first-contribution guide](docs/first-contribution.md#english).
+One page, one setup step or one group of tests is enough for a first contribution.
 
 | Your change | Start here | First local check |
 | --- | --- | --- |
-| Installation feedback | [Share your setup and outcome](https://github.com/Uddoo/mihomo-smart-selector/issues/new?template=installation_feedback.yml) | Record the exact version and steps; redact private data. No build is needed to report. |
-| Documentation | The relevant guide in `docs/`, or both READMEs for shared instructions | Follow the changed steps, inspect Markdown and links, then run `git diff --check`. |
-| Frontend or translation | `web/src/`; UI messages are in `web/src/i18n/messages.ts` | Run the [local mock](README.en.md#development), check the affected page in both languages, then rebuild embedded assets. |
-| Backend or tests | The relevant package under `internal/` | Run that package's tests first; use fictional fixtures. |
+| Documentation only | The matching guide in `docs/`; update both READMEs for shared instructions | Follow the edited steps and check rendered links, anchors and images. For screenshots, verify provenance, language, readability and redaction. Run `git diff --check`. |
+| Frontend or wording only | `web/src/`; translations are in `web/src/i18n/messages.ts` | Start the [local mock](README.en.md#development), verify the affected page in both languages including empty/error states, then run `pnpm --dir web test`, `pnpm --dir web build` and `./tools/check-web-assets.ps1`. |
+| Backend or tests only | The relevant `internal/` package | Start with its tests, for example `go test ./internal/regions`, using fictional fixtures; then complete full verification. |
 
-These are starting checks, not a replacement for the
-[required verification](#required-verification) before a PR. If your environment
-cannot run a check, state the exact limitation and ask for help; do not mark it
-as passed. Search existing issues and agree on scope before substantial changes.
+Installation reports need no source build. Record the exact version, architecture,
+steps, outcome and untested areas. These first checks do not replace
+[required verification](#required-verification) or embedded-asset consistency.
+If blocked, open a draft PR with the failing command, first useful error, OS/architecture
+and checks already completed. Maintainers can help interpret failures, reproduce
+environment problems, or generate and review build artifacts needing maintainer support.
+All required checks must still pass before merge; disclose unrun checks and keep
+checks, assertions and artifact validation intact.
 
 ## Development environment
 
