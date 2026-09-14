@@ -223,8 +223,11 @@ func (m *Manager) Test(ctx context.Context, u Update) (string, error) {
 	} else if !mihomo.IsLocalURL(ctx, controller) {
 		return "", fmt.Errorf("Controller 目标必须是本机或私网地址；其他目标请在 YAML 中配置")
 	}
-	cfg.Controller = controller
-	client, err := mihomo.NewForConnection(cfg, secret, m.base.Controller)
+	// Build from the validated scalar, without carrying the original draft's
+	// Controller field into the outbound client configuration.
+	client, err := mihomo.NewForConnection(config.MihomoConfig{
+		Controller: controller, RequestTimeoutSeconds: cfg.RequestTimeoutSeconds,
+	}, secret, m.base.Controller)
 	if err != nil {
 		return "", fmt.Errorf("无法创建 Controller 连接")
 	}
