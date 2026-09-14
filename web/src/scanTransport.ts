@@ -72,7 +72,7 @@ export function createScanTransport(deps: ScanTransportDependencies) {
       if (value.kind === 'connected') {
         live = true; reconnects = 0; deps.onMode('live'); void refresh(); scheduleTick(read); return
       }
-      if (['completed', 'error'].includes(value.kind)) { void refresh(); return }
+      if (['completed', 'error', 'warning'].includes(value.kind)) { void refresh(); return }
       if (!value.result && !value.progress) return
       if (pending || resync) { dirty = true; return }
       events.push(value)

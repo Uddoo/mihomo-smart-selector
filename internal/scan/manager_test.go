@@ -60,7 +60,7 @@ func TestCancellationDuringVerificationDoesNotCompleteScan(t *testing.T) {
 				"probe":   {Name: "probe", Type: "Selector", Now: "original", All: []string{"a", "original"}},
 			}, delays: map[string]int{"a": 100}}, cancel: cancel}
 			m := NewManager(cfg, fake, nil)
-			_, err := m.scan(ctx, model.Scan{ID: "test", Request: model.ScanRequest{TargetGroup: "ChatGPT", ProfileID: "chatgpt", Mode: "quick"}})
+			_, _, err := m.scan(ctx, model.Scan{ID: "test", Request: model.ScanRequest{TargetGroup: "ChatGPT", ProfileID: "chatgpt", Mode: "quick"}})
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf("verification cancellation = %v", err)
 			}

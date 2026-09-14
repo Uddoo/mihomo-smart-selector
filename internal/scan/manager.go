@@ -337,7 +337,8 @@ func (m *Manager) Subscribe(scanID string) (<-chan Event, func()) {
 }
 
 func (m *Manager) run(ctx context.Context, scan model.Scan) {
-	results, err := m.scan(ctx, scan)
+	results, warnings, err := m.scan(ctx, scan)
+	scan.Warnings = warnings
 	completed := time.Now().UTC()
 	scan.Progress = m.progressSnapshot(scan.ID)
 	if err == errScanStopped || err == context.Canceled {
@@ -372,44 +373,67 @@ func (m *Manager) run(ctx context.Context, scan model.Scan) {
 	m.publish(scan.ID, Event{Kind: kind, Message: message, At: completed})
 }
 
-func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult, error) {
+func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult, []model.ScanWarning, error) {
 	profile, err := m.profileFor(scan.Request)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	candidates, err := m.discoverCandidates(ctx, scan.Request)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	proxies, err := m.client.ListProxies(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("discover proxies for egress verification: %w", err)
+		return nil, nil, fmt.Errorf("discover proxies for egress verification: %w", err)
 	}
 	if len(candidates) > m.currentConfig().Scanner.MaxTotalCandidates {
-		return nil, fmt.Errorf("%d candidates exceed scanner.max_total_candidates (%d); narrow regions or providers", len(candidates), m.currentConfig().Scanner.MaxTotalCandidates)
+		return nil, nil, fmt.Errorf("%d candidates exceed scanner.max_total_candidates (%d); narrow regions or providers", len(candidates), m.currentConfig().Scanner.MaxTotalCandidates)
 	}
 
 	allResults, err := m.stagedProbes(ctx, scan, profile, candidates, proxies[scan.Request.TargetGroup].Now)
 	if err != nil {
-		return allResults, err
+		return allResults, nil, err
 	}
 	rankNodes(allResults)
 
+	var warnings []model.ScanWarning
+	recordWarning := func(warning *model.ScanWarning) {
+		if warning == nil {
+			return
+		}
+		warnings = append(warnings, *warning)
+		m.mu.Lock()
+		if active := m.active[scan.ID]; active != nil {
+			active.Warnings = append(active.Warnings, *warning)
+		}
+		m.mu.Unlock()
+		m.publish(scan.ID, Event{Kind: "warning", Message: warning.Message, At: time.Now().UTC()})
+	}
 	if m.currentConfig().EgressVerification.Enabled {
-		m.verifyEgress(ctx, proxies, allResults, scan.ID)
+		recordWarning(m.verifyEgress(ctx, allResults, scan.ID))
 		for index := range allResults {
 			calculateMetrics(&allResults[index], m.currentConfig().Scanner)
 		}
 	}
-	m.verifyStrict(ctx, proxies, profile, allResults, scan.ID)
+	strict := m.currentConfig().Scanner.StrictVerification
+	if len(warnings) > 0 && strict.Enabled && warnings[0].Group == strict.SelectorGroup {
+		// An unresolved cleanup must not be hidden by reusing the same group
+		// and treating its temporary selection as a new restoration baseline.
+		for index := range allResults {
+			allResults[index].StrictVerificationStatus = "probe_verification_stopped"
+			allResults[index].RestrictionStatus = "not_checked"
+		}
+	} else {
+		recordWarning(m.verifyStrict(ctx, profile, allResults, scan.ID))
+	}
 	if err := ctx.Err(); err != nil {
-		return allResults, err
+		return allResults, warnings, err
 	}
 	for index := range allResults {
 		assessResult(&allResults[index], profile, m.currentConfig().Scanner.StrictVerification.Enabled)
 	}
 	rankNodes(allResults)
-	return allResults, nil
+	return allResults, warnings, nil
 }
 
 func (m *Manager) discoverCandidates(ctx context.Context, request model.ScanRequest) ([]candidate, error) {
@@ -573,6 +597,7 @@ func (m *Manager) stopRequested(scanID string) bool {
 
 func cloneScan(input model.Scan) model.Scan {
 	output := input
+	output.Warnings = append([]model.ScanWarning(nil), input.Warnings...)
 	output.Request.Nodes = append([]string(nil), input.Request.Nodes...)
 	output.Request.Regions = append([]string(nil), input.Request.Regions...)
 	output.Request.Providers = append([]string(nil), input.Request.Providers...)

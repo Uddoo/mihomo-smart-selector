@@ -165,6 +165,14 @@ type NodeSummary struct {
 	RegionEvidence   []string `json:"region_evidence,omitempty"`
 }
 
+// ScanWarning describes verification cleanup separately from node evidence.
+type ScanWarning struct {
+	Code    string `json:"code"`
+	Phase   string `json:"phase"`
+	Group   string `json:"group"`
+	Message string `json:"message"`
+}
+
 type Scan struct {
 	ControllerScope string              `json:"-"`
 	ID              string              `json:"id"`
@@ -175,6 +183,7 @@ type Scan struct {
 	StartedAt       time.Time           `json:"started_at"`
 	CompletedAt     *time.Time          `json:"completed_at,omitempty"`
 	Error           string              `json:"error,omitempty"`
+	Warnings        []ScanWarning       `json:"warnings,omitempty"`
 	Results         []NodeResult        `json:"results,omitempty"`
 }
 

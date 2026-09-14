@@ -33,6 +33,7 @@ const comparison = computed(() => candidateComparison(candidate.value, currentRe
                 <div><dt>{{ t('地区验证') }}</dt><dd :class="statusTone(candidate.region_verification_status)">{{ translateMessage(statusLabel(candidate.region_verification_status)) }}</dd></div>
                 <div><dt>{{ t('服务限制') }}</dt><dd :class="statusTone(candidate.restriction_status)">{{ translateMessage(statusLabel(candidate.restriction_status)) }}</dd></div>
               </dl></section>
+              <p v-if="candidate.egress_error" class="settings-note bad">{{ t('出口验证：{message}', {message: translateMessage(candidate.egress_error)}) }}</p>
               <details class="score-details"><summary>{{ t('性能得分拆解') }}<ChevronDown :size="15"/></summary><dl class="breakdown"><div><dt>{{ t('可靠性') }}</dt><dd>{{ points(candidate.score_breakdown?.reliability) }} / 40</dd></div><div><dt>P50</dt><dd>{{ points(candidate.score_breakdown?.p50) }} / 15</dd></div><div><dt>P95</dt><dd>{{ points(candidate.score_breakdown?.p95) }} / 20</dd></div><div><dt>{{ t('抖动') }}</dt><dd>{{ hasJitterEvidence(candidate) ? points(candidate.score_breakdown?.jitter) + ' / 10' : t('样本不足 · 0 / 10') }}</dd></div><div><dt>{{ t('地区') }}</dt><dd>{{ points(candidate.score_breakdown?.region) }} / 5</dd></div></dl><p>{{ t('传输范围：{p0}', {p0: translateMessage(candidate.transport_status)}) }}</p></details>
               <CandidateActions class="mobile-candidate-actions" :state="state"/>
             </template>

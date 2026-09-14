@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS runtime_settings (
 		{"switch_events", "controller_scope", "TEXT NOT NULL DEFAULT ''"},
 		{"scans", "profile_json", "TEXT NOT NULL DEFAULT '{}'"},
 		{"scans", "progress_json", "TEXT NOT NULL DEFAULT '{}'"},
+		{"scans", "warnings_json", "TEXT NOT NULL DEFAULT '[]'"},
 		{"switch_events", "status", "TEXT NOT NULL DEFAULT 'confirmed'"},
 		{"switch_events", "request_id", "TEXT NOT NULL DEFAULT ''"},
 	} {
@@ -164,13 +165,17 @@ func (s *Store) CompleteScan(ctx context.Context, scan model.Scan) error {
 	if err != nil {
 		return err
 	}
+	warnings, err := json.Marshal(scan.Warnings)
+	if err != nil {
+		return err
+	}
 	var completedAt any
 	if scan.CompletedAt != nil {
 		completedAt = timestamp(*scan.CompletedAt)
 	}
 	if _, err := transaction.ExecContext(ctx,
-		`UPDATE scans SET status = ?, completed_at = ?, error = ?, progress_json = ? WHERE id = ?`,
-		scan.Status, completedAt, scan.Error, progress, scan.ID,
+		`UPDATE scans SET status = ?, completed_at = ?, error = ?, progress_json = ?, warnings_json = ? WHERE id = ?`,
+		scan.Status, completedAt, scan.Error, progress, warnings, scan.ID,
 	); err != nil {
 		return fmt.Errorf("update scan: %w", err)
 	}
@@ -198,10 +203,10 @@ func (s *Store) CompleteScan(ctx context.Context, scan model.Scan) error {
 func (s *Store) GetScan(ctx context.Context, id string) (model.Scan, error) {
 	var scan model.Scan
 	var status string
-	var requestJSON, profileJSON, startedAt, completedAt, errorText, progressJSON sql.NullString
+	var requestJSON, profileJSON, startedAt, completedAt, errorText, progressJSON, warningsJSON sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT status, request_json, profile_json, started_at, completed_at, error, progress_json, controller_scope FROM scans WHERE id = ?`, id,
-	).Scan(&status, &requestJSON, &profileJSON, &startedAt, &completedAt, &errorText, &progressJSON, &scan.ControllerScope)
+		`SELECT status, request_json, profile_json, started_at, completed_at, error, progress_json, warnings_json, controller_scope FROM scans WHERE id = ?`, id,
+	).Scan(&status, &requestJSON, &profileJSON, &startedAt, &completedAt, &errorText, &progressJSON, &warningsJSON, &scan.ControllerScope)
 	if err == sql.ErrNoRows {
 		return model.Scan{}, fmt.Errorf("scan %q not found", id)
 	}
@@ -211,6 +216,9 @@ func (s *Store) GetScan(ctx context.Context, id string) (model.Scan, error) {
 	scan.ID = id
 	scan.Status = model.ScanStatus(status)
 	scan.Error = errorText.String
+	if err := json.Unmarshal([]byte(warningsJSON.String), &scan.Warnings); err != nil {
+		return model.Scan{}, fmt.Errorf("decode scan warnings: %w", err)
+	}
 	if err := json.Unmarshal([]byte(progressJSON.String), &scan.Progress); err != nil {
 		return model.Scan{}, err
 	}

@@ -394,6 +394,9 @@ export function useWorkbench() {
     matched: '地区匹配', mismatch: '地区不符', unverified: '未验证',
     probe_selector_unavailable: '专用选择器不可用', candidate_not_in_probe_selector: '候选未加入专用选择器',
     probe_selector_switch_failed: '专用选择器切换失败', probe_proxy_invalid: '本地探测代理无效',
+    probe_selector_unconfirmed: '无法确认专用选择器当前节点，验证已停止',
+    probe_selector_changed: '探测期间选择发生变化，验证证据已丢弃',
+    probe_verification_stopped: '探测组恢复未确认，已停止后续验证',
   }
 
   function statusLabel(value?: string) { return t(statusText[value || ''] || value || '—') }

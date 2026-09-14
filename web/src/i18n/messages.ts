@@ -1,6 +1,18 @@
 // Chinese source messages are the stable lookup keys and the complete zh-CN catalog.
 // Keep placeholders identical across languages. Product data is never translated here.
 export const en = {
+  "验证过程警告": "Verification warnings",
+  "出口验证": "Egress verification",
+  "验证": "Verification",
+  "出口验证：{message}": "Egress verification: {message}",
+  "警告保留在本次扫描历史中，节点验证结果单独显示。": "Warnings are retained in this scan's history. Node verification results are shown separately.",
+  "无法确认探测组已恢复，请到 Controller 核对当前选择。": "Could not confirm that the probe group was restored. Check its current selection in the Controller.",
+  "探测组已被其他操作改选，已跳过恢复，请核对当前选择。": "Another operation changed the probe group. Restoration was skipped; check its current selection.",
+  "未能恢复探测组，请到 Controller 核对当前选择。": "Could not restore the probe group. Check its current selection in the Controller.",
+  "恢复探测组请求失败，请到 Controller 核对当前选择。": "The request to restore the probe group failed. Check its current selection in the Controller.",
+  "无法确认专用选择器当前节点，验证已停止": "Could not confirm the probe selector's current node. Verification stopped.",
+  "探测期间选择发生变化，验证证据已丢弃": "The selection changed during probing. Verification evidence was discarded.",
+  "探测组恢复未确认，已停止后续验证": "Probe group restoration is unconfirmed. Further verification stopped.",
   "可多选": "Select multiple",
   "开源项目": "Open source project",
   "在新标签页打开 Mihomo Smart Selector 开源项目": "Open the Mihomo Smart Selector project in a new tab",

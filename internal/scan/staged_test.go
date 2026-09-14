@@ -43,7 +43,7 @@ func TestStagedScanBudgetsAndCurrentMember(t *testing.T) {
 	m := NewManager(cfg, fake, nil)
 	s := model.Scan{ID: "test", Request: model.ScanRequest{TargetGroup: "work", ProfileID: "internet-baseline", Mode: "stable"}}
 	m.setActive(s)
-	results, err := m.scan(context.Background(), s)
+	results, _, err := m.scan(context.Background(), s)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestStagedScanBudgetsAndCurrentMember(t *testing.T) {
 	}
 	fake.calls.Store(0)
 	s.Request.Mode = "quick"
-	quick, err := m.scan(context.Background(), s)
+	quick, _, err := m.scan(context.Background(), s)
 	if err != nil || fake.calls.Load() != 10 {
 		t.Fatalf("quick mode changed: calls=%d, err=%v", fake.calls.Load(), err)
 	}
@@ -103,7 +103,7 @@ func TestStrictBudgetVerifiesTopCandidatesInsteadOfSkippingAll(t *testing.T) {
 	fake := &fakeMihomo{proxies: map[string]mihomo.Proxy{"probe": {Name: "probe", Type: "Selector", Now: "original", All: []string{"a", "b", "original"}}}}
 	m := NewManager(cfg, fake, nil)
 	results := []model.NodeResult{{Name: "a", Score: 10}, {Name: "b", Score: 80}}
-	m.verifyStrict(context.Background(), fake.proxies, config.ProbeProfile{StrictProbes: []config.StrictProbe{{Name: "check", URL: "http://test.invalid", ExpectedStatus: "200"}}}, results, "test")
+	m.verifyStrict(context.Background(), config.ProbeProfile{StrictProbes: []config.StrictProbe{{Name: "check", URL: "http://test.invalid", ExpectedStatus: "200"}}}, results, "test")
 	if requests.Load() != 1 || results[0].Name != "b" || results[0].StrictVerificationStatus != "passed" || results[1].StrictVerificationStatus != "not_run_limit" {
 		t.Fatalf("budget outcome=%+v requests=%d", results, requests.Load())
 	}

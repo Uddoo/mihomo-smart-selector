@@ -42,6 +42,17 @@ test('SSE coalesces updates and only a REST snapshot confirms completion', async
   assert.equal(s.streams[0].signal.aborted, true)
 })
 
+test('verification warnings fetch a fresh snapshot without completing the scan', async t => {
+  let warnings = []
+  const s = setup(t, {snapshot: async id => ({...snapshot(id), warnings})})
+  s.transport.start('a'); await flush()
+  warnings = [{code: 'probe_restore_failed', phase: 'egress', group: 'probe', message: 'restore failed'}]
+  s.streams[0].event({kind: 'warning'}); await flush()
+  assert.deepEqual(s.accepted.at(-1).warnings, warnings)
+  assert.equal(s.accepted.at(-1).status, 'running')
+  assert.equal(s.streams[0].signal.aborted, false)
+})
+
 test('late snapshots and events from an older scan cannot overwrite the active scan', async t => {
   let resolveOld
   const s = setup(t, {snapshot: id => id === 'old' ? new Promise(r => resolveOld = r) : Promise.resolve(snapshot(id))})

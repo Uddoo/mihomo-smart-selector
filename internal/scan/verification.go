@@ -3,9 +3,6 @@ package scan
 import (
 	"context"
 	"fmt"
-	"github.com/Uddoo/mihomo-smart-selector/internal/config"
-	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
-	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 	"io"
 	"net"
 	"net/http"
@@ -13,148 +10,175 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Uddoo/mihomo-smart-selector/internal/config"
+	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 )
 
-func (m *Manager) verifyEgress(ctx context.Context, proxies map[string]mihomo.Proxy, results []model.NodeResult, scanID string) {
-	probeSelector, exists := proxies[m.currentConfig().EgressVerification.SelectorGroup]
-	if !exists || !strings.EqualFold(probeSelector.Type, "Selector") {
-		for index := range results {
-			results[index].EgressError = "configured probe selector is unavailable"
-		}
-		return
+func (m *Manager) verifyEgress(ctx context.Context, results []model.NodeResult, scanID string) (warning *model.ScanWarning) {
+	if len(results) == 0 {
+		return nil
 	}
-	defer m.restoreProbeSelector(probeSelector.Name, probeSelector.Now)
-	proxyURL, err := url.Parse(m.currentConfig().EgressVerification.ProxyURL)
+	for i := range results {
+		results[i].VerifiedRegion = ""
+		results[i].EgressError = probeSelectionMessage("probe_selector_unconfirmed")
+	}
+	verification := m.currentConfig().EgressVerification
+	proxyURL, err := url.Parse(verification.ProxyURL)
 	if err != nil {
-		for index := range results {
-			results[index].EgressError = "configured probe listener URL is invalid"
+		for i := range results {
+			results[i].EgressError = "configured probe listener URL is invalid"
 		}
-		return
+		return nil
 	}
+	session, code := m.beginProbeSelector(ctx, verification.SelectorGroup)
+	if code != "" {
+		for i := range results {
+			results[i].EgressError = probeSelectionMessage(code)
+		}
+		return nil
+	}
+	defer func() { warning = session.restore("egress") }()
 	httpClient := &http.Client{
 		Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS+1000) * time.Millisecond,
 		Transport: &http.Transport{
-			DisableKeepAlives: true,
-			Proxy:             http.ProxyURL(proxyURL),
-			DialContext:       (&net.Dialer{Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS) * time.Millisecond}).DialContext,
+			DisableKeepAlives: true, Proxy: http.ProxyURL(proxyURL),
+			DialContext: (&net.Dialer{Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS) * time.Millisecond}).DialContext,
 		},
 	}
 	defer httpClient.CloseIdleConnections()
-	for index := range results {
+	for i := range results {
+		result := &results[i]
 		if ctx.Err() != nil {
-			return
+			return nil
 		}
-		if !contains(probeSelector.All, results[index].Name) {
-			results[index].EgressError = "candidate is not a member of configured probe selector"
-			continue
+		if code := session.selectCandidate(ctx, result.Name); code != "" {
+			result.EgressError = probeSelectionMessage(code)
+			if code == "candidate_not_in_probe_selector" {
+				continue
+			}
+			return nil
 		}
-		if err := m.client.Select(ctx, probeSelector.Name, results[index].Name); err != nil {
-			results[index].EgressError = "could not select candidate in probe selector"
-			continue
-		}
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, m.currentConfig().EgressVerification.TraceURL, nil)
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, verification.TraceURL, nil)
 		if err != nil {
-			results[index].EgressError = "could not create egress probe request"
+			result.EgressError = "could not create egress probe request"
 			continue
 		}
-		response, err := httpClient.Do(request)
-		if err != nil {
-			results[index].EgressError = "egress trace request failed"
+		response, requestErr := httpClient.Do(request)
+		var body []byte
+		var readErr error
+		if requestErr == nil {
+			body, readErr = io.ReadAll(io.LimitReader(response.Body, 64<<10))
+			response.Body.Close()
+		}
+		// Keep the response local until its node identity is confirmed again.
+		if code := session.confirmCandidate(ctx, result.Name); code != "" {
+			result.EgressError = probeSelectionMessage(code)
+			return nil
+		}
+		if requestErr != nil {
+			result.EgressError = "egress trace request failed"
 			continue
 		}
-		body, readErr := io.ReadAll(io.LimitReader(response.Body, 64<<10))
-		response.Body.Close()
 		if readErr != nil || response.StatusCode != http.StatusOK {
-			results[index].EgressError = "egress trace response was not usable"
+			result.EgressError = "egress trace response was not usable"
 			continue
 		}
 		for _, line := range strings.Split(string(body), "\n") {
 			key, value, found := strings.Cut(line, "=")
 			if found && key == "loc" && len(value) == 2 {
-				results[index].VerifiedRegion = strings.ToUpper(value)
+				result.VerifiedRegion = strings.ToUpper(value)
 			}
 		}
-		if results[index].VerifiedRegion == "" {
-			results[index].EgressError = "egress trace did not include a country code"
+		result.EgressError = ""
+		if result.VerifiedRegion == "" {
+			result.EgressError = "egress trace did not include a country code"
 		}
-		copy := results[index]
-		m.publish(scanID, Event{Kind: "egress-verified", Message: "egress verification completed: " + results[index].Name, At: time.Now().UTC(), Result: &copy})
+		copy := *result
+		m.publish(scanID, Event{Kind: "egress-verified", Message: "egress verification completed: " + result.Name, At: time.Now().UTC(), Result: &copy})
 	}
+	return nil
 }
 
-// verifyStrict performs status-code and optional body checks through a
-// dedicated, user-configured selector. The target business selector is never
-// changed. Disabling this feature is the default because a router must first
-// provide an isolated probe selector and local proxy listener.
-func (m *Manager) verifyStrict(ctx context.Context, proxies map[string]mihomo.Proxy, profile config.ProbeProfile, results []model.NodeResult, scanID string) {
-	if len(profile.StrictProbes) == 0 {
-		return
+// verifyStrict uses only the dedicated selector. Status/body evidence is
+// committed after every response has passed a fresh Controller identity check.
+func (m *Manager) verifyStrict(ctx context.Context, profile config.ProbeProfile, results []model.NodeResult, scanID string) (warning *model.ScanWarning) {
+	if len(profile.StrictProbes) == 0 || len(results) == 0 {
+		return nil
 	}
 	verification := m.currentConfig().Scanner.StrictVerification
+	for i := range results {
+		results[i].StrictChecks = nil
+		results[i].StrictVerificationStatus = "probe_selector_unconfirmed"
+		results[i].RestrictionStatus = "not_checked"
+	}
 	if !verification.Enabled {
-		for index := range results {
-			results[index].StrictVerificationStatus = "not_configured"
-			results[index].RestrictionStatus = "not_checked"
+		for i := range results {
+			results[i].StrictVerificationStatus = "not_configured"
 		}
-		return
+		return nil
 	}
 	rankNodes(results)
-	for index := verification.MaxCandidates; index < len(results); index++ {
-		results[index].StrictVerificationStatus = "not_run_limit"
-		results[index].RestrictionStatus = "not_checked"
+	for i := verification.MaxCandidates; i < len(results); i++ {
+		results[i].StrictVerificationStatus = "not_run_limit"
 	}
 	results = results[:min(len(results), verification.MaxCandidates)]
-	probeSelector, exists := proxies[verification.SelectorGroup]
-	if !exists || !strings.EqualFold(probeSelector.Type, "Selector") {
-		for index := range results {
-			results[index].StrictVerificationStatus = "probe_selector_unavailable"
-			results[index].RestrictionStatus = "not_checked"
-		}
-		return
-	}
 	proxyURL, err := url.Parse(verification.ProxyURL)
 	if err != nil {
-		for index := range results {
-			results[index].StrictVerificationStatus = "probe_proxy_invalid"
-			results[index].RestrictionStatus = "not_checked"
+		for i := range results {
+			results[i].StrictVerificationStatus = "probe_proxy_invalid"
 		}
-		return
+		return nil
 	}
+	session, code := m.beginProbeSelector(ctx, verification.SelectorGroup)
+	if code != "" {
+		for i := range results {
+			results[i].StrictVerificationStatus = code
+		}
+		return nil
+	}
+	defer func() { warning = session.restore("strict") }()
 	transport := &http.Transport{
-		Proxy:             http.ProxyURL(proxyURL),
-		DisableKeepAlives: true,
-		DialContext:       (&net.Dialer{Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS) * time.Millisecond}).DialContext,
+		Proxy: http.ProxyURL(proxyURL), DisableKeepAlives: true,
+		DialContext: (&net.Dialer{Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS) * time.Millisecond}).DialContext,
 	}
 	client := &http.Client{Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS+1000) * time.Millisecond, Transport: transport}
 	defer transport.CloseIdleConnections()
-	if probeSelector.Now != "" {
-		defer m.restoreProbeSelector(probeSelector.Name, probeSelector.Now)
-	}
-	for index := range results {
-		result := &results[index]
+	for i := range results {
+		result := &results[i]
 		if ctx.Err() != nil {
-			return
+			return nil
 		}
-		if !contains(probeSelector.All, result.Name) {
-			result.StrictVerificationStatus = "candidate_not_in_probe_selector"
-			result.RestrictionStatus = "not_checked"
-			continue
+		if code := session.selectCandidate(ctx, result.Name); code != "" {
+			result.StrictVerificationStatus = code
+			if code == "candidate_not_in_probe_selector" {
+				continue
+			}
+			return nil
 		}
-		if err := m.client.Select(ctx, probeSelector.Name, result.Name); err != nil {
-			result.StrictVerificationStatus = "probe_selector_switch_failed"
-			result.RestrictionStatus = "not_checked"
-			continue
-		}
+		checks := make([]model.StrictCheck, 0, len(profile.StrictProbes))
 		for _, probe := range profile.StrictProbes {
 			if ctx.Err() != nil {
-				return
+				return nil
 			}
-			result.StrictChecks = append(result.StrictChecks, m.runStrictCheck(ctx, client, probe))
+			// Every strict request gets a fresh pre-check, even after switch readback.
+			if code := session.confirmCandidate(ctx, result.Name); code != "" {
+				result.StrictVerificationStatus = code
+				return nil
+			}
+			check := m.runStrictCheck(ctx, client, probe)
+			if code := session.confirmCandidate(ctx, result.Name); code != "" {
+				result.StrictVerificationStatus = code
+				return nil
+			}
+			checks = append(checks, check)
 		}
+		result.StrictChecks = checks
 		applyStrictOutcome(result)
 		copy := *result
 		m.publish(scanID, Event{Kind: "strict-verified", Message: "strict service verification completed: " + result.Name, At: time.Now().UTC(), Result: &copy})
 	}
+	return nil
 }
 
 func (m *Manager) runStrictCheck(parent context.Context, client *http.Client, probe config.StrictProbe) model.StrictCheck {
@@ -197,12 +221,6 @@ func (m *Manager) runStrictCheck(parent context.Context, client *http.Client, pr
 	}
 	check.Status = "passed"
 	return check
-}
-
-func (m *Manager) restoreProbeSelector(groupName, previous string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	_ = m.client.Select(ctx, groupName, previous)
 }
 
 func applyStrictOutcome(result *model.NodeResult) {

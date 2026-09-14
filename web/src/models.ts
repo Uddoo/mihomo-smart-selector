@@ -133,6 +133,13 @@ export interface NodeResult {
   transport_status: string
 }
 
+export interface ScanWarning {
+  code: string
+  phase: string
+  group: string
+  message: string
+}
+
 export interface Scan {
   id: string
   status: 'running' | 'complete' | 'failed' | 'cancelled' | 'interrupted'
@@ -149,6 +156,7 @@ export interface Scan {
   started_at: string
   completed_at?: string
   error?: string
+  warnings?: ScanWarning[]
   results: NodeResult[]
 }
 

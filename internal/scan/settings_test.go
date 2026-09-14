@@ -34,7 +34,7 @@ func TestEgressUsesNewConnectionForEachCandidate(t *testing.T) {
 	fake := &fakeMihomo{proxies: map[string]mihomo.Proxy{"probe": {Name: "probe", Type: "Selector", Now: "original", All: []string{"a", "b", "original"}}}}
 	m := NewManager(cfg, fake, nil)
 	results := []model.NodeResult{{Name: "a"}, {Name: "b"}}
-	m.verifyEgress(context.Background(), fake.proxies, results, "test")
+	m.verifyEgress(context.Background(), results, "test")
 	for _, result := range results {
 		if result.VerifiedRegion != "JP" {
 			t.Fatalf("connection reused across candidates: %+v", results)
@@ -53,7 +53,7 @@ func TestEgressVerificationRestoresProbeSelection(t *testing.T) {
 	fake := &fakeMihomo{proxies: map[string]mihomo.Proxy{"probe": {Name: "probe", Type: "Selector", Now: "original", All: []string{"original", "candidate"}}}}
 	manager := NewManager(cfg, fake, nil)
 	results := []model.NodeResult{{Name: "candidate", InferredRegion: "JP"}}
-	manager.verifyEgress(context.Background(), fake.proxies, results, "test")
+	manager.verifyEgress(context.Background(), results, "test")
 	if results[0].VerifiedRegion != "JP" {
 		t.Fatalf("exit not verified: %+v", results)
 	}

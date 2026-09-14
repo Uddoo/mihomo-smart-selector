@@ -12,6 +12,7 @@ import {ref, nextTick, onMounted, onBeforeUnmount, useTemplateRef, watch} from '
 import CandidateDetails from './CandidateDetails.vue'
 import ScanCompatibility from './ScanCompatibility.vue'
 import ScanRegionFilter from './ScanRegionFilter.vue'
+import ScanWarnings from './ScanWarnings.vue'
 const resultQuery = ref('')
 const filteredResults = computed(() => results.value.filter(row => !resultQuery.value || row.name.toLowerCase().includes(resultQuery.value.toLowerCase())))
 const {page: resultPage, pageCount, visible: pageResults, locate} = usePagination(filteredResults)
@@ -130,6 +131,7 @@ onBeforeUnmount(() => { closeDetails(); mobileQuery.removeEventListener('change'
         <div v-if="running" class="scope-note" role="status">{{ connectionMode === 'live' ? t('实时更新中') : connectionMode === 'paused' ? t('页面刷新已暂停，后台扫描继续运行') : t('定时刷新中') }}</div>
         <div class="scan-state" :class="scanTone" role="status"><span><CircleAlert v-if="scanFailed" :size="18" aria-hidden="true"/><CheckCircle2 v-else-if="scan?.status === 'complete'" :size="18" aria-hidden="true"/><CirclePause v-else-if="scan?.status === 'cancelled'" :size="18" aria-hidden="true"/><Radio v-else :size="18" aria-hidden="true"/><b>{{ translateMessage(scanLabel) }}</b> {{ t('· {p0} 个节点', {p0: results.length}) }}</span><small>{{ scan ? scan.request.target_group + ' · ' + t(scan.profile.label) + ' · ' : '' }}{{ running ? t('结果返回即更新排名，验证后分数仍可能变化') : t('扫描不改变当前节点') }}</small><span v-if="health?.mihomo_version === 'dev-mock'" class="fixture-label">{{ t('示例数据') }}</span></div>
         <p v-if="scanFailed || scan?.status === 'cancelled'" class="scan-recovery">{{ t('{p0}，已返回的数据保留供查看；重新扫描完成后可选择节点。', {p0: scanFailed ? t('本次扫描未完成') : t('本次扫描已停止')}) }}</p>
+        <ScanWarnings :warnings="scan?.warnings"/>
         <div class="grid">
           <section class="ranking panel">
             <div class="head">

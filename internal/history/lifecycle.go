@@ -26,7 +26,7 @@ func (s *Store) RecoverInterrupted(ctx context.Context) error {
 
 // Summaries omit result payloads; the selected scan is fetched separately.
 func (s *Store) RecentScans(ctx context.Context, limit int) ([]model.Scan, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id,status,request_json,profile_json,started_at,completed_at,error,progress_json,controller_scope FROM scans ORDER BY started_at DESC LIMIT ?`, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT id,status,request_json,profile_json,started_at,completed_at,error,progress_json,warnings_json,controller_scope FROM scans ORDER BY started_at DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -34,12 +34,15 @@ func (s *Store) RecentScans(ctx context.Context, limit int) ([]model.Scan, error
 	out := []model.Scan{}
 	for rows.Next() {
 		var item model.Scan
-		var request, profile, started, reason, progress string
+		var request, profile, started, reason, progress, warnings string
 		var completed *string
-		if err := rows.Scan(&item.ID, &item.Status, &request, &profile, &started, &completed, &reason, &progress, &item.ControllerScope); err != nil {
+		if err := rows.Scan(&item.ID, &item.Status, &request, &profile, &started, &completed, &reason, &progress, &warnings, &item.ControllerScope); err != nil {
 			return nil, err
 		}
 		item.Error = reason
+		if err := json.Unmarshal([]byte(warnings), &item.Warnings); err != nil {
+			return nil, err
+		}
 		if err := json.Unmarshal([]byte(request), &item.Request); err != nil {
 			return nil, err
 		}
