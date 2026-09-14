@@ -9,6 +9,23 @@ versioned releases begin.
 
 ## [Unreleased]
 
+## [v0.1.0-rc.3] - 2026-09-14
+
+### Changed
+
+- Update @lucide/vue from 1.41.0 to 1.44.0 and Vite from 8.2.2 to 8.3.0,
+  with matching regenerated frontend assets embedded in the executable.
+- Update CodeQL Action to 4.38.0, upload-artifact to 7.0.1, and
+  download-artifact to 8.0.1, retaining full commit-SHA pins.
+
+### Added
+
+- Verify the desktop artifact upload/download path in ordinary CI and reusable
+  release checks. Download all three artifact groups and validate the four
+  Windows/macOS archives against their SHA-256 manifests before release collection.
+- Document Clash Party Controller setup in both READMEs with a redacted
+  configuration screenshot.
+
 ## [v0.1.0-rc.2] - 2026-09-11
 
 ### Fixed
@@ -218,6 +235,7 @@ versioned releases begin.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.2...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.3...HEAD
+[v0.1.0-rc.3]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.2...v0.1.0-rc.3
 [v0.1.0-rc.2]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.1...v0.1.0-rc.2
 [v0.1.0-rc.1]: https://github.com/Uddoo/mihomo-smart-selector/releases/tag/v0.1.0-rc.1
