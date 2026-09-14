@@ -442,7 +442,7 @@ func writeError(writer http.ResponseWriter, status int, message string) {
 func (s *Server) authorize(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		// The SPA shell contains no router/controller data and must remain
-		// reachable so a LAN user can enter the session-only API token. All
+		// reachable so a LAN user can enter the in-memory API token. All
 		// application data and state-changing operations remain under /api/.
 		if !s.exposed || !strings.HasPrefix(request.URL.Path, "/api/") {
 			next.ServeHTTP(writer, request)

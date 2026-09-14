@@ -1,6 +1,12 @@
 // Chinese source messages are the stable lookup keys and the complete zh-CN catalog.
 // Keep placeholders identical across languages. Product data is never translated here.
 export const en = {
+  "Token 仅保留在当前页面内存中，刷新后需重新输入。": "The token stays only in this page's memory. Enter it again after reloading.",
+  "更换 Controller 地址后，请输入新密钥或选择不使用密钥。公网 Controller 请在 YAML 中配置。": "After changing the Controller address, enter a new secret or choose no secret. Configure public Controllers in YAML.",
+  "更换 Controller 地址后，请输入新密钥或选择不使用密钥": "After changing the Controller address, enter a new secret or choose no secret.",
+  "服务器密钥仅用于 YAML 中的 Controller；更换地址后，请输入新密钥或选择不使用密钥": "The server secret is only for the Controller in YAML. After changing the address, enter a new secret or choose no secret.",
+  "Controller 目标必须是本机或私网地址；其他目标请在 YAML 中配置": "The Controller must use a loopback or private address. Configure other destinations in YAML.",
+  "无法解析 Controller 地址": "Could not resolve the Controller address.",
   "验证过程警告": "Verification warnings",
   "出口验证": "Egress verification",
   "验证": "Verification",

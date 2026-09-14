@@ -58,6 +58,7 @@ function restarted() { void reload(); emit('restarted') }
           </div>
         </div>
         <p id="secret-storage-help" class="settings-note">{{ t('已保存的密钥不会回显到浏览器。输入的新密钥仅保存在服务端；留用现有密钥请选择“保留已配置密钥”。') }}</p>
+        <p class="settings-note">{{ t('更换 Controller 地址后，请输入新密钥或选择不使用密钥。公网 Controller 请在 YAML 中配置。') }}</p>
         <div class="settings-actions">
           <button class="primary" type="submit" :disabled="!dirty">{{ busy === 'save' ? t('正在保存…') : t('保存连接配置') }}</button>
           <button type="button" @click="testDraft">{{ busy === 'test' ? t('正在测试…') : t('测试连接') }}</button>

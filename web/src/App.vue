@@ -30,6 +30,7 @@ const currentPage = computed(() => navigation.find(item => item.id === page.valu
       <LanguageSelect/>
       <h1>Mihomo Smart Selector</h1>
       <p>{{ t('输入局域网访问 token。') }}</p>
+      <p>{{ t('Token 仅保留在当前页面内存中，刷新后需重新输入。') }}</p>
       <label>LAN token<input v-model="token" name="access-token" type="password" autocomplete="current-password" :spellcheck="false"></label>
       <button :disabled="!token.trim()">{{ t('安全连接') }}</button>
     </form>

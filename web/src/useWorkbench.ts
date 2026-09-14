@@ -44,7 +44,10 @@ export function useWorkbench() {
   const preview = ref<ScanPreview | null>(null)
   const nestedNavigation = shallowRef<{path: string[]; target: string} | null>(null)
   const access = ref(false)
-  const token = ref(sessionStorage.getItem('mss-api-token') || '')
+  const token = shallowRef('')
+  // Remove credentials left by older versions without reading them back.
+  try { sessionStorage.removeItem('mss-api-token') } catch { /* Storage can be disabled. */ }
+  try { localStorage.removeItem('mss-api-token') } catch { /* Storage can be disabled. */ }
   function savedTheme(): 'light' | 'dark' {
     try { return localStorage.getItem('mss-theme') === 'dark' ? 'dark' : 'light' }
     catch { return 'light' }
@@ -218,7 +221,6 @@ export function useWorkbench() {
 
   function unlock() {
     setAPIToken(token.value)
-    sessionStorage.setItem('mss-api-token', token.value.trim())
     void load()
   }
 
