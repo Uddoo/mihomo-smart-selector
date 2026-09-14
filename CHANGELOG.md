@@ -9,6 +9,20 @@ versioned releases begin.
 
 ## [Unreleased]
 
+### Fixed
+
+- Confirm the dedicated selector before and after verification requests; discard
+  evidence when its selected member or membership changes or cannot be read back.
+  Capture the restoration baseline from fresh Controller state, confirm cleanup
+  independently of scan cancellation, and avoid knowingly overwriting another
+  client's selection. Persist cleanup warnings in scan history and display them
+  separately from node results in both languages. Stop later verification from
+  reusing the same probe group when its cleanup remains unresolved.
+- Reject dedicated verification selectors as scan targets even when the request
+  contains leading or trailing whitespace. Recheck current probe reservations
+  before selecting from historical scans, with no Controller write or new audit
+  for rejected selections. Existing request IDs still return their saved evidence.
+
 ## [v0.1.0-rc.2] - 2026-09-11
 
 ### Fixed

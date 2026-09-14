@@ -205,6 +205,12 @@ with a language picker in the page header. HTTP reachability does not prove logi
 or regional unlock. Strict checks and egress verification are reported
 separately from performance scoring.
 
+Dedicated verification checks the selected node before and after probing. If
+probe-group restoration fails or cannot be confirmed, a separate warning remains
+in the scan history; check that group's current selection in the Controller.
+Readback cannot eliminate all races with other clients or validate the listener's
+routing configuration.
+
 <a id="docs"></a>
 ## Documentation
 

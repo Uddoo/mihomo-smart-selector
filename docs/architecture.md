@@ -151,9 +151,42 @@ refinement. `screening_samples`, `refinement_samples`, `measured_at`, and
 `expires_at` describe the evidence; `selection_reason` explains server-side gates.
 Small-sample P95 is empirical evidence, not a long-term reliability claim.
 
+Enabled strict and egress verification reserve their dedicated selectors. Scan
+admission and preflight compare the target after trimming surrounding whitespace.
+Historical results also use the current reservations for `selection_reason` and
+new selection requests: reserving a previously scanned business group blocks its
+selection before any Controller write or pending audit is created. Replaying an
+existing `request_id` still returns the original saved switch evidence without
+repeating the operation, even after its group becomes reserved.
+
 Strict verification checks the highest-ranked candidates within `max_candidates`;
 remaining candidates are marked `not_run_limit`. Its budget is independent of
 refinement, and egress verification still covers the full candidate set.
+
+Each verification phase reads its dedicated selector afresh and requires a known,
+restorable current member before writing. Each candidate is checked against fresh
+membership, selected, and read back before an HTTP probe. Strict requests also
+check selection before each request. Results are committed only after post-probe
+readback confirms that the same candidate remains selected and a member. A failed
+read or changed selection stops that phase; strict evidence collected earlier for
+the affected candidate is discarded. Missing candidates are skipped.
+
+Cleanup uses a separate 10-second context even after scan cancellation. It first
+reads current state and avoids knowingly overwriting a selection different from
+the last confirmed or attempted candidate. The original member must still exist;
+a restoration write is read back, including after a lost write response. Failed,
+unconfirmed, or skipped cleanup produces a scan-level `warnings` entry containing
+`code`, `phase`, `group`, and an operator-facing `message`, without raw Controller
+errors or probe URLs. Warnings are stored in the additive `scans.warnings_json`
+column, defaulting to `[]` for existing rows, and returned on scan detail/history
+reads. A `warning` SSE event requests a fresh snapshot; warnings do not change the
+node's already confirmed evidence or turn cancellation into completion. If egress
+cleanup is unresolved, strict verification does not reuse that same selector.
+
+These reads are observations, not atomic ownership: external clients can still
+change a selector between reads, or change it away and back. The configured proxy
+listener must actually route through the dedicated selector; Controller readback
+cannot prove that routing configuration or eliminate all concurrent-client races.
 
 Results expire `scanner.result_max_age_seconds` after their latency measurement
 (default 600 seconds, allowed 30..86400). Expired results cannot switch traffic.
@@ -361,9 +394,11 @@ scanner:
     max_candidates: 60
 ```
 
-The service disables keep-alive reuse while changing that selector and restores
-its prior member when the strict phase finishes. Do not point this setting at a
-selector carrying normal LAN traffic.
+The service disables keep-alive reuse while changing that selector and attempts
+to restore its prior member when the strict phase finishes. Confirmed node results
+and any restoration warning are displayed separately; warnings remain available
+when reopening the scan. Do not point this setting at a selector carrying normal
+LAN traffic.
 
 ### 7.3 Service and rollback
 
