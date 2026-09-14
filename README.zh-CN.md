@@ -76,6 +76,19 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 若业务组只包含下级策略组，工作台会提供可扫描的下级 Selector，并保留测试服务；
 确认切换作用于所选下级组，详见[嵌套策略组与影响范围](docs/nested-groups.md)。
 
+#### 在 Clash Party 端配置 Controller
+
+打开 **Clash Party 客户端 → 内核设置**。当两个程序运行在同一台 Windows 电脑上时，
+将 **监听地址**设为 `127.0.0.1:9090`，设置 **访问密钥**并确认修改。
+
+![Clash Party 客户端的内核设置：Controller 监听地址为 127.0.0.1:9090，访问密钥及订阅信息已遮盖](docs/assets/screenshots/clash-party-controller-settings-20260911-redacted.png)
+
+*维护者于 2026-09-11 提供的 Clash Party 客户端截图，访问密钥及订阅信息已遮盖。*
+
+随后在 Mihomo Smart Selector 的「偏好设置 → Mihomo 连接」填写 `http://127.0.0.1:9090`
+和相同的密钥，测试并保存后重启本服务。这里使用 Controller 端口（图中为 `9090`）；
+上方的混合、SOCKS、HTTP 端口用于代理流量。[查看连接配置说明 →](docs/connection-settings.md)
+
 <a id="showcase"></a>
 ## 看清依据，再做选择
 

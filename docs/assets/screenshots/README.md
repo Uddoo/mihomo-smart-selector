@@ -57,6 +57,21 @@ monitoring views report sufficient data; that label is not a 7-day reliability
 study. Older mock and maintainer-supplied captures remain below as historical
 assets, with their original provenance.
 
+## Clash Party client Controller settings — supplied 2026-09-11
+
+[clash-party-controller-settings-20260911-redacted.png](clash-party-controller-settings-20260911-redacted.png)
+is a privacy-redacted derivative of the maintainer's **Clash Party client** screenshot.
+Both READMEs use this Chinese-interface image to show configuration in Clash Party's
+**Core settings (内核设置)** before connecting Mihomo Smart Selector.
+
+The supplied screenshot shows **Listen address (监听地址)** set to `127.0.0.1:9090`
+and the **Access secret (访问密钥)** field. The secret and the sidebar subscription
+card are covered with opaque masks. The private original is excluded from the
+repository. The image was edited with the built-in Image Gen tool for privacy;
+it is not presented as an unmodified screenshot. The README describes the visible
+Controller fields, not a completed scan or a benchmark. The date records when the
+original screenshot was supplied, not a verified application source commit.
+
 ## Local mock showcase
 
 The three mock showcase images below were captured from the real application at UI source commit
