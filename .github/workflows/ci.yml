@@ -192,3 +192,23 @@ jobs:
             throw 'Built binary reports a dirty source tree.'
           }
           Get-FileHash -LiteralPath $binary -Algorithm SHA256
+
+  artifacts:
+    name: Verify artifact download and release checksums
+    needs: [windows, macos]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Download packages from this workflow run
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: '*-packages'
+          path: dist/artifacts
+      - name: Verify all desktop archives and their checksums
+        env:
+          PACKAGE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
+        run: python3 tools/collect-release-assets.py --version "$PACKAGE_VERSION"
