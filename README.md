@@ -63,7 +63,7 @@ each process. Ports 9090 and 8788 must be available.
 ### Connect your own Mihomo
 
 **Windows / macOS portable builds:** download the matching AMD64 / ARM64 package from
-[v0.1.0-rc.2](https://github.com/Uddoo/mihomo-smart-selector/releases/tag/v0.1.0-rc.2).
+[v0.1.0-rc.4](https://github.com/Uddoo/mihomo-smart-selector/releases/tag/v0.1.0-rc.4).
 Extract the Windows ZIP and run the EXE; on macOS, extract the TAR.GZ and run `start.command`.
 First launch creates configuration beside the executable. No Go or Node.js runtime is required.
 See the [Windows guide](docs/windows.md#english) or [macOS guide](docs/macos.md#english)

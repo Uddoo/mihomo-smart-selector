@@ -59,7 +59,7 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 
 ### 接入你自己的 Mihomo
 
-**Windows / macOS 便携版：**从 [v0.1.0-rc.2](https://github.com/Uddoo/mihomo-smart-selector/releases/tag/v0.1.0-rc.2)
+**Windows / macOS 便携版：**从 [v0.1.0-rc.4](https://github.com/Uddoo/mihomo-smart-selector/releases/tag/v0.1.0-rc.4)
 下载匹配的 AMD64 / ARM64 包。Windows 解压 ZIP 后运行 EXE，macOS 解压 TAR.GZ 后运行 `start.command`。
 首次启动在程序同目录创建配置，无需安装 Go 或 Node.js。
 系统要求、配置与升级方式见 [Windows 使用指南](docs/windows.md) 或 [macOS 使用指南](docs/macos.md)。
