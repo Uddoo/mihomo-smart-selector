@@ -10,6 +10,8 @@ http:
 
 mihomo:
   # Keep the Mihomo controller local to the router/service host.
+  # GUI overrides permit loopback/private targets; other targets must use this exact URL.
+  # Server credentials are bound to this URL (including scheme, port and base path).
   controller: http://127.0.0.1:9090
   # The secret is read from this environment variable, never from this file.
   secret_env: MIHOMO_SECRET

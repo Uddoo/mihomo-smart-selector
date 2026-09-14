@@ -1,5 +1,27 @@
 # Long-running operation and recovery
 
+## Controller destinations and credentials
+
+Connection tests and saved GUI overrides can use loopback, RFC 1918 IPv4 and
+IPv6 private addresses. Link-local, unspecified, multicast, public and known
+cloud metadata destinations are rejected, including when returned by DNS.
+Every new connection validates all DNS answers and dials a checked IP directly.
+Controller requests ignore environment HTTP proxies and never follow redirects.
+For a public or otherwise exceptional Controller, explicitly set its full URL
+in `mihomo.controller` in the operator-owned YAML and restart the service. A GUI
+save does not authorize additional public destinations.
+
+Existing secrets are bound to their original scheme, hostname, port and base
+path. After changing an address, choose **Enter a new secret** or **No secret**.
+The **Server secret** option is only usable at the YAML Controller address.
+An older saved override that reused the server secret at a different address
+will be rejected at startup. Before upgrading such a deployment, configure that
+Controller URL in YAML or save an explicit custom secret for the override.
+
+LAN API tokens stay only in page memory. Reloading requires entering the token
+again; scans and monitoring continue on the server. Older token entries are
+removed from browser session/local storage when the page starts.
+
 ## Scan lifecycle
 
 `GET /api/v1/scans` returns the 20 most recent scan summaries plus any other

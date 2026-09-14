@@ -9,6 +9,19 @@ versioned releases begin.
 
 ## [Unreleased]
 
+### Fixed
+
+- Bind existing Controller secrets to their original endpoint, including scheme,
+  port and base path. Changing the address requires a new secret or no secret;
+  server credentials only apply to the Controller configured in YAML.
+- Restrict GUI-selected Controller destinations to loopback/private addresses or
+  the exact YAML Controller. Validate every DNS answer at connection time, dial
+  the checked IP directly, and disable environment proxies and redirects.
+- Keep LAN API tokens only in page memory and remove older browser storage
+  entries. Authenticated LAN users must enter the token again after reloading.
+- Check concurrency bounds directly before applying saved runtime settings and
+  allocating probe channels; reject invalid values without changing storage.
+
 ### Changed
 
 - Clarify that persistent monitoring depends on this application's backend

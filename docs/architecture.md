@@ -65,8 +65,9 @@ the narrow range that contains the intended clients. A high-entropy token is
 held in a mode-0600 router file. The static SPA shell is public inside the
 allowed network so its login form can load; every `/api/` request, including
 read-only data, requires the Bearer token unless the operator deliberately
-enabled unauthenticated-LAN mode. The browser retains the token only in its own
-session storage.
+enabled unauthenticated-LAN mode. The browser retains the token only in page
+memory; reloading requires entering it again. Older browser storage entries are
+removed without being read back.
 
 ## 3. Runtime architecture
 
