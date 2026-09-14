@@ -40,6 +40,11 @@
 <a id="quick-start"></a>
 ## 下载与使用
 
+<p>
+  <a href="https://github.com/Uddoo/mihomo-smart-selector/releases"><img src="https://img.shields.io/github/downloads/Uddoo/mihomo-smart-selector/total?label=%E9%99%84%E4%BB%B6%E4%B8%8B%E8%BD%BD" alt="Release 附件累计下载次数" /></a>
+  <sub>累计 Release 附件下载次数，含校验文件。</sub>
+</p>
+
 **已经在用 Mihomo / OpenClash / Clash Party？先下载便携包。**
 你需要一个正在运行的 Mihomo、它的 HTTP Controller 地址与密钥，以及要比较的 `Selector` 策略组。
 桌面便携包 **无需安装 Go 或 Node.js**。
@@ -54,6 +59,11 @@
 | Mac · Apple Silicon（M 系列） | `darwin-arm64.tar.gz` | [macOS 指南](docs/macos.md#中文) |
 | Mac · Intel | `darwin-amd64.tar.gz` | [macOS 指南](docs/macos.md#中文) |
 | OpenWrt / iStoreOS 路由器 · Linux | 按设备架构从源码构建 | [构建、预检、安装与回滚](deploy/openwrt/README.md) |
+
+<p>
+  <a href="deploy/openwrt/README.md"><img src="https://img.shields.io/badge/%E8%B7%AF%E7%94%B1%E5%99%A8%E9%83%A8%E7%BD%B2-OpenWrt%20%2F%20iStoreOS-00A2DF" alt="OpenWrt / iStoreOS 路由器部署指南" /></a>
+  <sub>按设备架构从源码构建。</sub>
+</p>
 
 完整文件名还包含版本号。**Source code (zip/tar.gz)** 用于源码开发；Linux 目前走源码构建路径，
 桌面便携包不能直接装到路由器。下载时查看该版本的说明与 `SHA256SUMS.txt` 校验文件。
@@ -144,6 +154,11 @@ HTTP 可达不等于登录、播放或地区解锁成功；严格验证和出口
 <a id="contributing"></a>
 ## 一起改进下一版
 
+<p>
+  <a href="https://github.com/Uddoo/mihomo-smart-selector/stargazers"><img src="https://img.shields.io/github/stars/Uddoo/mihomo-smart-selector?style=flat&amp;logo=github&amp;label=Star%20%E6%94%B6%E8%97%8F" alt="GitHub Star 数量" /></a>
+  <a href="https://github.com/Uddoo/mihomo-smart-selector/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22"><img src="https://img.shields.io/github/issues/Uddoo/mihomo-smart-selector/good%20first%20issue?label=%E5%85%A5%E9%97%A8%E4%BB%BB%E5%8A%A1" alt="开放的 good first issue 数量" /></a>
+</p>
+
 **从一台设备、一个页面或一个测试用例开始。** 欢迎中文和英文反馈，不需要承诺长期投入。
 
 | 你愿意帮忙的方向 | 一份有用的首次贡献 |
@@ -203,6 +218,12 @@ HTTP 可达不等于登录、播放或地区解锁成功；严格验证和出口
 <a id="development"></a>
 <details>
 <summary><strong>本地 Mock 演示、源码构建与测试</strong></summary>
+
+<p>
+  <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/Uddoo/mihomo-smart-selector/main?logo=go&amp;label=Go" alt="go.mod 声明的 Go 版本" /></a>
+  <a href="web/package.json"><img src="https://img.shields.io/github/package-json/dependency-version/Uddoo/mihomo-smart-selector/vue/main?filename=web%2Fpackage.json&amp;logo=vuedotjs&amp;label=Vue" alt="package.json 声明的 Vue 版本范围" /></a>
+  <a href="web/package.json"><img src="https://img.shields.io/github/package-json/dependency-version/Uddoo/mihomo-smart-selector/dev/typescript/main?filename=web%2Fpackage.json&amp;logo=typescript&amp;label=TypeScript" alt="package.json 声明的 TypeScript 版本范围" /></a>
+</p>
 
 ### 本地 Mock 演示
 

@@ -41,6 +41,11 @@ separate probe Selector. The Controller secret stays on the backend.
 <a id="quick-start"></a>
 ## Download and run
 
+<p>
+  <a href="https://github.com/Uddoo/mihomo-smart-selector/releases"><img src="https://img.shields.io/github/downloads/Uddoo/mihomo-smart-selector/total?label=asset%20downloads" alt="Total release asset downloads" /></a>
+  <sub>Cumulative release asset downloads, including checksum files.</sub>
+</p>
+
 **Already using Mihomo / OpenClash / Clash Party? Start with a portable package.**
 You need a running Mihomo instance, its HTTP Controller address and secret, and
 a `Selector` group whose nodes you want to compare. Desktop packages need **no Go or Node.js**.
@@ -55,6 +60,11 @@ choose a published release, and expand **Assets**:
 | Mac · Apple Silicon (M series) | `darwin-arm64.tar.gz` | [macOS](docs/macos.md#english) |
 | Mac · Intel | `darwin-amd64.tar.gz` | [macOS](docs/macos.md#english) |
 | OpenWrt / iStoreOS router · Linux | Build for your device architecture | [Build, preflight, install and rollback](deploy/openwrt/README.md) |
+
+<p>
+  <a href="deploy/openwrt/README.md"><img src="https://img.shields.io/badge/router-OpenWrt%20%2F%20iStoreOS-00A2DF" alt="OpenWrt / iStoreOS router deployment guide" /></a>
+  <sub>Build from source for your device architecture.</sub>
+</p>
 
 The full archive name also includes the release version. **Source code (zip/tar.gz)**
 is for development. Linux currently uses the source-build path; the published
@@ -170,6 +180,11 @@ routing configuration.
 <a id="contributing"></a>
 ## Help shape the next release
 
+<p>
+  <a href="https://github.com/Uddoo/mihomo-smart-selector/stargazers"><img src="https://img.shields.io/github/stars/Uddoo/mihomo-smart-selector?style=flat&amp;logo=github&amp;label=Stars" alt="GitHub Stars" /></a>
+  <a href="https://github.com/Uddoo/mihomo-smart-selector/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22"><img src="https://img.shields.io/github/issues/Uddoo/mihomo-smart-selector/good%20first%20issue?label=good%20first%20issue" alt="Open good first issues" /></a>
+</p>
+
 **Start with one device, one page or one test case.** Chinese and English are
 welcome, and contributing does not require a long-term commitment.
 
@@ -244,6 +259,12 @@ override. [Troubleshooting →](docs/troubleshooting.md)
 <a id="development"></a>
 <details>
 <summary><strong>Local mock demo, source build and tests</strong></summary>
+
+<p>
+  <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/Uddoo/mihomo-smart-selector/main?logo=go&amp;label=Go" alt="Go version declared in go.mod" /></a>
+  <a href="web/package.json"><img src="https://img.shields.io/github/package-json/dependency-version/Uddoo/mihomo-smart-selector/vue/main?filename=web%2Fpackage.json&amp;logo=vuedotjs&amp;label=Vue" alt="Vue version range declared in package.json" /></a>
+  <a href="web/package.json"><img src="https://img.shields.io/github/package-json/dependency-version/Uddoo/mihomo-smart-selector/dev/typescript/main?filename=web%2Fpackage.json&amp;logo=typescript&amp;label=TypeScript" alt="TypeScript version range declared in package.json" /></a>
+</p>
 
 ### Local mock demo
 
