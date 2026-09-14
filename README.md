@@ -11,9 +11,14 @@
   <a href="README.en.md">English</a>
 </p>
 <p align="center">
+  <a href="https://github.com/Uddoo/mihomo-smart-selector/releases"><img src="https://img.shields.io/github/v/release/Uddoo/mihomo-smart-selector?include_prereleases&amp;sort=semver&amp;label=%E7%89%88%E6%9C%AC" alt="最新版本（含预发布）" /></a>
   <a href="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml"><img src="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 状态" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT 许可证" /></a>
-  <a href="#compatibility"><img src="https://img.shields.io/badge/status-pre--release-f0b44c" alt="预发布状态" /></a>
+  <a href="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/codeql.yml"><img src="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL 状态" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT-blue" alt="MIT 许可证" /></a>
+</p>
+<p align="center">
+  <a href="#quick-start"><img src="https://img.shields.io/badge/%E6%A1%8C%E9%9D%A2%E7%89%88-Windows%20%7C%20macOS-0078D4" alt="桌面版：Windows / macOS" /></a>
+  <a href="docs/first-contribution.md#中文"><img src="https://img.shields.io/badge/PRs-%E6%AC%A2%E8%BF%8E%E8%B4%A1%E7%8C%AE-brightgreen" alt="欢迎贡献：首次贡献指南" /></a>
 </p>
 
 ![中文实机工作台：历史扫描结果、节点排名与已过期的候选比较](docs/assets/screenshots/scan-workbench-live-20260911-zh-CN.png)

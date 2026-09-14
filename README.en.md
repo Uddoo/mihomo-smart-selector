@@ -11,9 +11,14 @@
   <a href="README.md">简体中文</a>
 </p>
 <p align="center">
+  <a href="https://github.com/Uddoo/mihomo-smart-selector/releases"><img src="https://img.shields.io/github/v/release/Uddoo/mihomo-smart-selector?include_prereleases&amp;sort=semver&amp;label=release" alt="Latest release (including pre-releases)" /></a>
   <a href="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml"><img src="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status" /></a>
+  <a href="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/codeql.yml"><img src="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL status" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license" /></a>
-  <a href="#compatibility"><img src="https://img.shields.io/badge/status-pre--release-f0b44c" alt="Pre-release" /></a>
+</p>
+<p align="center">
+  <a href="#quick-start"><img src="https://img.shields.io/badge/desktop-Windows%20%7C%20macOS-0078D4" alt="Desktop: Windows / macOS" /></a>
+  <a href="docs/first-contribution.md#english"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs welcome: first-contribution guide" /></a>
 </p>
 
 ![English scan workbench on the router: saved results, ranked nodes, and an expired candidate comparison](docs/assets/screenshots/scan-workbench-live-20260911-en.png)
