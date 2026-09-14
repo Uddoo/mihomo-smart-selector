@@ -40,11 +40,21 @@ type controllerDialer struct {
 	dial    func(context.Context, string, string) (net.Conn, error)
 }
 
-func (d controllerDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
-	host, port, err := net.SplitHostPort(address)
+// IsLocalURL verifies every DNS answer before a connection test builds a request.
+// The dialer must still resolve and check again: this preflight does not pin DNS
+// for a future connection. The boolean guard also makes the URL boundary visible
+// to static analysis without excluding the request-forgery rule.
+func IsLocalURL(ctx context.Context, controller string) bool {
+	u, err := config.ParseControllerURL(controller)
 	if err != nil {
-		return nil, errControllerTarget
+		return false
 	}
+	policy := controllerDialer{lookup: net.DefaultResolver.LookupNetIP}
+	_, err = policy.resolve(ctx, u.Hostname())
+	return err == nil
+}
+
+func (d controllerDialer) resolve(ctx context.Context, host string) ([]netip.Addr, error) {
 	addresses, err := d.lookup(ctx, "ip", host)
 	if err != nil || len(addresses) == 0 {
 		return nil, fmt.Errorf("无法解析 Controller 地址")
@@ -55,6 +65,18 @@ func (d controllerDialer) DialContext(ctx context.Context, network, address stri
 		if !ip.IsValid() || (!d.trusted && !localControllerAddress(ip)) {
 			return nil, errControllerTarget
 		}
+	}
+	return addresses, nil
+}
+
+func (d controllerDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, errControllerTarget
+	}
+	addresses, err := d.resolve(ctx, host)
+	if err != nil {
+		return nil, err
 	}
 	for _, ip := range addresses {
 		var conn net.Conn

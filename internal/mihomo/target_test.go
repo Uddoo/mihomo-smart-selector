@@ -44,6 +44,28 @@ func TestConnectionTargetPolicy(t *testing.T) {
 	}
 }
 
+func TestLocalURLPreflight(t *testing.T) {
+	for _, tc := range []struct {
+		target string
+		allow  bool
+	}{
+		{"http://localhost:9090", true},
+		{"http://127.0.0.1:9090", true},
+		{"http://192.168.1.1:9090/base", true},
+		{"http://[fd12::1]:9090", true},
+		{"http://169.254.169.254", false},
+		{"http://[fd00:ec2::254]", false},
+		{"http://203.0.113.5", false},
+		{"http://[::ffff:203.0.113.5]", false},
+		{"http://127.0.0.1/?token=value", false},
+		{"file:///etc/passwd", false},
+	} {
+		if got := IsLocalURL(context.Background(), tc.target); got != tc.allow {
+			t.Errorf("IsLocalURL(%q)=%v", tc.target, got)
+		}
+	}
+}
+
 func TestControllerDialChecksAllDNSAnswersAndPinsTheSelectedIP(t *testing.T) {
 	for _, tc := range []struct {
 		name    string

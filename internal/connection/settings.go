@@ -213,13 +213,22 @@ func (m *Manager) Test(ctx context.Context, u Update) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	controller := cfg.Controller
+	if config.SameController(controller, m.base.Controller) {
+		// Select the operator-owned value, rather than reusing a draft URL that
+		// happens to compare equal. Only YAML can authorize exceptional targets.
+		controller = m.base.Controller
+	} else if !mihomo.IsLocalURL(ctx, controller) {
+		return "", fmt.Errorf("Controller 目标必须是本机或私网地址；其他目标请在 YAML 中配置")
+	}
+	cfg.Controller = controller
 	client, err := mihomo.NewForConnection(cfg, secret, m.base.Controller)
 	if err != nil {
 		return "", fmt.Errorf("无法创建 Controller 连接")
 	}
 	defer client.CloseIdleConnections()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 	version, err := client.Reachable(ctx)
 	if err != nil || strings.TrimSpace(version) == "" || len(version) > 256 {
 		return "", fmt.Errorf("连接测试失败，请检查 Controller 地址、密钥和网络；测试最多等待 10 秒")
