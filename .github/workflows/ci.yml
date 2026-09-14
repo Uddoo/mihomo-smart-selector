@@ -87,7 +87,7 @@ jobs:
           PACKAGE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
         run: ./tools/test-windows-package.ps1 -ArchivePath "dist/windows/mihomo-smart-selector-$env:PACKAGE_VERSION-windows-amd64.zip"
       - name: Preserve packages and checksums
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-packages
           path: |
@@ -146,7 +146,7 @@ jobs:
           fi
           grep -q 'vcs.modified=false' dist/metadata/build.txt
       - name: Preserve packages and checksums
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: macos-${{ matrix.goarch }}-packages
           path: |
