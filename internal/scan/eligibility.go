@@ -13,6 +13,9 @@ func (m *Manager) selectionReason(s model.Scan, r model.NodeResult, p config.Pro
 	if s.ControllerScope == "" || s.ControllerScope != m.bindingScope() {
 		return "扫描不属于当前 Controller，请重新扫描"
 	}
+	if err := m.checkProbeTarget(s.Request.TargetGroup); err != nil {
+		return err.Error()
+	}
 	if s.Status != model.ScanComplete {
 		return "扫描完成后可选择"
 	}

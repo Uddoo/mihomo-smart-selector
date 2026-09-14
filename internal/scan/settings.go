@@ -22,6 +22,7 @@ func (m *Manager) hasRunningScan() bool {
 }
 
 func (m *Manager) checkProbeTarget(target string) error {
+	target = strings.TrimSpace(target)
 	c := m.currentConfig()
 	if (c.EgressVerification.Enabled && target == c.EgressVerification.SelectorGroup) || (c.Scanner.StrictVerification.Enabled && target == c.Scanner.StrictVerification.SelectorGroup) {
 		return fmt.Errorf("专用探测组不能作为业务扫描目标")
