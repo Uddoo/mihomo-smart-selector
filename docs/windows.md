@@ -20,6 +20,11 @@ ARM64 包需要 ARM64 Windows；不能在普通 x64 Windows 上直接运行。
    Controller 离线时设置页仍可用。重启按钮重载本应用，不重启 Mihomo 客户端或 Windows。
 4. 结束程序时在启动窗口按 Ctrl+C，等待退出。关闭网页不会停止后台程序。
 
+持续监控由这台 Windows 电脑上的 EXE 进程调度。启用监控后，关闭网页可以继续采样；
+按上述方式启动时，关闭启动窗口或结束 EXE 进程会停止采样。需要电脑保持唤醒，程序持续运行。
+即使连接的是路由器上的 Mihomo，也不会将本项目的监控计划移交给路由器。
+计划恢复与缺测说明见[持续监控](monitoring.md#部署位置与运行条件)。
+
 配置、数据与环境：
 
 - 默认监听 `127.0.0.1:8788`，默认 Controller 为 `http://127.0.0.1:9090`。
@@ -75,6 +80,12 @@ use **Settings → Mihomo connection**, test and save the Controller address/sec
 then choose **Restart service → Confirm restart**. The Controller needs an HTTP(S)
 listener; a named pipe alone is insufficient. Offline Controllers still allow settings access.
 Keep the launch window open and use Ctrl+C to stop. Closing the browser does not stop the service.
+
+Monitoring is scheduled by the EXE process on this Windows computer. With an
+enabled plan, sampling continues after the browser closes; closing the launch
+window or ending the EXE process stops it. Keep the computer awake and the
+program running, even when the connected Mihomo instance is on a router.
+This application's monitoring plan is not transferred to the router.
 
 Relative storage and secret-file paths resolve from the configuration directory.
 The default database is `data/selector.db`; saved connections and plaintext secrets are in

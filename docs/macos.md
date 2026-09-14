@@ -17,6 +17,11 @@
    Controller 离线时仍可进入设置。网页按钮重载本应用，不重启 Mihomo 客户端或 macOS。
 4. 在启动终端按 Ctrl+C 停止程序；关闭网页不会停止程序。
 
+持续监控由这台 Mac 上的程序调度。启用监控后，关闭网页可以继续采样；
+需要 Mac 保持唤醒、程序持续运行，退出程序后停止采样。
+连接路由器上的 Mihomo 不会将本项目的监控计划移交给路由器。
+计划恢复与缺测说明见[持续监控](monitoring.md#部署位置与运行条件)。
+
 当前包未使用 Apple Developer ID 签名，也未进行 Apple 公证。若 Gatekeeper 阻止启动，
 先核对下载来源及 SHA-256；确认信任该版本后，按 [Apple 官方说明](https://support.apple.com/en-us/102445)
 在「系统设置 → 隐私与安全性」允许该应用打开。需要放行的文件可能包括启动脚本和主程序。
@@ -70,6 +75,11 @@ First launch creates `config.yaml` beside the executable and preserves existing 
 Open http://127.0.0.1:8788, use **Settings → Mihomo connection**, test and save the HTTP(S)
 Controller address and secret, then choose **Restart service → Confirm restart**.
 An offline Controller still allows settings access. Keep the terminal open; Ctrl+C stops the program.
+
+Monitoring is scheduled by this application's process on the Mac. With an enabled
+plan, closing the browser leaves sampling running; keep the Mac awake and the
+program running. Exiting the program stops sampling, even when the connected
+Mihomo instance is on a router. The monitoring plan is not transferred to the router.
 
 These packages have no Apple Developer ID signature or Apple notarization.
 If Gatekeeper blocks startup, verify the source and checksum before following

@@ -88,7 +88,7 @@ LAN deployment requires the documented access token and trusted-CIDR settings.
 | **Choose a service** | Use a ChatGPT, YouTube, GitHub or custom profile; bind it to your own group. |
 | **Screen and refine** | Stable mode screens eligible nodes, then retests the top K and current node. Check success counts, P95 latency and measurement time together. |
 | **Confirm and check** | Select explicitly. Switch history records pending intent and a confirmed, failed or unknown Controller outcome; unknown outcomes can be reconciled. |
-| **Observe over time** | Enable a monitoring plan to collect history after closing the browser. Review health, coverage and incidents; failure-triggered failover is opt-in. |
+| **Observe over time** | Enable a monitoring plan and keep the backend service running to collect history after closing the browser. Review health, coverage and incidents; failure-triggered failover is opt-in. |
 
 <details>
 <summary><strong>See monitoring and switch history</strong></summary>
@@ -118,8 +118,14 @@ Confirmed group selection does not prove that existing connections migrated.*
 These controls run in a single Go service with an embedded Vue interface and
 SQLite storage. Ordinary scans keep manual selection; monitoring has an opt-in failure-triggered failover mode.
 
-**Persistent monitoring:** enable a plan in the monitoring page to collect
-low-frequency checks on the router even after closing the browser. Monitoring includes
+**Persistent monitoring:** after you enable a plan, this application's backend
+periodically requests probes through the Mihomo Controller and saves the results
+to its configured SQLite database. On a router, Windows or macOS, closing the
+browser leaves monitoring running as long as the host running this application
+stays awake and its backend process stays running. Exiting the desktop program or
+stopping this application's router service stops sampling. Connecting to Mihomo
+on a router does not transfer this application's monitoring plan to that router.
+Monitoring includes
 1h/24h/7d analysis, persistent node histories, exact hourly compaction, coverage,
 Provider correlation hints and redacted diagnostic bundles.
 Scores require 100 valid baseline samples and stay provisional until a full scoring window

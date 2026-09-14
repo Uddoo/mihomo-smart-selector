@@ -11,6 +11,10 @@ versioned releases begin.
 
 ### Changed
 
+- Clarify that persistent monitoring depends on this application's backend
+  process staying running on an awake host across router, Windows and macOS
+  deployments. Distinguish closing the browser from exiting the program, and
+  explain that connecting to a router does not transfer the monitoring plan.
 - Make Chinese the default repository README, retain the full English version
   in `README.en.md`, and preserve the original header artwork. Keep the old
   Chinese README path as a compatibility entry point and update language links.
