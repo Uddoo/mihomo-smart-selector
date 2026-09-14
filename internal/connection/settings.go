@@ -215,19 +215,22 @@ func (m *Manager) Test(ctx context.Context, u Update) (string, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	controller := cfg.Controller
-	if config.SameController(controller, m.base.Controller) {
+	var client *mihomo.HTTPClient
+	if config.SameController(cfg.Controller, m.base.Controller) {
 		// Select the operator-owned value, rather than reusing a draft URL that
 		// happens to compare equal. Only YAML can authorize exceptional targets.
-		controller = m.base.Controller
-	} else if !mihomo.IsLocalURL(ctx, controller) {
-		return "", fmt.Errorf("Controller 目标必须是本机或私网地址；其他目标请在 YAML 中配置")
+		client, err = mihomo.NewForConnection(config.MihomoConfig{
+			Controller: m.base.Controller, RequestTimeoutSeconds: cfg.RequestTimeoutSeconds,
+		}, secret, m.base.Controller)
+	} else {
+		controller := cfg.Controller
+		if !mihomo.IsLocalURL(ctx, controller) {
+			return "", fmt.Errorf("Controller 目标必须是本机或私网地址；其他目标请在 YAML 中配置")
+		}
+		client, err = mihomo.NewForConnection(config.MihomoConfig{
+			Controller: controller, RequestTimeoutSeconds: cfg.RequestTimeoutSeconds,
+		}, secret, m.base.Controller)
 	}
-	// Build from the validated scalar, without carrying the original draft's
-	// Controller field into the outbound client configuration.
-	client, err := mihomo.NewForConnection(config.MihomoConfig{
-		Controller: controller, RequestTimeoutSeconds: cfg.RequestTimeoutSeconds,
-	}, secret, m.base.Controller)
 	if err != nil {
 		return "", fmt.Errorf("无法创建 Controller 连接")
 	}
