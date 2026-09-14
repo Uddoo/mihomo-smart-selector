@@ -80,6 +80,22 @@ strict/egress validation requires a separately configured probe Selector and
 loopback listener. Windows/macOS packaging and a tested draft-release workflow are included;
 available published versions are listed on GitHub Releases. The project remains in pre-release.
 
+#### Configure the Controller in Clash Party
+
+Open **Core settings (内核设置)** in the **Clash Party client**. For both programs
+running on the same Windows computer, set **Listen address (监听地址)** to
+`127.0.0.1:9090`, configure an **Access secret (访问密钥)** and confirm the change.
+
+![Clash Party client Core settings, showing the Controller listen address 127.0.0.1:9090 and the access-secret field with sensitive information hidden](docs/assets/screenshots/clash-party-controller-settings-20260911-redacted.png)
+
+*Clash Party client screenshot supplied by the maintainer on 2026-09-11. The access
+secret and subscription information have been hidden for documentation.*
+
+Then enter `http://127.0.0.1:9090` and the same secret in Mihomo Smart Selector's
+**Settings → Mihomo connection**, test and save, and restart this service.
+Use the Controller port (`9090` in this example); the mixed/SOCKS/HTTP proxy ports
+shown above it serve proxy traffic. [Connection setup →](docs/connection-settings.md#english)
+
 <a id="showcase"></a>
 ## A closer look
 
