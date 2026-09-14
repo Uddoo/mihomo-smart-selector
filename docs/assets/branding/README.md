@@ -8,17 +8,36 @@
   Relative image references keep the source portable inside the repository.
 - Regeneration and screenshot provenance: [showcase assets](../screenshots/README.md).
 
-Suggested repository description:
+Repository description (applied and read back on 2026-09-14):
 
-> 按服务评估 Mihomo 节点，复测前列候选、对比当前节点，并手动确认切换。面向 Mihomo / OpenClash。
+> Compare Mihomo / OpenClash nodes by service. Retest candidates, compare with your current node, and review switch outcomes. 按服务复测与对比节点，让切换有依据。
 
-English equivalent:
+Chinese introduction:
 
-> Service-aware node evaluation for Mihomo and OpenClash. Refine candidates, compare with your current node, and confirm the switch.
+> 给现有 Mihomo / OpenClash 加一个节点对比工作台：按服务测试，复测候选、对比当前节点，再确认切换。
 
-The file is ready to upload under repository **Settings → Social preview**.
-Committing it does not automatically change GitHub's repository metadata or
-social preview setting.
+About website: [Download / Releases](https://github.com/Uddoo/mihomo-smart-selector/releases).
+This leads directly to published downloads while the project has no separate website.
+
+Topics (existing tags retained, with `clash-party` and `network-monitoring` added):
+
+```text
+clash clash-party golang istoreos latency mihomo network-monitoring
+network-tools openclash openwrt proxy self-hosted vue
+```
+
+The custom Social preview was confirmed enabled through GitHub's
+`usesCustomOpenGraphImage` field on 2026-09-14. Keep the configured image;
+`social-preview.png` remains the reusable sharing asset and the original
+full-width header image in both READMEs, followed by a dated real screenshot.
+
+`README.md` is the Chinese repository landing page. `README.en.md` contains the
+English version; `README.zh-CN.md` preserves the old Chinese links as a short
+compatibility entry point. Keep the original header artwork in both full versions.
+
+The description, website and Topics above were applied through GitHub and
+verified by API readback on 2026-09-14. Future edits to this file do not update
+those settings automatically; GitHub metadata is maintained separately.
 
 ## Existing identity
 

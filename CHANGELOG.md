@@ -9,6 +9,16 @@ versioned releases begin.
 
 ## [Unreleased]
 
+### Changed
+
+- Make Chinese the default repository README, retain the full English version
+  in `README.en.md`, and preserve the original header artwork. Keep the old
+  Chinese README path as a compatibility entry point and update language links.
+- Put portable downloads and a three-step first scan ahead of source setup in
+  both READMEs. Link to published Releases instead of a draft version, explain
+  the native `url-test` comparison, and expose a first-contribution guide and
+  bilingual installation-feedback form.
+
 ## [v0.1.0-rc.4] - 2026-09-14
 
 ### Fixed

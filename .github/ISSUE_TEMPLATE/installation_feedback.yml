@@ -1,0 +1,87 @@
+name: 安装与试用反馈 / Installation feedback
+description: 分享一次成功安装或上手阻塞点 / Share a successful setup or a first-run obstacle
+title: "[Question]: [Setup] "
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        成功与失败的反馈都欢迎，不要求为反馈而切换正在使用的节点。
+        Successes and failures are welcome; you do not need to switch everyday traffic for this report.
+        如已确认是可复现的程序缺陷，请使用 Bug 表单。For a confirmed reproducible defect, use the Bug form.
+        请勿上传完整配置、订阅、密钥、私人网络地址或未经脱敏的日志。No full configs, subscriptions, secrets, private network addresses or unredacted logs.
+        安全问题请遵循 [SECURITY.md](https://github.com/Uddoo/mihomo-smart-selector/blob/main/SECURITY.md)。
+  - type: input
+    id: version
+    attributes:
+      label: 应用版本 / Application version
+      description: Release tag or source commit; copy from the package name or -version output.
+      placeholder: v0.1.0-rc.x / commit SHA
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 系统与设备架构 / OS and architecture
+      description: OS version, CPU architecture and optional device model; omit hostnames and serial numbers.
+      placeholder: Windows 11 / amd64; macOS 15 / arm64; iStoreOS / arm64
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: Mihomo 客户端与内核 / Mihomo client and core
+      description: Client name/version and core version if known, or state that you used the mock.
+      placeholder: Clash Party / OpenClash + version; Mihomo + version; mock
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: 安装方式 / Installation method
+      options:
+        - Windows portable ZIP
+        - macOS portable TAR.GZ
+        - OpenWrt / iStoreOS source build
+        - Local source run / mock demo
+        - Other (describe below)
+    validations:
+      required: true
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: 试用结果 / Outcome
+      options:
+        - 已完成连接与扫描 / Connected and scanned
+        - 启动时卡住 / Blocked at launch
+        - 连接 Controller 时卡住 / Blocked connecting
+        - 扫描或理解结果时卡住 / Blocked scanning or reading results
+        - 其他 / Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 步骤与结果 / Steps and results
+      description: Which guide did you follow? What worked, what failed, and what was not tested? Include expected versus actual behavior for an obstacle.
+      placeholder: |
+        Guide / 参考文档:
+        Launch / 启动:
+        Connect / 连接:
+        Scan / 扫描:
+        Not tested / 未测环节:
+        Unclear step or error / 不清楚的步骤或错误:
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 最小脱敏证据（可选） / Minimal redacted evidence (optional)
+      description: A short error excerpt or cropped screenshot is enough. Review screenshots and diagnostics before sharing; omit node/provider names and private addresses.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: 隐私检查 / Privacy check
+      options:
+        - label: 已移除凭据、订阅与私人网络信息 / I removed credentials, subscriptions and private network information.
+          required: true

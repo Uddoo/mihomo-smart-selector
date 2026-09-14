@@ -35,6 +35,6 @@ web
 
 ## Evidence on Hand
 
-产品流程见 README.zh-CN.md、docs/architecture.md 与现有界面。
+产品流程见 README.md、docs/architecture.md 与现有界面。
 自动化验证使用 cmd/mihomo-mock、真实 Go 服务、临时 SQLite 与 web/e2e 的确定性监控数据。
 README 中的历史截图有各自日期和数据来源，不能作为新界面的实时效果。

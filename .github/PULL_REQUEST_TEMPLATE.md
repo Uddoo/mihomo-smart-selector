@@ -24,7 +24,7 @@ evidence.
 - [ ] `./tools/smoke-test.ps1`
 - [ ] New or changed behavior has focused tests.
 - [ ] Embedded web assets match the Vue production build, if `web/` changed.
-- [ ] `README.md` and `README.zh-CN.md` remain aligned when shared contracts changed.
+- [ ] `README.md` (Chinese) and `README.en.md` (English) remain aligned when shared contracts changed.
 - [ ] `docs/architecture.md` and `CHANGELOG.md` were updated when required.
 - [ ] Logs, screenshots, and configs contain no secrets or private identifiers.
 

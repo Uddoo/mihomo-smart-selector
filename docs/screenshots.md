@@ -1,6 +1,6 @@
 # Live interface tour
 
-[Project overview](../README.md) · [简体中文](screenshots.zh-CN.md) · [Capture provenance](assets/screenshots/README.md#live-20260911)
+[Project overview](../README.en.md) · [简体中文](screenshots.zh-CN.md) · [Capture provenance](assets/screenshots/README.md#live-20260911)
 
 These English interface screenshots were captured in Microsoft Edge on Windows
 on **2026-09-11**, from the running **NanoPi R5S LTS / ARM64, iStoreOS 24.10.8**

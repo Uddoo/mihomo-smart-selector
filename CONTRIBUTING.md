@@ -2,12 +2,32 @@
 
 Thank you for helping improve Mihomo Smart Selector. The project accepts focused
 bug fixes, tests, documentation, deployment hardening, and features that remain
-inside its product boundary: rank eligible members of a user-selected Mihomo
-`Selector`, and change that Selector only after an explicit decision.
+inside its product boundary: compare eligible members of a user-selected Mihomo
+`Selector`, keep scan selection explicit, and allow monitoring failover only
+when the operator has enabled it.
 
 Do not submit provider credentials, subscription URLs, Controller secrets,
 private service addresses, complete proxy configurations, or logs that contain
 them. Follow [SECURITY.md](SECURITY.md) for vulnerability reports.
+
+## Your first contribution
+
+Start with the bilingual [first-contribution guide](docs/first-contribution.md)
+for five concrete starting points, relevant files and completion criteria.
+You can contribute a device report, a clearer setup step or a translation without
+understanding the entire Go/Vue application. Chinese and English are welcome.
+
+| Your change | Start here | First local check |
+| --- | --- | --- |
+| Installation feedback | [Share your setup and outcome](https://github.com/Uddoo/mihomo-smart-selector/issues/new?template=installation_feedback.yml) | Record the exact version and steps; redact private data. No build is needed to report. |
+| Documentation | The relevant guide in `docs/`, or both READMEs for shared instructions | Follow the changed steps, inspect Markdown and links, then run `git diff --check`. |
+| Frontend or translation | `web/src/`; UI messages are in `web/src/i18n/messages.ts` | Run the [local mock](README.en.md#development), check the affected page in both languages, then rebuild embedded assets. |
+| Backend or tests | The relevant package under `internal/` | Run that package's tests first; use fictional fixtures. |
+
+These are starting checks, not a replacement for the
+[required verification](#required-verification) before a PR. If your environment
+cannot run a check, state the exact limitation and ask for help; do not mark it
+as passed. Search existing issues and agree on scope before substantial changes.
 
 ## Development environment
 
@@ -53,8 +73,9 @@ tools                      build, verification, and process smoke scripts
 - Do not turn reachability or an HTTP status into a claim about login,
   subscription entitlement, playback, or regional unlock.
 - Add or update tests for changed backend behavior.
-- Update both `README.md` and `README.zh-CN.md` when changing shared README
-  contracts.
+- Update both `README.md` (Chinese, the default) and `README.en.md` (English)
+  when changing shared README contracts. Keep `README.zh-CN.md` as a compatibility
+  entry point for existing links.
 - Update `docs/architecture.md` when changing API routes, retained data, probe
   semantics, or security invariants.
 - Update `CHANGELOG.md` for user-visible or operator-visible changes.

@@ -1,6 +1,6 @@
 # 实机界面导览
 
-[项目介绍](../README.zh-CN.md) · [English](screenshots.md) · [截图来源](assets/screenshots/README.md#live-20260911)
+[项目介绍](../README.md) · [English](screenshots.md) · [截图来源](assets/screenshots/README.md#live-20260911)
 
 本页中文界面截图于 **2026-09-11** 使用 Windows 上的 **Microsoft Edge**，从正在运行的
 **NanoPi R5S LTS / ARM64、iStoreOS 24.10.8** 路由器部署中截取，前端资源与 UI 提交
