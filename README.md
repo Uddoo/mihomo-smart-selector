@@ -91,6 +91,9 @@ Clash Party 用户可以在客户端 **内核设置** 中找到 Controller 的�
 <a id="showcase"></a>
 ## 从扫描到决定切换
 
+扫描结果支持多级排序视图、测量说明，以及带预览的 CSV / Markdown 导出和复制。
+[查看结果使用说明](docs/scan-results.md#中文)。
+
 | 步骤 | 重点看什么 |
 | --- | --- |
 | **选服务** | 选择 ChatGPT、YouTube、GitHub 或自定义模板，绑定自己的策略组。 |

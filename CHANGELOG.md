@@ -9,6 +9,22 @@ versioned releases begin.
 
 ## [Unreleased]
 
+## [v0.1.0-rc.6] - 2026-09-15
+
+### Added
+
+- Preview, copy and download scan results as CSV or Markdown, with selectable
+  fields and filters over all pages matching the current search. Capture a
+  fixed snapshot when the export panel opens, including partial scan status,
+  measurement context and timestamps. Use consistent name aliases by default.
+- Offer stability, response and verification sort views alongside the original
+  overall ranking. Preserve score ranks, recommended candidates and selection
+  checks; show the ordered comparison rules and handle missing measurements.
+- Explain saved scan modes, transport scope, observed samples and timestamps
+  next to results, with explicit measurement and cross-scan comparison limits.
+- Provide bilingual, responsive controls, clipboard-denial recovery, spreadsheet
+  formula protection, and regression coverage for pagination and live snapshots.
+
 ## [v0.1.0-rc.5] - 2026-09-14
 
 ### Fixed
@@ -280,7 +296,8 @@ versioned releases begin.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.5...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.6...HEAD
+[v0.1.0-rc.6]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.5...v0.1.0-rc.6
 [v0.1.0-rc.5]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.4...v0.1.0-rc.5
 [v0.1.0-rc.4]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.3...v0.1.0-rc.4
 [v0.1.0-rc.3]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.2...v0.1.0-rc.3

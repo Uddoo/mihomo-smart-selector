@@ -98,6 +98,9 @@ LAN deployment requires the documented access token and trusted-CIDR settings.
 <a id="showcase"></a>
 ## From a scan to a decision
 
+Scan results include multi-level sort views, measurement details, and CSV / Markdown export and copy
+with a content preview. [Read the result guide](docs/scan-results.md#english).
+
 | Step | What to look for |
 | --- | --- |
 | **Choose a service** | Use a ChatGPT, YouTube, GitHub or custom profile; bind it to your own group. |
