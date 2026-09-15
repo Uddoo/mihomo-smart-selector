@@ -489,7 +489,7 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 		writer.Header().Set("X-Content-Type-Options", "nosniff")
 		writer.Header().Set("X-Frame-Options", "DENY")
 		writer.Header().Set("Referrer-Policy", "no-referrer")
-		writer.Header().Set("Content-Security-Policy", "default-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'")
+		writer.Header().Set("Content-Security-Policy", "default-src 'self'; connect-src 'self' "+browserConnectivitySources+"; style-src 'self' 'unsafe-inline'; script-src 'self'")
 		next.ServeHTTP(writer, request)
 	})
 }

@@ -81,6 +81,7 @@ export interface ScoreBreakdown {
 }
 
 export interface ProbeProfileSummary {
+  strict_rules_id?: string
 	require_strict?: boolean
 	require_region?: boolean
   id: string

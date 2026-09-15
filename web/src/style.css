@@ -284,7 +284,7 @@ dialog { overscroll-behavior: contain; max-height: calc(100dvh - 32px); overflow
   .shell > aside { height: auto; position: static; border-right: 0; border-bottom: 1px solid var(--line); padding: 12px 10px 8px; }
   .brand { padding: 0 4px 12px; font-size: 20px; }
   .brand small { display: inline; margin-left: 5px; }
-  nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; }
+  nav { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; }
   nav button { min-width: 0; min-height: 54px; flex-direction: column; justify-content: center; white-space: nowrap; font-size: 12px; padding: 6px 0; gap: 5px; }
   nav button svg { width: 18px; height: 18px; }
   .sidebar-footer { display: flex; justify-content: flex-end; margin-top: var(--space-2); padding: var(--space-1) 0 0; }
@@ -417,8 +417,8 @@ html:has(dialog[open]) { overflow:hidden; }
   .work > header { flex-wrap:wrap; }
   .work > header > div:first-child { flex:1 1 100%; }
   .header-actions { margin-inline-start:auto; }
-  :root:lang(en) nav .nav-full { display:none; }
-  :root:lang(en) nav .nav-short { display:inline; }
+  nav .nav-full { display:none; }
+  nav .nav-short { display:inline; }
   .scan-config > .command > label { white-space:normal;grid-template-columns:minmax(0, .8fr) minmax(0, 1.2fr); }
   .command > label { white-space:normal; }
   .scan-config-toggle small { overflow-wrap:anywhere; }

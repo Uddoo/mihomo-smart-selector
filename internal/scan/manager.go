@@ -3,7 +3,9 @@ package scan
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"sort"
@@ -257,6 +259,7 @@ func (m *Manager) profileSummary(profile config.ProbeProfile) model.ProbeProfile
 		}
 	}
 	return model.ProbeProfileSummary{
+		StrictRulesID: strictRulesID(profile.StrictProbes),
 		RequireStrict: profile.RequireStrict, RequireRegion: profile.RequireRegion,
 		ID: profile.ID, Label: profile.Label, Description: profile.Description,
 		ProbeCount: len(profile.Probes), StrictProbeCount: len(profile.StrictProbes),
@@ -265,6 +268,17 @@ func (m *Manager) profileSummary(profile config.ProbeProfile) model.ProbeProfile
 		ExpectedRegions: append([]string(nil), profile.ExpectedRegions...), TransportScope: profile.TransportScope,
 		Targets: targets,
 	}
+}
+
+// Include non-public body and restriction rules without exposing their content.
+// Old persisted scans have no ID and must not be presented as current evidence.
+func strictRulesID(probes []config.StrictProbe) string {
+	if len(probes) == 0 {
+		return ""
+	}
+	data, _ := json.Marshal(probes)
+	digest := sha256.Sum256(data)
+	return "strict-v1:" + hex.EncodeToString(digest[:])
 }
 
 func (m *Manager) Nodes(ctx context.Context) ([]model.NodeSummary, error) {

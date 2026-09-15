@@ -1,6 +1,6 @@
 import {onBeforeUnmount, ref, watch} from 'vue'
 
-export const pages = ['scan', 'monitor', 'nodes', 'history', 'settings'] as const
+export const pages = ['scan', 'monitor', 'connectivity', 'nodes', 'history', 'settings'] as const
 export type Page = typeof pages[number]
 
 export function parsePage(hash: string): Page {

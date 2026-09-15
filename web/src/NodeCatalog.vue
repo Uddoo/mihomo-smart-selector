@@ -11,7 +11,7 @@ import TableSearch from './TableSearch.vue'
 
 const {state} = defineProps<{state: Workbench}>()
 const {nodes, regionLabel, catalog} = state
-const {filters, sort, descending, pageSize, page, sorted, clear} = catalog
+const {filters, sort, descending, pageSize, page, sorted, clear, groupScope, sourceNodes} = catalog
 const search = ref<InstanceType<typeof TableSearch>>()
 const scrollArea = ref<HTMLElement>()
 const detail = ref<HTMLElement>()
@@ -26,8 +26,8 @@ const pageCount = computed(() => Math.max(1, Math.ceil(sorted.value.length / pag
 const visible = computed(() => sorted.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
 const start = computed(() => sorted.value.length ? (page.value - 1) * pageSize.value + 1 : 0)
 const end = computed(() => Math.min(page.value * pageSize.value, sorted.value.length))
-const scopeNodes = computed(() => nodes.value.filter(node => inCatalogScope(node, filters.scope)))
-const specialCount = computed(() => nodes.value.filter(node => inCatalogScope(node, 'special')).length)
+const scopeNodes = computed(() => sourceNodes.value.filter(node => inCatalogScope(node, filters.scope)))
+const specialCount = computed(() => sourceNodes.value.filter(node => inCatalogScope(node, 'special')).length)
 const active = computed(() => !!filters.query || !!filters.regions.length || !!filters.providers.length || !!filters.protocols.length || !!filters.status || filters.scope !== 'proxies')
 const columns: {key: CatalogSort; label: string}[] = [{key: 'name', label: '节点名称'}, {key: 'region', label: '推断地区'}, {key: 'provider', label: '节点来源'}, {key: 'protocol', label: '协议'}]
 const dimensions = computed(() => [
@@ -96,6 +96,7 @@ onBeforeUnmount(() => { media.removeEventListener('change', resize); document.re
 
 <template>
   <section class="catalog" :aria-label="t('节点目录浏览')">
+    <div v-if="groupScope !== null" class="catalog-group-scope" role="status"><span>{{ t('当前仅查看策略组 {group} 的直接成员；不展开嵌套策略组。', {group: groupScope}) }}</span><button @click="reset">{{ t('查看全部节点') }}</button></div>
     <div class="catalog-tools">
       <TableSearch id="catalog-search" ref="search" v-model="filters.query" class="catalog-search" :label="t('搜索节点')" :placeholder="t('名称、地区、来源或协议')" describedby="catalog-search-hint"/>
       <div ref="filterBar" class="catalog-filters">

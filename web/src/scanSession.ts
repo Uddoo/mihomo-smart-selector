@@ -47,10 +47,12 @@ export function useScanSession(onSettled: (scan: Scan) => void) {
     if (running.value) { transport.start(value.id); visibility() }
     else onSettled(value)
   }
-  async function open(id: string) {
+  async function open(id: string, canAccept: () => boolean = () => true): Promise<boolean> {
     const revision = ++openRevision
     const value = await api<Scan>('/scans/' + encodeURIComponent(id))
-    if (!disposed && revision === openRevision) monitor(value)
+    if (disposed || revision !== openRevision || !canAccept()) return false
+    monitor(value)
+    return true
   }
   async function restore() {
     const revision = openRevision

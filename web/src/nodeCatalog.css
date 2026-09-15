@@ -1,4 +1,6 @@
 .catalog { --catalog-muted: color-mix(in srgb, var(--text) 72%, var(--surface)); min-width: 0; }
+.catalog-group-scope { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:16px; color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
+.catalog-group-scope button { min-height:44px; }
 .catalog-search { flex:1 1 300px;max-width:500px; }
 .catalog-tools { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; }
 .catalog-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }

@@ -70,6 +70,7 @@ type ProbeTargetSummary struct {
 // profile can point at a private Emby hostname, which must remain hidden from
 // unauthenticated LAN browsers while still describing its test semantics.
 type ProbeProfileSummary struct {
+	StrictRulesID               string               `json:"strict_rules_id,omitempty"`
 	RequireStrict               bool                 `json:"require_strict"`
 	RequireRegion               bool                 `json:"require_region"`
 	ID                          string               `json:"id"`
