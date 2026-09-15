@@ -9,7 +9,9 @@ versioned releases begin.
 
 ## [Unreleased]
 
-## [v0.1.0-rc.6] - 2026-09-15
+## [v0.1.0-rc.7] - 2026-09-15
+
+The rc.6 build candidate was not published. This release includes its changes.
 
 ### Added
 
@@ -24,6 +26,11 @@ versioned releases begin.
   next to results, with explicit measurement and cross-scan comparison limits.
 - Provide bilingual, responsive controls, clipboard-denial recovery, spreadsheet
   formula protection, and regression coverage for pagination and live snapshots.
+
+### Changed
+
+- Escape Markdown backslashes and metacharacters together in one pass, with
+  combined-input regression coverage, making the complete escaping rule explicit.
 
 ## [v0.1.0-rc.5] - 2026-09-14
 
@@ -296,8 +303,8 @@ versioned releases begin.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.6...HEAD
-[v0.1.0-rc.6]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.5...v0.1.0-rc.6
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.7...HEAD
+[v0.1.0-rc.7]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.5...v0.1.0-rc.7
 [v0.1.0-rc.5]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.4...v0.1.0-rc.5
 [v0.1.0-rc.4]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.3...v0.1.0-rc.4
 [v0.1.0-rc.3]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.2...v0.1.0-rc.3
