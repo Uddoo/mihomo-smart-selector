@@ -100,7 +100,7 @@ test('both languages fit all routes at 320px and names and filters remain raw', 
   for (const locale of ['en', 'zh-CN']) {
     await language(page).selectOption(locale)
     for (const route of ['scan', 'monitor', 'nodes', 'history', 'settings']) {
-      await page.locator('nav button').nth(['scan', 'monitor', 'nodes', 'history', 'settings'].indexOf(route)).click()
+      await page.locator('nav button').nth(['scan', 'monitor', 'connectivity', 'nodes', 'history', 'settings'].indexOf(route)).click()
       await expect(page.locator('main.work > header h1')).not.toBeEmpty()
       if (route === 'settings') await expect(page.locator('.runtime-fields')).toBeVisible()
       if (route === 'monitor') await expect(page.locator('.monitor-node-card').first()).toBeVisible()
