@@ -9,6 +9,32 @@ versioned releases begin.
 
 ## [Unreleased]
 
+## [v0.1.0-rc.8] - 2026-09-16
+
+### Added
+
+- Add a separate Connectivity tab with 48 services, regional groups, eight
+  browser samples per service and explicit manual starts. Preserve results
+  across tab navigation; offer scoped refresh, issue filtering, issue retesting,
+  single-service retesting and mobile-friendly sample details.
+- Show explicit service bindings and configured selections, a My services view,
+  candidate and recent-scan links, and manual retest prompts after selections
+  change. Configuration refresh and navigation do not start probes or scans.
+- Define endpoint-specific status, body, content type, redirect and cache rules.
+  Distinguish reachable, verified, resource reachable, response mismatch and
+  unverifiable observations. Readable HTTP errors remain reachable issues.
+- Read historical strict-node evidence on demand with exact binding, member,
+  rule identity and expiry checks. Prepare manual verification in the existing
+  scan workbench, with browser and dedicated-proxy origins described separately.
+
+### Fixed
+
+- Ship local service icons with source/license records and theme-aware variants.
+  Correct stale resource endpoints and avoid nonce-induced redirects; use npm's
+  dedicated ping endpoint and suitable public read-only or diagnostic endpoints.
+- Discard stale scan navigation and verification responses. Bound response-body
+  validation and preserve cancellation, credential isolation and CSP constraints.
+
 ## [v0.1.0-rc.7] - 2026-09-15
 
 The rc.6 build candidate was not published. This release includes its changes.
@@ -303,7 +329,8 @@ The rc.6 build candidate was not published. This release includes its changes.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.7...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.8...HEAD
+[v0.1.0-rc.8]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.7...v0.1.0-rc.8
 [v0.1.0-rc.7]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.5...v0.1.0-rc.7
 [v0.1.0-rc.5]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.4...v0.1.0-rc.5
 [v0.1.0-rc.4]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.3...v0.1.0-rc.4

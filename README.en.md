@@ -33,6 +33,7 @@
 | **Is the candidate worth a closer look?** | Screen every eligible node, then refine the top K and your current node. Inspect P95, success counts and sample evidence side by side. |
 | **What happened when I switched?** | Confirm explicitly, then check the Controller readback and audit status. Unknown outcomes have a reconciliation action. |
 | **How does it behave over time?** | Monitor current health and historical coverage, inspect incidents, and optionally enable failure-triggered failover. |
+| **Which common services can this network reach?** | The separate [Connectivity tab](docs/connectivity.md#english) tests 48 services from this browser, with regional groups, per-sample results and scoped refresh. |
 
 The service works alongside Mihomo / OpenClash. It leaves subscriptions and the
 business Selector unchanged during scans; optional strict/egress checks use a

@@ -1,0 +1,290 @@
+[
+  {
+    "id": "aistudio",
+    "file": "aistudio.svg",
+    "url": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/gemini-color.svg",
+    "sha256": "8ab0a9bafec11f7e69bcb9fc4ffd8f1bc927d1ddcbbb6ff36dee5ae8b5a9d602"
+  },
+  {
+    "id": "amazon",
+    "file": "amazon.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@11.0.0/icons/amazon.svg",
+    "sha256": "00168f6b1c36a7061976f6c38e59d1a2f07048e14488a6c8eb258bc687445190"
+  },
+  {
+    "id": "apple",
+    "file": "apple.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/apple.svg",
+    "sha256": "436cbab4fe1eb2db1191503f28167a87950f7a20f44d24e6933867996566a5e5"
+  },
+  {
+    "id": "baidu",
+    "file": "baidu.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/baidu.svg",
+    "sha256": "c06b13de3ac002d1913b2ca7c74508e9333bddbb0f487672f50d3f204795dd55"
+  },
+  {
+    "id": "bbc",
+    "file": "bbc.ico",
+    "url": "https://www.bbc.com/favicon.ico",
+    "sha256": "0b7eee805f3bd387d054e8d0d215569b79e4dd58d22a31d4af538949f20ca689"
+  },
+  {
+    "id": "bilibili",
+    "file": "bilibili.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/bilibili.svg",
+    "sha256": "b765d3899f1d4ffa4b9be5fb6f4ef41b3d9c5e6905f174c29e92b43409483d24"
+  },
+  {
+    "id": "bing",
+    "file": "bing.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@11.0.0/icons/microsoftbing.svg",
+    "sha256": "ea004b7b7152db0eaf4929eb7f5048e8748b9c232de3400ac632a9e0ce410a5a"
+  },
+  {
+    "id": "chatgpt",
+    "file": "chatgpt.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@11.0.0/icons/openai.svg",
+    "sha256": "a46b5cb87e476a525a0e9b063d15aa449210fbf6b1152b2e1c94f30dfe594f00"
+  },
+  {
+    "id": "claude",
+    "file": "claude.svg",
+    "url": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/claude-color.svg",
+    "sha256": "a3101f3047a119aa11825ad9369510f0c472428c8c52d420e31bc62db44a8364"
+  },
+  {
+    "id": "cloudflare",
+    "file": "cloudflare.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/cloudflare.svg",
+    "sha256": "32876bda81542203316d67b9623818ac60986897cac79f70e03e8f31f7b7f160"
+  },
+  {
+    "id": "deepseek",
+    "file": "deepseek.svg",
+    "url": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/deepseek-color.svg",
+    "sha256": "deba5f98a5c1796e20fcac3149bcd7eb8a32f0bdd04d048819400b1f28bd1439"
+  },
+  {
+    "id": "douyin",
+    "file": "douyin.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/tiktok.svg",
+    "sha256": "8f410082b8bbdc1e3c8dc15487f6c4bf466fcc112d4d359bef687450d9c87edd"
+  },
+  {
+    "id": "facebook",
+    "file": "facebook.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/facebook.svg",
+    "sha256": "daf5a4fff42cb6b9868b7eb61a9f742663cc128d929d37c85873b8b10eaa345a"
+  },
+  {
+    "id": "github",
+    "file": "github.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/github.svg",
+    "sha256": "476ba7aa67b86da7d6e7567b08a4bf0eb1a2fd28da5fc243f8ee39a2f1ea6773"
+  },
+  {
+    "id": "google",
+    "file": "google.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/google.svg",
+    "sha256": "147b64b183daad84440103815845150903f6175357419b0ccf2e5a6b622e62fa"
+  },
+  {
+    "id": "instagram",
+    "file": "instagram.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/instagram.svg",
+    "sha256": "9007b995b5d7f7de899ceac41e619e8c0caa1e3faec7eee70fe2b3584bcc4a21"
+  },
+  {
+    "id": "jd",
+    "file": "jd.ico",
+    "url": "https://www.jd.com/favicon.ico",
+    "sha256": "99adfd5e001df9645a32518bafaedfff7746575bf239e1fe9a236ea9f94ed0d4"
+  },
+  {
+    "id": "line",
+    "file": "line.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/line.svg",
+    "sha256": "b33b86ee7c335abcccb12c08188823d40eb3ddc9521362ac94d9d9c55077db68"
+  },
+  {
+    "id": "linkedin",
+    "file": "linkedin.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@11.0.0/icons/linkedin.svg",
+    "sha256": "f7630f13335d84f2647099415db19dbfe119db985c9af2061f4b24c4f184e90e"
+  },
+  {
+    "id": "mercadolibre",
+    "file": "mercadolibre.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/mercadopago.svg",
+    "sha256": "01b6ab115a449a6eaa5abe2c439a2fb23a5fa92ca5e1860548b7a3a720033d5e"
+  },
+  {
+    "id": "mistral",
+    "file": "mistral.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/mistralai.svg",
+    "sha256": "5d6abe5c18446f7971139b2f472b1b1d8cf29db04af332091023d018800cfbd1"
+  },
+  {
+    "id": "naver",
+    "file": "naver.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/naver.svg",
+    "sha256": "4a10bf40e7c04b65451ae60d618a9a3792049acedde0d842fb2a2572100108d7"
+  },
+  {
+    "id": "netease",
+    "file": "netease.ico",
+    "url": "https://www.163.com/favicon.ico",
+    "sha256": "43c6594eb74940c6e0fb38d55c634425860093660f4eb0cb89334608dd9947eb"
+  },
+  {
+    "id": "netflix",
+    "file": "netflix.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/netflix.svg",
+    "sha256": "76b63a30adeb0eb51039fd6a4d783e806fb002aaa6a8ac9218afe8a620bff678"
+  },
+  {
+    "id": "nintendo",
+    "file": "nintendo.ico",
+    "url": "https://www.nintendo.co.jp/favicon.ico",
+    "sha256": "5289f7b89eba936a06c69ad896a45901fd4e60b41cd765028b997f97203f9a7c"
+  },
+  {
+    "id": "noon",
+    "file": "noon.png",
+    "url": "https://f.nooncdn.com/s/app/com/noon/icons/favicon_v4/apple-touch-icon.png",
+    "sha256": "732be7349add97f1b5945950e17c7b9b60b86ecb9d5008d779b7d525a4365cfe"
+  },
+  {
+    "id": "npm",
+    "file": "npm.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/npm.svg",
+    "sha256": "9e6b35d891816f4d1a684efd30eea380aaf1b2d3905f7102871d11eeab6830f6"
+  },
+  {
+    "id": "oracle",
+    "file": "oracle.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@11.0.0/icons/oracle.svg",
+    "sha256": "620848857c018ae7da63607c228c1ec35712a84784953cc57764ff54b3210a80"
+  },
+  {
+    "id": "pixpix",
+    "file": "pixpix.ico",
+    "url": "https://www.pixpix.com/favicon.ico",
+    "sha256": "4d118eca5b6baae7a95613389eb4670b61fe21390d8af191805979861572729c"
+  },
+  {
+    "id": "qq",
+    "file": "qq.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@11.0.0/icons/tencentqq.svg",
+    "sha256": "60c54fecb22826dcf46f50765b880bd016721924cb444a941d354db3256098f7"
+  },
+  {
+    "id": "reddit",
+    "file": "reddit.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/reddit.svg",
+    "sha256": "cc158155e9ea8119a00fd5501a86a4a0b82a9445efb2455ccfabd417e7b0fe4d"
+  },
+  {
+    "id": "sony",
+    "file": "sony.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/sony.svg",
+    "sha256": "8ac2b3a7c8b8b13ad3913457729dc10d1ad56b5839fa6dd2a12aec2a582bb940"
+  },
+  {
+    "id": "spotify",
+    "file": "spotify.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/spotify.svg",
+    "sha256": "b25ed984e9512b141c7a4264392948a119864c062a89f4034ff1dca1dc65cad4"
+  },
+  {
+    "id": "steam",
+    "file": "steam.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/steam.svg",
+    "sha256": "014b1056c2b67925a8d1771ccf12906cce2f47129c8bc0274d727f622dd261b7"
+  },
+  {
+    "id": "takealot",
+    "file": "takealot.png",
+    "url": "https://www.takealot.com/icon.png",
+    "sha256": "a811cc170e95473730d25c3a72df33c449dca767c540a93a19f4bc796eb96bdb"
+  },
+  {
+    "id": "taobao",
+    "file": "taobao.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/taobao.svg",
+    "sha256": "ee548c2c070d2defee183f75156e22a04592dd0cb21d615ddccaf2e509a53868"
+  },
+  {
+    "id": "tiktok",
+    "file": "tiktok.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/tiktok.svg",
+    "sha256": "8f410082b8bbdc1e3c8dc15487f6c4bf466fcc112d4d359bef687450d9c87edd"
+  },
+  {
+    "id": "twitch",
+    "file": "twitch.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/twitch.svg",
+    "sha256": "9d0d871053b782a01d4ee1790281419fd3e9463dd2176d814fd80b810337ad81"
+  },
+  {
+    "id": "wechat",
+    "file": "wechat.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/wechat.svg",
+    "sha256": "439de170dff232935f08357fbfb852bb302545d6125861ed6074fe6237b3f912"
+  },
+  {
+    "id": "weibo",
+    "file": "weibo.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/sinaweibo.svg",
+    "sha256": "9cc890072b41eeb91ef989a4fbe36a9c25643ca82b0c89c3f867ad95560f1832"
+  },
+  {
+    "id": "wikipedia",
+    "file": "wikipedia.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/wikipedia.svg",
+    "sha256": "9ed2bfa5785e7abe1c864b7a556b162102665880f89194d3d5e2973b0c72f544"
+  },
+  {
+    "id": "x",
+    "file": "x.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/x.svg",
+    "sha256": "da1f1da5d5278dd532dc2a276c3adf0c5c014de00ed6933aa60d1b7e51206b01"
+  },
+  {
+    "id": "xiaohongshu",
+    "file": "xiaohongshu.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/xiaohongshu.svg",
+    "sha256": "23315f1bf4178aabeefe3a35459bd7021c79eb047ca84732294c9f1a7a0b1894"
+  },
+  {
+    "id": "xiaomi",
+    "file": "xiaomi.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/xiaomi.svg",
+    "sha256": "20fb26a3565ed90895c0f29ad006301a5dd9cede687b3ff4a27a0758ad0f9ede"
+  },
+  {
+    "id": "yahoo",
+    "file": "yahoo.ico",
+    "url": "https://www.yahoo.co.jp/favicon.ico",
+    "sha256": "b3c8a7aa2bc429aa15a764574d7c7d54f2672628dff75ca830a5db4cbc878b3d"
+  },
+  {
+    "id": "yandex",
+    "file": "yandex.png",
+    "url": "https://yastatic.net/s3/home-static/_/nova3/CXZ471pd.png",
+    "sha256": "438e805293101533938cacf1977826cc4b1e54e44ff46f0e24885c376fc26dcb"
+  },
+  {
+    "id": "youtube",
+    "file": "youtube.svg",
+    "url": "https://cdn.jsdelivr.net/npm/simple-icons@16.0.0/icons/youtube.svg",
+    "sha256": "7f5156448b9c1b65156e34e4443f0eff8b85f5afa783fc8a8d09f49380fed424"
+  },
+  {
+    "id": "zoom",
+    "file": "zoom.ico",
+    "url": "https://st1.zoom.us/homepage/20260914-1234/primary/favicon.ico",
+    "sha256": "58b6fee1a883d9b798dea9dbf8f262fb8875e035bfa571792b8967c4c0434d26"
+  }
+]
