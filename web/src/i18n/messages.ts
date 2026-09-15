@@ -1,6 +1,8 @@
 // Chinese source messages are the stable lookup keys and the complete zh-CN catalog.
 // Keep placeholders identical across languages. Product data is never translated here.
+import {scanResultMessages} from './scanResults.ts'
 export const en = {
+  ...scanResultMessages,
   "Token 仅保留在当前页面内存中，刷新后需重新输入。": "The token stays only in this page's memory. Enter it again after reloading.",
   "更换 Controller 地址后，请输入新密钥或选择不使用密钥。公网 Controller 请在 YAML 中配置。": "After changing the Controller address, enter a new secret or choose no secret. Configure public Controllers in YAML.",
   "更换 Controller 地址后，请输入新密钥或选择不使用密钥": "After changing the Controller address, enter a new secret or choose no secret.",

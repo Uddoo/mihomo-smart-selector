@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {t, translateMessage, formatDate} from './i18n'
-import {computed} from 'vue'
+import {computed, shallowRef} from 'vue'
 import {usePagination} from './usePagination'
 import ListPagination from './ListPagination.vue'
 import TableSearch from './TableSearch.vue'
@@ -13,11 +13,18 @@ import CandidateDetails from './CandidateDetails.vue'
 import ScanCompatibility from './ScanCompatibility.vue'
 import ScanRegionFilter from './ScanRegionFilter.vue'
 import ScanWarnings from './ScanWarnings.vue'
+import ScanMeasurement from './components/scan-results/ScanMeasurement.vue'
+import ResultViewControls from './components/scan-results/ResultViewControls.vue'
+import ResultExport from './components/scan-results/ResultExport.vue'
+import {orderResults} from './scanResults'
+import type {ResultView} from './scanResults'
 const resultQuery = ref('')
-const filteredResults = computed(() => results.value.filter(row => !resultQuery.value || row.name.toLowerCase().includes(resultQuery.value.toLowerCase())))
+const resultView = shallowRef<ResultView>('score')
+const orderedResults = computed(() => orderResults(results.value, resultView.value, state.now.value))
+const filteredResults = computed(() => orderedResults.value.filter(row => !resultQuery.value || row.name.toLowerCase().includes(resultQuery.value.toLowerCase())))
 const {page: resultPage, pageCount, visible: pageResults, locate} = usePagination(filteredResults)
-watch([resultQuery, () => state.scan.value?.id], () => { resultPage.value = 1 }, {flush: 'sync'})
-function locateNode(name?: string) { resultQuery.value = ''; locate(results.value.findIndex(row => row.name === name)) }
+watch([resultQuery, resultView, () => state.scan.value?.id], () => { resultPage.value = 1 }, {flush: 'sync'})
+function locateNode(name?: string) { resultQuery.value = ''; locate(orderedResults.value.findIndex(row => row.name === name)) }
 const mobileQuery = window.matchMedia('(max-width: 760px)')
 const mobile = ref(mobileQuery.matches)
 const configExpanded = ref(false)
@@ -132,12 +139,14 @@ onBeforeUnmount(() => { closeDetails(); mobileQuery.removeEventListener('change'
         <div class="scan-state" :class="scanTone" role="status"><span><CircleAlert v-if="scanFailed" :size="18" aria-hidden="true"/><CheckCircle2 v-else-if="scan?.status === 'complete'" :size="18" aria-hidden="true"/><CirclePause v-else-if="scan?.status === 'cancelled'" :size="18" aria-hidden="true"/><Radio v-else :size="18" aria-hidden="true"/><b>{{ translateMessage(scanLabel) }}</b> {{ t('· {p0} 个节点', {p0: results.length}) }}</span><small>{{ scan ? scan.request.target_group + ' · ' + t(scan.profile.label) + ' · ' : '' }}{{ running ? t('结果返回即更新排名，验证后分数仍可能变化') : t('扫描不改变当前节点') }}</small><span v-if="health?.mihomo_version === 'dev-mock'" class="fixture-label">{{ t('示例数据') }}</span></div>
         <p v-if="scanFailed || scan?.status === 'cancelled'" class="scan-recovery">{{ t('{p0}，已返回的数据保留供查看；重新扫描完成后可选择节点。', {p0: scanFailed ? t('本次扫描未完成') : t('本次扫描已停止')}) }}</p>
         <ScanWarnings :warnings="scan?.warnings"/>
+        <ScanMeasurement v-if="scan" :scan="scan"/>
         <div class="grid">
           <section class="ranking panel">
             <div class="head">
               <div><h2>{{ t('实时排名') }}</h2><p>{{ scan?.status === 'complete' ? t('复测节点优先 · 性能满分 90 · 仅可选择符合条件的节点') : t('结果返回即排序 · 扫描完成后可选择') }}</p></div>
             </div>
             <div class="ranking-tools"><TableSearch id="scan-result-query" v-model="resultQuery" :label="t('搜索扫描结果')" :placeholder="t('搜索扫描结果…')" :disabled="!results.length"/><button :disabled="!results.some(row => row.name === current?.now)" @click="locateNode(current?.now)">{{ t('定位当前节点') }}</button><button :disabled="!candidate" @click="locateNode(candidate?.name)">{{ t('定位候选') }}</button></div>
+            <ResultViewControls v-model="resultView"><ResultExport :scan="scan" :rows="filteredResults" :view="resultView" :filtered="!!resultQuery" :demo="health?.mihomo_version === 'dev-mock'" :selection-reason="selectionReason"/></ResultViewControls>
             <div v-if="!pageResults.length" class="ranking-empty" role="status">
               <ScanLine :size="30" :stroke-width="1.5" aria-hidden="true"/>
               <h3>{{ translateMessage(emptyTitle) }}</h3><p>{{ translateMessage(emptyDescription) }}</p>
