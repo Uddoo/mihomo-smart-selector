@@ -63,6 +63,10 @@ test('CSV neutralizes formulas and quotes fields; Markdown escapes markup and ta
   const markdown = buildResultExport(snapshot([node('<img src=x> | [link](x)\nname', 1)]), {...defaults, includeNames: true, format: 'markdown'})
   assert.ok(!markdown.includes('<img'))
   assert.ok(markdown.includes('&lt;img src=x&gt; \\| \\[link\\](x)<br>name'))
+  const hostile = '\\|\\[one]\\*two*\\|[three]\\'
+  const escaped = '\\\\\\|\\\\\\[one\\]\\\\\\*two\\*\\\\\\|\\[three\\]\\\\'
+  const combined = buildResultExport(snapshot([node(hostile, 1)]), {...defaults, fields: ['name'], includeNames: true, format: 'markdown'})
+  assert.ok(combined.includes('| ' + escaped + ' |'), 'Backslashes and repeated Markdown metacharacters must all stay literal')
 })
 
 test('export handles empty selections, partial scans, missing timing and translates surrounding labels', () => {

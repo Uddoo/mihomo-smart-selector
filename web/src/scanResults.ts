@@ -107,7 +107,7 @@ export function csvCell(value: string) {
 }
 function markdownCell(value: string) {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-    .replaceAll('\\', '\\\\').replace(/[|`*_\[\]~]/gu, '\\$&').replace(/\r\n|[\r\n]/gu, '<br>')
+    .replace(/[\\|`*_\[\]~]/gu, '\\$&').replace(/\r\n|[\r\n]/gu, '<br>')
 }
 
 export function buildResultExport(snapshot: ExportSnapshot, options: ExportOptions) {
