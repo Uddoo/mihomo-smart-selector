@@ -158,7 +158,7 @@ test('lost switch response preserves request identity across reload and records 
   expect(history.filter(event => event.request_id === original.request_id)).toHaveLength(1)
   expect(await page.evaluate(() => sessionStorage.getItem('mss-selection-request'))).toBeNull()
   await page.getByRole('button', {name: '选择历史', exact: true}).click()
-  await expect(page.locator('article').filter({hasText: 'JP-Osaka-02'})).toContainText('已确认')
+  await expect(page.locator('.history-page [data-history-id]').filter({hasText: 'JP-Osaka-02'})).toContainText('已确认')
 })
 
 test('real SSE connection receives heartbeats beyond the server 30-second write timeout', async ({request, baseURL}) => {
