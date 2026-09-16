@@ -42,6 +42,10 @@ func New(cfg config.HTTPConfig, manager *scan.Manager, controller mihomo.Client)
 	if err != nil {
 		return nil, fmt.Errorf("open embedded frontend: %w", err)
 	}
+	staticHandler, err := newStaticHandler(staticFiles)
+	if err != nil {
+		return nil, fmt.Errorf("prepare embedded frontend: %w", err)
+	}
 	host, _, err := net.SplitHostPort(cfg.Listen)
 	if err != nil {
 		return nil, fmt.Errorf("parse HTTP listener: %w", err)
@@ -52,7 +56,7 @@ func New(cfg config.HTTPConfig, manager *scan.Manager, controller mihomo.Client)
 	}
 	server := &Server{
 		config: cfg, manager: manager, controller: controller,
-		static: http.FileServer(http.FS(staticFiles)), exposed: exposed,
+		static: staticHandler, exposed: exposed,
 	}
 	for _, cidr := range cfg.AllowedCIDRs {
 		prefix, err := netip.ParsePrefix(cidr)
