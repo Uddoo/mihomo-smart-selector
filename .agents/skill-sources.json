@@ -34,6 +34,30 @@
       "skillVersion": "1.0.0",
       "installation": "skill-installer with --method git --dest .agents/skills",
       "localChanges": []
+    },
+    {
+      "name": "interface-design",
+      "repository": "https://github.com/Dammyjay93/interface-design",
+      "path": ".claude/skills/interface-design",
+      "revision": "2f9be3206855bcb2d1d0af262c8bae25cba6658d",
+      "installedAt": "2026-09-16",
+      "installation": "skill-installer with --method download --ref 2f9be3206855bcb2d1d0af262c8bae25cba6658d --dest .agents/skills",
+      "license": "MIT",
+      "localChanges": [
+        "Copied the repository root LICENSE into the installed skill directory; upstream skill files unchanged."
+      ]
+    },
+    {
+      "name": "design-motion-principles",
+      "repository": "https://github.com/kylezantos/design-motion-principles",
+      "path": "skills/design-motion-principles",
+      "revision": "4a9ca879f24a361f4dca4174fe2da0f67b5ddee3",
+      "installedAt": "2026-09-16",
+      "installation": "skill-installer with --method download --ref 4a9ca879f24a361f4dca4174fe2da0f67b5ddee3 --dest .agents/skills",
+      "license": "MIT",
+      "localChanges": [
+        "Copied the repository root LICENSE into the installed skill directory; upstream skill files unchanged."
+      ]
     }
   ]
 }
