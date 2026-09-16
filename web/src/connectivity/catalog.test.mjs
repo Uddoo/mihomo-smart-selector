@@ -1,7 +1,22 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import {categories} from './categories.ts'
 const targets = JSON.parse(fs.readFileSync(new URL('../../public/connectivity-targets.json', import.meta.url)))
+
+test('every service belongs to one product category, independent of country', () => {
+  const ids = new Set(categories.map(category => category.id))
+  assert.equal(ids.size, 8)
+  for (const target of targets) {
+    assert.ok(ids.has(target.category), target.id)
+    assert.equal(target.group, undefined, target.id)
+  }
+  assert.deepEqual(targets.filter(target => target.category === 'ai').map(target => target.id).sort(),
+    ['aistudio', 'chatgpt', 'claude', 'deepseek', 'mistral', 'pixpix'])
+  assert.deepEqual(targets.filter(target => target.category === 'social').map(target => target.id).sort(),
+    ['facebook', 'instagram', 'line', 'linkedin', 'qq', 'reddit', 'wechat', 'weibo', 'x', 'xiaohongshu'])
+  assert.ok(categories.every(category => targets.some(target => target.category === category.id)))
+})
 
 test('all 48 targets define explicit evidence, redirect, cache and response contracts', () => {
   assert.equal(targets.length,48)

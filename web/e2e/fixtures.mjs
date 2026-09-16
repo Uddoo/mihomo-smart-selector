@@ -22,7 +22,11 @@ export async function monitorFixture(page, options = {}) {
     {id: 'a', series_id: 'series-a', name: 'JP-Tokyo-03', provider: 'demo', protocol: 'VLESS', anchor: Math.floor(now / 1000) - 86400},
     {id: 'b', series_id: 'series-b', name: 'JP-Osaka-02', provider: 'demo', protocol: 'VLESS', anchor: Math.floor(now / 1000) - 86400},
   ]
-  const plan = {id: 'demo-plan', revision: 1, enabled: true, auto_switch: false, group: '🤖 ChatGPT', profile_id: 'chatgpt', profile_hash: 'demo-profile', nodes, created_at: at}
+  while (nodes.length < (options.candidateCount || 2)) {
+    const i = nodes.length + 1
+    nodes.push({id: 'node-' + i, series_id: 'series-' + i, name: 'Candidate-' + String(i).padStart(2, '0'), provider: 'demo', protocol: 'VLESS', anchor: nodes[0].anchor})
+  }
+  const plan = {id: 'demo-plan', revision: 1, enabled: true, auto_switch: false, group: '🤖 ChatGPT', profile_id: 'chatgpt', profile_hash: 'demo-profile', nodes: nodes.slice(0, options.selectedCount ?? nodes.length), created_at: at, ...(options.candidateLimit ? {candidate_limit: options.candidateLimit} : {})}
   const metrics = {score: 91, readiness: 'ready', coverage: 1, expected: 720, samples: 720, success_rate: 1, p95_ms: 180, incidents: 1, failure_seconds: 120, observed_seconds: 86400, window_seconds: 86400, availability_points: 70, continuity_points: 18, latency_points: 3}
   function windowMetrics(window) {
     const seconds = window === '7d' ? 7 * 86400 : window === '1h' ? 3600 : 86400
@@ -30,7 +34,7 @@ export async function monitorFixture(page, options = {}) {
   }
   const series = nodes.map(node => ({id: node.series_id, node, profile_id: plan.profile_id, profile_hash: plan.profile_hash, anchor: node.anchor}))
   const event = {key: 'node:1', at: new Date(now - 15 * 60000).toISOString(), kind: 'node', status: 'unavailable', node: nodes[1].name, group: plan.group, series_id: nodes[1].series_id, message: options.eventMessage || '演示：连续探测失败'}
-  const state = {overviewReads: 0, version: 1, mode: 'ok', held: [], timelineRequests: [], delayedSeries: '', delayed: []}
+  const state = {overviewReads: 0, version: 1, mode: 'ok', held: [], timelineRequests: [], delayedSeries: '', delayed: [], planWrites: [], saveError: '', missingCandidates: [], plan}
   await page.route('**/api/v1/monitor**', async route => {
     const url = new URL(route.request().url()), query = url.searchParams
     const respond = json => route.fulfill({json})
@@ -38,11 +42,19 @@ export async function monitorFixture(page, options = {}) {
       state.overviewReads++
       if (state.mode === 'hang') { state.held.push(route); return }
       if (state.mode === 'error') return route.fulfill({status: 503, json: {error: options.errorMessage || '测试：服务暂不可用'}})
-      return respond({plan, current: nodes[0].name, issue: '', suspended: false, failover_message: '', observed_at: at, now: at, next_at: at, retention_days: 7, window: query.get('window') || '24h', data_version: state.version, instance_id: 'fixture-boot', events: [], rows: nodes.map(node => ({...node, metrics, series: [], state: {status: 'healthy', last_at: at, last_success: at, failures: 0, successes: 720}}))})
+      return respond({plan, current: nodes[0].name, issue: '', suspended: false, failover_message: '', observed_at: at, now: at, next_at: at, retention_days: 7, window: query.get('window') || '24h', data_version: state.version, instance_id: 'fixture-boot', events: [], rows: plan.nodes.map(node => ({...node, metrics, series: [], state: {status: 'healthy', last_at: at, last_success: at, failures: 0, successes: 720}}))})
+    }
+    if (url.pathname.endsWith('/plan') && route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON()
+      state.planWrites.push(body)
+      if (state.saveError) return route.fulfill({status: 409, json: {error: state.saveError}})
+      Object.assign(plan, body, {revision: plan.revision + 1, nodes: body.nodes.map(name => nodes.find(n => n.name === name))})
+      state.version++
+      return respond(plan)
     }
     if (url.pathname.endsWith('/series')) return respond(series)
     if (url.pathname.endsWith('/revisions')) return respond([{at, plan}])
-    if (url.pathname.endsWith('/catalog')) return respond({nodes, current: nodes[0].name, suggested: nodes.map(node => node.name), probe_count: 1})
+    if (url.pathname.endsWith('/catalog')) return respond({nodes: nodes.filter(n => !state.missingCandidates.includes(n.name)), current: nodes[0].name, suggested: nodes.slice(0, 6).map(node => node.name), probe_count: options.probeCount || 1, limits: {default_candidate_limit: 6, max_candidate_limit: 30, max_probe_count: 6, min_requests_per_minute: 12, requests_per_candidate_probe: 2}})
     if (url.pathname.endsWith('/storage')) return respond({policy: {revision: 1, raw_days: 7, aggregate_days: 30, event_days: 30, max_raw_samples: 100000, max_hourly: 20000}, raw_samples: 4320, hourly: 120, events: 1, pending_hours: 1, unmapped_legacy: 0, database_bytes: 1048576, wal_bytes: 32768, oldest_raw: at, oldest_hourly: at, last_aggregation: at})
     if (url.pathname.endsWith('/correlations')) return respond([])
     if (url.pathname.endsWith('/incidents')) return respond({items: [event]})

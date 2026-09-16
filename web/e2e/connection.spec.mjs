@@ -67,6 +67,7 @@ test('stale connection save retains edits and offers a reload', async ({page, re
     await form.getByRole('button', {name: '保存连接配置', exact: true}).click()
     await expect(form.getByRole('alert')).toContainText('连接配置已被其他页面更新')
     await expect(form.getByLabel('连接超时（秒）')).toHaveValue('15')
+    page.once('dialog', dialog => dialog.accept())
     await form.getByRole('button', {name: '重新加载', exact: true}).click()
     await expect(form.getByLabel('连接超时（秒）')).toHaveValue('14')
   } finally { await reset(request) }

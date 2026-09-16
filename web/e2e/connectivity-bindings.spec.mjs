@@ -61,6 +61,23 @@ async function ready(page) {
   await expect(page.locator('.binding-refresh')).toContainText('配置读取于')
 }
 
+test('category and search intersect valid bindings before testing', async ({page}) => {
+  const state=await fixture(page)
+  await ready(page); await mine(page).click()
+  const types=page.getByRole('group',{name:'服务类型',exact:true})
+  await expect(types.getByRole('button',{name:'社交 0',exact:true})).toBeDisabled()
+  await types.getByRole('button',{name:'AI 1',exact:true}).click()
+  await primary(page).click(); await expect(primary(page)).toBeEnabled()
+  expect(state.calls).toEqual(Array(8).fill('chatgpt'))
+  await page.getByRole('searchbox',{name:'搜索服务'}).fill('GitHub')
+  await expect(primary(page)).toBeDisabled()
+  await types.getByRole('button',{name:'全部类型 2',exact:true}).click()
+  await expect(page.locator('.service-card')).toHaveCount(1)
+  await primary(page).click(); await expect(primary(page)).toBeEnabled()
+  expect(state.calls.slice(8)).toEqual(Array(8).fill('github'))
+  expect(state.writes).toEqual([])
+})
+
 test('explicit bindings support many groups and candidate/scan navigation without probes or writes', async ({page}) => {
   const state = await fixture(page)
   await ready(page)
@@ -106,7 +123,7 @@ test('my services tests only valid matched cards; filtering and return never sta
   await expect(mine(page)).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.service-card')).toHaveCount(2)
   expect(state.calls).toHaveLength(16)
-  await page.getByRole('button', {name: '按地区', exact: true}).click()
+  await page.getByRole('button', {name: '全部服务', exact: true}).click()
   await expect(page.locator('.service-card')).toHaveCount(48)
   await page.locator('[data-service="netflix"] summary').click()
   await expect(page.locator('[data-service="netflix"] .service-bindings')).toContainText('绑定已失效')
@@ -170,7 +187,7 @@ test('empty and unavailable bindings retain the browser-only test and permit con
   await page.getByRole('button', {name: '刷新配置', exact: true}).click()
   await expect(primary(page)).toBeDisabled()
   await expect(page.locator('.binding-refresh')).toContainText('策略组配置暂不可用')
-  await page.getByRole('button', {name: '按地区', exact: true}).click()
+  await page.getByRole('button', {name: '全部服务', exact: true}).click()
   await expect(primary(page)).toBeEnabled()
   await expect(page.locator('.service-card')).toHaveCount(48)
   expect(state.calls).toEqual([])
