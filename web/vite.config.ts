@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import {gzipSync} from 'node:zlib'
+import {compressStaticAsset} from './build/precompress.mjs'
 import {readFile, writeFile} from 'node:fs/promises'
 import {resolve} from 'node:path'
 
@@ -15,7 +15,7 @@ export default defineConfig({
         if (!/\.(js|css)$/.test(name)) continue
         const target = resolve(options.dir, name)
         const raw = await readFile(target)
-        const compressed = gzipSync(raw, {level: 9})
+        const compressed = compressStaticAsset(raw)
         if (compressed.length < raw.length) await writeFile(target + '.gz', compressed)
       }
     },
