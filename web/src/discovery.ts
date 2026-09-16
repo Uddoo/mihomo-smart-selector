@@ -6,10 +6,12 @@ export interface DiscoverySnapshot {
   nodes?: NodeSummary[]; history?: SwitchEvent[]; services?: ServiceCatalog; settings?: RuntimeSettings
 }
 
-export function discover(onUpdate?: (snapshot: DiscoverySnapshot) => void, signal?: AbortSignal) {
+export function discover(onUpdate?: (snapshot: DiscoverySnapshot) => void, signal?: AbortSignal, readHistory?: (signal?: AbortSignal) => Promise<SwitchEvent[]>) {
   const snapshot: DiscoverySnapshot = {}
   function read<K extends keyof DiscoverySnapshot>(key: K, path: string) {
-    return api<NonNullable<DiscoverySnapshot[K]>>(path, {signal}).then(value => {
+    const request = key === 'history' && readHistory ? readHistory(signal) : api<NonNullable<DiscoverySnapshot[K]>>(path, {signal})
+    return request.then(result => {
+      const value = result as NonNullable<DiscoverySnapshot[K]>
       snapshot[key] = value
       onUpdate?.({...snapshot})
       return value

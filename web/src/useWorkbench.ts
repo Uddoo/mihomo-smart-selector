@@ -7,6 +7,7 @@ import {selectionKey, operationLabel, operationMessage} from './selectionState'
 import type {Group, Health, NestedSelector, NodeResult, NodeSummary, ProbeProfileSummary, Provider, Region, Scan, ScanPreview, SwitchEvent, ServiceCatalog, RuntimeSettings} from './models'
 import {usePageRoute} from './pageRoute'
 import {useNodeCatalog} from './useNodeCatalog'
+import {useSwitchHistory} from './useSwitchHistory'
 import {t, formatRegion, formatNumber} from './i18n'
 
 // Owned by the app shell so navigation never interrupts an active scan or switch.
@@ -27,7 +28,10 @@ export function useWorkbench() {
     ]
   })
   const catalog = useNodeCatalog(nodes, regionLabel, groups)
-  const history = ref<SwitchEvent[]>([])
+  const historyState = useSwitchHistory()
+  const {history, historyLoading, historyError, historyLoaded, historyUpdatedAt} = historyState
+  const reconcilingId = shallowRef<number | null>(null)
+  const reconcileFeedback = shallowRef<{id: number; event?: SwitchEvent; error?: string} | null>(null)
   const group = ref('')
   const serviceID = ref('')
   const services = ref<ServiceCatalog | null>(null)
@@ -162,6 +166,7 @@ export function useWorkbench() {
   onBeforeUnmount(() => {
     window.clearInterval(ageTimer); close(); window.clearInterval(discoveryPoll)
     ++previewRevision; ++discoveryRevision; discoveryController?.abort()
+    historyState.cancelHistoryRead()
     document.removeEventListener('visibilitychange', resumeDiscovery)
     window.removeEventListener('online', resumeDiscovery)
     window.removeEventListener('offline', resumeDiscovery)
@@ -186,10 +191,9 @@ export function useWorkbench() {
       if (snapshot.providers) providers.value = snapshot.providers
       if (snapshot.regions) regions.value = snapshot.regions
       if (snapshot.nodes) nodes.value = snapshot.nodes
-      if (snapshot.history) history.value = snapshot.history
       if (snapshot.services) services.value = snapshot.services
       if (snapshot.settings) minimumSuccessRate.value = snapshot.settings.min_success_rate
-    }, discoveryController.signal)
+    }, discoveryController.signal, historyState.readHistory)
     if (revision !== discoveryRevision) return
     if (response[0].status === 'rejected' && response[0].reason instanceof APIError && response[0].reason.status === 401) {
       access.value = true
@@ -205,6 +209,17 @@ export function useWorkbench() {
     loading.value = false
     if (!bad) { try { await session.restore(); if (!restoredForm) { await restoreForm(); restoredForm = true } } catch (error) { failure.value = error instanceof Error ? error.message : '无法恢复扫描' } }
     await preflight()
+  }
+
+  async function refreshHistory(): Promise<void> {
+    if (configLocked.value || historyLoading.value) return
+    const previousError = historyError.value
+    try {
+      await historyState.readHistory()
+      // Recovery must also dismiss the same error emitted by initial discovery.
+      if (previousError && failure.value === previousError) failure.value = ''
+    }
+    catch { /* The history page displays historyError and retains loaded rows. */ }
   }
 
   async function saveBinding(target = group.value, remove = false) {
@@ -355,7 +370,7 @@ export function useWorkbench() {
     try {
       const event = await api<SwitchEvent>('/scans/' + encodeURIComponent(scan.value.id) + '/select', {method: 'POST', body: JSON.stringify({node: result.name, request_id: selectionKey(sessionStorage,scan.value.id,result.name)})})
       if (event.status === 'confirmed') groups.value = groups.value.map(item => item.name === event.group ? {...item, now: event.selected} : item)
-      history.value = [event, ...history.value.filter(item => item.id !== event.id)]
+      historyState.applyHistoryEvent(event, true)
       notice.value = operationMessage(event)
      noticeWarning.value = event.status !== 'confirmed' || !event.audit_persisted
       if (event.audit_persisted && ['confirmed','failed'].includes(event.status)) sessionStorage.removeItem('mss-selection-request')
@@ -368,15 +383,22 @@ export function useWorkbench() {
   }
 
   async function reconcile(item: SwitchEvent) {
+    if (configLocked.value) return
     switching.value = true
+    reconcilingId.value = item.id
+    reconcileFeedback.value = null
     try {
       const result = await api<SwitchEvent>('/history/' + item.id + '/reconcile', {method:'POST'})
-      history.value = history.value.map(event => event.id === result.id ? result : event)
+      historyState.applyHistoryEvent(result)
+      reconcileFeedback.value = {id: item.id, event: result}
       notice.value = operationMessage(result)
      noticeWarning.value = result.status !== 'confirmed' || !result.audit_persisted
       if (result.audit_persisted && ['confirmed','failed'].includes(result.status)) sessionStorage.removeItem('mss-selection-request')
-    } catch (error) { failure.value = error instanceof Error ? error.message : '无法核对结果' }
-    finally { switching.value = false; void load() }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '无法核对结果'
+      failure.value = message
+      reconcileFeedback.value = {id: item.id, error: message}
+    } finally { reconcilingId.value = null; switching.value = false; void load() }
   }
 
   function openMonitorScan(target: string, profileID: string) {
@@ -465,7 +487,8 @@ export function useWorkbench() {
     provider, start, stop, selectionReason, choose, percentLabel, latency,
     clock, statusTone, probeKind, running, recent, now, best,
     currentResult, retest, points, hasJitterEvidence, evidence, nodes,
-    history, reconcile,
+    history, historyLoading, historyError, historyLoaded, historyUpdatedAt, refreshHistory,
+    reconcile, reconcilingId, reconcileFeedback,
   }
 }
 
