@@ -9,6 +9,27 @@ versioned releases begin.
 
 ## [Unreleased]
 
+## [v0.1.0-rc.9] - 2026-09-16
+
+### Added
+
+- Present selection history as compact records with clear result badges,
+  separate audit-save warnings, unresolved-record reminders and inline details.
+- Search and filter loaded records by keyword, policy group, source and result.
+  Show loaded and matching counts, local pagination and distinct empty states.
+- Provide row-level reconciliation progress and feedback, responsive record
+  layouts, collapsible mobile filters and bilingual accessible controls.
+
+### Fixed
+
+- Preserve filters, expanded details and existing evidence during refreshes.
+  Distinguish initial loading, read errors and retries, and clear a recovered
+  initial history-read error from the shared application feedback.
+- Prevent stale history reads from overwriting newer selection or reconciliation
+  results; keep reconciliation under the existing shared operation lock.
+- Scope history styles to the history page so monitoring detail headings and
+  charts retain their existing layout.
+
 ## [v0.1.0-rc.8] - 2026-09-16
 
 ### Added
