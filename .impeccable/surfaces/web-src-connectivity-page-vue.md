@@ -9,25 +9,27 @@ related_targets: ["web/src/components/connectivity/ConnectivityGroup.vue", "web/
 
 Scope: a separate top-level Connectivity tab. Mode: Operate.
 Approved by the user's “开始实现” after the generated preview on 2026-09-15.
-Reference: the user-approved regional service-panel preview; local review captures remain outside the repository.
+Current direction: the user's 2026-09-16 request replaces regional grouping with service types and refines presentation. The original regional preview is historical context.
 
 ## Direction contract
 
-THESIS: Show which common services respond from this browser, with compact regional groups and eight visible samples per service.
+THESIS: Find common services by purpose, then inspect which respond from this browser, with eight visible samples per service.
 
 OWN-WORLD: Inherit Geist typography, neutral surfaces, thin borders, existing 6/8px radii, Lucide controls and light/dark theme tokens. Service marks identify targets; colors describe measured outcomes with text equivalents.
 
 STORY: Open the independent tab in its idle state, explicitly start a test, inspect per-service samples, refresh all or one group, stop an active test. Browser measurements are separate from node scanning and persistent monitoring.
 
-FIRST VIEWPORT: Existing 208px sidebar with the third entry selected; normal page heading and language/theme controls; shallow all-test toolbar; four-column service tiles grouped as China (12), Japan (4), US (20), Global (12); compact explanation below. Cards retain name, latency, eight dots. Narrow screens use two or one columns.
+FIRST VIEWPORT: Existing navigation and page heading; All services / My services; category counts and shared search; explicit test controls and scope feedback. Three-column service cards start with AI (6), then Social (10), Media (7), Development & cloud (4), Search & news (9), Shopping (6), Gaming (2), Tools (4). At <=1199px use two columns; <=640px use one. At <=760px a native type select replaces the category buttons alongside search.
 
-FORM: Precisely user-pinned composition; no direction seed needed. The approved image sets the regional grid and navigation hierarchy. Illustrative numbers become real measurements. The incumbent app shell and accurate readable status colors take precedence over mock-generated glyph errors.
+FORM: Service purpose determines grouping. Existing app shell, palette tokens and evidence semantics remain authoritative. Category icons are neutral; active filters use the theme accent, running probes use information color, and result tones retain their meanings. Each card separates the name/reading from its sample strip and completed count. No list entrance or filter animations.
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 
 Component map: App composes the route; ConnectivityPage composes toolbar and groups; ConnectivityGroup accepts group/results/busy and emits refresh; ServiceCard accepts target/result and renders accessible evidence. useConnectivity owns lifecycle and state. Pure engine owns bounded requests, cancellation and measurements. No Controller mutations.
 
 ## Implementation record
+
+2026-09-16 service types: The catalog replaces geographic `group` metadata with one explicit `category` per service, preserving every ID, URL and probe rule. `categories.ts` defines the eight typed categories. `ServiceFilters` receives categories/counts/query and emits filter changes; `useConnectivity` derives the intersection of view, category and translated-name/ID search before defining test scope. The issues filter holds active retests until completion. Existing observations, binding snapshots, cancellation and manual-start behavior remain intact. `ConnectivityGroup` adds category icons, counts and issue summaries; `ServiceCard` uses an 80px minimum height and separate sample row. Mobile controls and bilingual Nord/Geist captures are verified in `.impeccable/review/connectivity-categories/` and `.impeccable/review/connectivity/` with controlled responses, not live availability measurements.
 
 2026-09-15: The six-entry navigation includes mobile **Links**. Service groups use four columns by default, three at 761–1250px, two at 481–760px and one at 480px or below. Shared Geist typography, theme tokens and control geometry remain the incumbent system. Native `details` / `summary` exposes sample results, times and probe addresses through click, tap or Enter / Space; Escape and the close button restore focus to the sample strip.
 

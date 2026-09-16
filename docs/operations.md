@@ -22,6 +22,29 @@ LAN API tokens stay only in page memory. Reloading requires entering the token
 again; scans and monitoring continue on the server. Older token entries are
 removed from browser session/local storage when the page starts.
 
+## Frontend loading, drafts and caching
+
+Lazy-loaded pages show a loading state, then a recoverable error if their module
+download fails or exceeds 15 seconds. **Retry loading** tries the module again;
+if the browser remembers a failed module URL or the service has just upgraded,
+use **Reload page** to fetch the current HTML and asset URLs. Reloading does not
+start a scan or repeat a node selection.
+
+Unsaved runtime and connection settings prompt before leaving the page,
+refreshing or replacing the draft. Cancel preserves the form; saving successfully
+clears its warning. A draft is not an automatic save or a browser backup: new
+connection secrets stay in page memory and are cleared on confirmed departure.
+Browser refresh/close prompts depend on browser support and user interaction.
+
+Production builds include precompressed gzip copies of JavaScript and CSS. The
+embedded server selects gzip using `Accept-Encoding`, sends `Vary`, and uses a
+different strong ETag for each representation. Compression happens during the
+build, not per request on the router. Existing fingerprinted JS, CSS and WOFF2
+assets use `public, max-age=31536000, immutable`; HTML and unversioned files use
+`no-cache` with ETag revalidation. API and SSE caching behavior is unchanged.
+When placing a reverse proxy in front, preserve these headers and avoid forcing
+immutable caching on HTML or missing assets.
+
 ## Scan lifecycle
 
 `GET /api/v1/scans` returns the 20 most recent scan summaries plus any other

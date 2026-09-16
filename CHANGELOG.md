@@ -9,13 +9,48 @@ versioned releases begin.
 
 ## [Unreleased]
 
+## [v0.1.0-rc.10] - 2026-09-16
+
+### Added
+
+- Add Ocean, Iris, Nord and Catppuccin color palettes alongside classic Geist,
+  with independent light, dark and system appearance modes. Apply preferences
+  before first paint, preserve existing light/dark choices and synchronize tabs
+  without discarding active scans or form edits. Theme surfaces and selections
+  together while keeping monitoring status and chart colors semantically stable.
+- Configure the monitoring candidate limit from 1 to 30 nodes in monitoring
+  settings, with a default of 6 and a shared probe budget that scales with the
+  selected nodes and targets. Persist the limit across restarts, retain existing
+  node history, and require explicit deselection when lowering the limit.
+
+### Changed
+
+- Organize the 48 browser connectivity targets by AI, social, media, development
+  and cloud, search and news, shopping, gaming, and tools. Add category counts
+  and service-name search, with tests scoped to the selected category, search
+  and valid bindings. Use compact type selection on phones and clearer cards
+  with separate sampling rows, progress counts and explicit running states.
+
 ### Fixed
 
+- Place the sidebar project link above the connection-status separator and
+  simplify the Controller status by removing its explanatory footer text.
 - Align monitoring summary actions, node-card metrics and candidate-picker
   controls; use consistent panel spacing across monitoring views.
 - Keep scan progress and terminal statistics in one persistent feedback panel,
   with explicit start/stop request states, duplicate-stop protection and
   reduced-motion support. Preserve returned results after failure or stop.
+- Show loading, timeout and error states for lazy-loaded pages, with retry and
+  page-reload recovery instead of an empty content area after a failed download.
+- Protect unsaved runtime and connection settings when navigating, refreshing
+  or replacing a draft. Cancel keeps edits; successful saves clear the guard.
+- Precompress production JavaScript and CSS at build time. Serve negotiated
+  gzip with representation-specific ETags, cache hashed assets immutably, and
+  revalidate HTML and unversioned files so service upgrades remain discoverable.
+- Collapse node-catalog filters and sorting on phones so nodes appear in the
+  first viewport; preserve selected filters, keyboard access and desktop tools.
+- Name the candidate comparison's metric column and scope its row/column headers
+  in both languages for assistive technology.
 
 ## [v0.1.0-rc.9] - 2026-09-16
 
