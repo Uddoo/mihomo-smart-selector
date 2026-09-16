@@ -9,7 +9,9 @@ versioned releases begin.
 
 ## [Unreleased]
 
-## [v0.1.0-rc.10] - 2026-09-16
+## [v0.1.0-rc.11] - 2026-09-16
+
+The rc.10 build candidate was not published. This release includes its changes.
 
 ### Added
 
@@ -47,6 +49,8 @@ versioned releases begin.
 - Precompress production JavaScript and CSS at build time. Serve negotiated
   gzip with representation-specific ETags, cache hashed assets immutably, and
   revalidate HTML and unversioned files so service upgrades remain discoverable.
+- Generate reproducible gzip assets using a pinned JavaScript compressor and
+  zero timestamps, avoiding host OS and Node/zlib differences in release checks.
 - Collapse node-catalog filters and sorting on phones so nodes appear in the
   first viewport; preserve selected filters, keyboard access and desktop tools.
 - Name the candidate comparison's metric column and scope its row/column headers

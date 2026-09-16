@@ -39,8 +39,9 @@ Browser refresh/close prompts depend on browser support and user interaction.
 Production builds include precompressed gzip copies of JavaScript and CSS. The
 embedded server selects gzip using `Accept-Encoding`, sends `Vary`, and uses a
 different strong ETag for each representation. Compression happens during the
-build, not per request on the router. Existing fingerprinted JS, CSS and WOFF2
-assets use `public, max-age=31536000, immutable`; HTML and unversioned files use
+build, not per request on the router. A pinned JavaScript compressor and zero
+timestamps make gzip output reproducible across build hosts. Fingerprinted JS,
+CSS and WOFF2 assets use `public, max-age=31536000, immutable`; HTML and unversioned files use
 `no-cache` with ETag revalidation. API and SSE caching behavior is unchanged.
 When placing a reverse proxy in front, preserve these headers and avoid forcing
 immutable caching on HTML or missing assets.
