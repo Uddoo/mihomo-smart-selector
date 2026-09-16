@@ -47,7 +47,7 @@ function sampleLabel(index: number) {
 </script>
 
 <template>
-  <article class="service-card" :class="{'wordmark-card': target.id === 'sony'}" :data-service="target.id">
+  <article class="service-card" :class="{'wordmark-card': target.id === 'sony', 'is-testing': result.phase === 'running'}" :data-service="target.id">
     <img v-if="icon && !iconFailed" class="service-icon" :class="iconStyle" :src="icon" alt="" width="24" height="24" @error="iconFailed = true">
     <Globe v-else class="service-icon fallback-icon" :size="24" aria-hidden="true"/>
     <div class="service-identity">
@@ -55,6 +55,7 @@ function sampleLabel(index: number) {
       <details ref="details" name="connectivity-samples" class="sample-details" @keydown.esc.stop.prevent="closeDetails()" @toggle="onToggle">
         <summary class="sample-strip" :aria-label="t('查看{service}的采样详情', {service: t(target.name)})">
           <span v-for="index in ROUNDS" :key="index" :class="['sample-dot', sampleTone(result.samples[index - 1])]" aria-hidden="true"></span>
+          <span class="sample-count" aria-hidden="true">{{ stats.attempted }}/{{ ROUNDS }}</span>
           <ChevronDown class="sample-chevron" :size="12" aria-hidden="true"/>
         </summary>
         <div ref="panel" class="sample-evidence" :style="position">
@@ -74,6 +75,7 @@ function sampleLabel(index: number) {
     <div class="service-reading">
       <strong :class="['service-latency', tone]">{{ label }}</strong>
       <small v-if="stats.success && level" class="sample-status service-level">{{ t(level) }}</small>
+      <small v-if="result.phase === 'running' || result.phase === 'queued'" class="sample-status running-status">{{ t(result.phase === 'queued' ? '排队中' : '采样中') }}</small>
       <small v-if="partial" class="sample-warning">{{ t('成功 {success}/{total}', {success: stats.success, total: stats.attempted}) }}</small>
       <small v-else-if="result.phase === 'stopped' && stats.attempted" class="sample-status">{{ t('已停止') }}</small>
       <small v-if="selectionChanged" class="sample-warning">{{ t('节点已变化') }}</small>
@@ -82,19 +84,23 @@ function sampleLabel(index: number) {
 </template>
 
 <style scoped>
-.service-card { position:relative; display:grid; grid-template-columns:24px minmax(0, 1fr) auto; align-items:center; gap:10px; min-width:0; min-height:48px; padding:8px 12px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--surface); }
-.service-icon { width:24px; height:24px; object-fit:contain; }
+.service-card { position:relative; display:grid; grid-template-columns:24px minmax(0, 1fr) auto; align-items:center; gap:4px 12px; min-width:0; min-height:80px; padding:12px 16px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); }
+.service-card:hover { border-color:var(--control-border); }
+.service-card.is-testing { border-color:var(--info); background:var(--info-bg); }
+.service-icon { grid-column:1; grid-row:1 / span 2; width:24px; height:24px; object-fit:contain; }
 .fallback-icon { color:var(--muted); }
 .wordmark-card { grid-template-columns:36px minmax(0, 1fr) auto; }
 .wordmark-icon { width:36px; height:36px; }
 :global([data-theme="dark"] .service-icon.mono-icon) { filter:grayscale(1) brightness(0) invert(1); }
 :global([data-theme="dark"] .service-icon.light-backed-icon) { background:#fff; border-radius:4px; padding:2px; }
-.service-identity { min-width:0; }
-.service-name { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; line-height:1.4; }
-.sample-strip { display:flex; align-items:center; width:max-content; max-width:100%; min-height:0; gap:4px; padding:2px 0 0; border-radius:2px; outline-offset:3px; cursor:pointer; list-style:none; }
+.service-identity { display:contents; }
+.service-name { grid-column:2; grid-row:1; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; font-weight:600; line-height:1.4; }
+.sample-details { grid-column:2 / -1; grid-row:2; min-width:0; }
+.sample-strip { display:flex; align-items:center; width:max-content; max-width:100%; min-height:0; gap:4px; padding:0; border-radius:2px; outline-offset:3px; cursor:pointer; list-style:none; }
+.sample-count { margin-inline-start:4px; font-size:10px; line-height:1; color:var(--muted); font-variant-numeric:tabular-nums; }
 .sample-strip::-webkit-details-marker { display:none; }
 .sample-strip::before { content:''; position:absolute; inset:0; border-radius:var(--radius-sm); }
-.service-card:has(.sample-strip:focus-visible) { outline:2px solid var(--blue); outline-offset:2px; }
+.service-card:has(.sample-strip:focus-visible) { outline:2px solid var(--accent); outline-offset:2px; }
 .service-card:has(.sample-details[open]) { z-index:2; }
 .sample-chevron { flex-shrink:0; color:var(--muted); }
 .sample-details[open] .sample-chevron { transform:rotate(180deg); }
@@ -111,12 +117,14 @@ function sampleLabel(index: number) {
 .sample-dot.slow { background:var(--warning); }
 .sample-dot.failed { background:var(--muted); }
 .sample-dot.pending { background:transparent; border:1px solid var(--control-border); }
-.service-reading { text-align:right; min-width:0; }
-.service-latency { display:block; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.service-reading { grid-column:3; grid-row:1; text-align:right; min-width:0; }
+.service-latency { display:block; font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .service-latency.fast, .service-latency.good { color:var(--green); }
 .service-latency.slow, .sample-warning { color:var(--warning); }
 .service-latency.failed { color:var(--red); }
 .service-latency.pending, .sample-status { color:var(--muted); }
+.service-latency.pending { font-size:12px; font-weight:500; }
+.running-status { color:var(--info); }
 .sample-warning, .sample-status { display:block; font-size:11px; line-height:1.3; font-variant-numeric:tabular-nums; }
-@media (max-width:1000px) { .service-card { gap:8px; padding-inline:10px; } }
+@media (max-width:1000px) { .service-card { column-gap:8px; padding-inline:12px; } }
 </style>

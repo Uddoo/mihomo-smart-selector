@@ -47,7 +47,7 @@
 .history-page .history-status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 6px; border-radius: 4px; font-size: 12px; font-weight: 500; line-height: 1.5; background: var(--soft); color: var(--muted); }
 .history-page .history-status svg, .history-page .history-audit svg { flex-shrink: 0; }
 .history-page .history-status.is-confirmed { color: var(--green); background: var(--good-bg); }
-.history-page .history-status.is-pending { color: var(--blue); background: color-mix(in srgb, var(--blue) 9%, var(--surface)); }
+.history-page .history-status.is-pending { color: var(--info); background: color-mix(in srgb, var(--info) 9%, var(--surface)); }
 .history-page .history-status.is-unknown { color: var(--warning); background: var(--warning-bg); }
 .history-page .history-status.is-failed { color: var(--red); background: var(--bad-bg); }
 .history-page .history-audit { display: inline-flex; gap: 5px; align-items: center; color: var(--warning); font-size: 12px; }

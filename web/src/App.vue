@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import {t, translateMessage} from './i18n'
-import {computed, defineAsyncComponent, useTemplateRef} from 'vue'
+import {computed, useTemplateRef} from 'vue'
 import {Network, ScanLine, List, History, Settings, Moon, Sun, Radio, ArrowRight, CodeXml, ExternalLink, Globe} from '@lucide/vue'
 import {useWorkbench} from './useWorkbench'
 import ScanWorkbench from './ScanWorkbench.vue'
 import LanguageSelect from './LanguageSelect.vue'
-const SettingsPanel = defineAsyncComponent(() => import('./SettingsPanel.vue'))
-const ConnectionSettings = defineAsyncComponent(() => import('./ConnectionSettings.vue'))
-const StoragePanel = defineAsyncComponent(() => import('./StoragePanel.vue'))
-const NodeCatalog = defineAsyncComponent(() => import('./NodeCatalog.vue'))
-const SwitchHistory = defineAsyncComponent(() => import('./SwitchHistory.vue'))
-const MonitoringPage = defineAsyncComponent(() => import('./MonitoringPage.vue'))
-const ConnectivityPage = defineAsyncComponent(() => import('./ConnectivityPage.vue'))
-const state = useWorkbench()
-const { page, health, groups, services, access, token, theme, notice, noticeWarning, failure, pendingChoice, choiceDialog, switching, current, configLocked, load, unlock, confirmChoice, openMonitorScan, regionLabel, statusLabel, scan } = state
+import AppearanceSettings from './components/appearance/AppearanceSettings.vue'
+import {useAppearance} from './useAppearance'
+import AsyncPanel from './AsyncPanel.vue'
+import {provideUnsavedChanges} from './unsavedChanges'
+const panels = {
+  settings: () => import('./SettingsPanel.vue'), connection: () => import('./ConnectionSettings.vue'),
+  storage: () => import('./StoragePanel.vue'), nodes: () => import('./NodeCatalog.vue'),
+  history: () => import('./SwitchHistory.vue'), monitor: () => import('./MonitoringPage.vue'),
+  connectivity: () => import('./ConnectivityPage.vue'),
+}
+const state = useWorkbench(provideUnsavedChanges())
+const { page, health, groups, services, access, token, notice, noticeWarning, failure, pendingChoice, choiceDialog, switching, current, configLocked, load, unlock, confirmChoice, openMonitorScan, regionLabel, statusLabel, scan } = state
+const {palette, mode: appearanceMode, theme, toggleTheme} = useAppearance()
 const workspace = useTemplateRef<HTMLElement>('workspace')
 const navigation = [
   {id: 'scan', label: '扫描工作台', shortLabel: '扫描', description: '为所选服务找到更稳定的节点', icon: ScanLine},
@@ -59,7 +63,7 @@ const currentPage = computed(() => navigation.find(item => item.id === page.valu
           <h1>{{ page === 'connectivity' ? t('服务连通性测试') : translateMessage(currentPage.label) }}</h1>
           <p class="page-description">{{ translateMessage(currentPage.description) }}<span v-if="health?.mihomo_version === 'dev-mock'" class="fixture-label">{{ t('示例数据') }}</span></p>
         </div>
-        <div class="header-actions"><LanguageSelect/><button class="theme" :aria-label="theme === 'light' ? t('切换到深色主题') : t('切换到明亮主题')" @click="theme = theme === 'light' ? 'dark' : 'light'"><Moon v-if="theme === 'light'" :size="17" aria-hidden="true"/><Sun v-else :size="17" aria-hidden="true"/><span>{{ t('{p0}主题', {p0: theme === 'light' ? t('深色') : t('明亮')}) }}</span></button></div>
+        <div class="header-actions"><LanguageSelect/><button class="theme" :aria-label="theme === 'light' ? t('切换到深色主题') : t('切换到明亮主题')" @click="toggleTheme"><Moon v-if="theme === 'light'" :size="17" aria-hidden="true"/><Sun v-else :size="17" aria-hidden="true"/><span>{{ t('{p0}主题', {p0: theme === 'light' ? t('深色') : t('明亮')}) }}</span></button></div>
       </header>
 
       <div v-if="failure" class="notice error" role="alert">{{ translateMessage(failure) }}</div>
@@ -67,18 +71,18 @@ const currentPage = computed(() => navigation.find(item => item.id === page.valu
 
       <ScanWorkbench v-if="page === 'scan'" :state="state"/>
 
-      <NodeCatalog v-else-if="page === 'nodes'" :state="state"/>
+      <AsyncPanel v-else-if="page === 'nodes'" key="nodes" :loader="panels.nodes" :state="state"/>
 
-      <MonitoringPage v-else-if="page === 'monitor'" :groups="groups" :services="services" :scan-locked="configLocked" @open-scan="openMonitorScan"/>
-      <ConnectivityPage v-else-if="page === 'connectivity'" :groups="groups" :services="services" :recent="state.recent.value" :ready="state.discoveryValid.value && !!health?.mihomo_connected" :loading="state.loading.value" :read-at="state.discoveryUpdatedAt.value" :locked="configLocked || state.openingServiceScan.value" @refresh="load" @candidates="state.openServiceCandidates" @scan="state.openServiceScan" @setup="page = 'scan'" @verify="state.prepareServiceVerification"/>
-      <SwitchHistory v-else-if="page === 'history'" :state="state"/>
+      <AsyncPanel v-else-if="page === 'monitor'" key="monitor" :loader="panels.monitor" :groups="groups" :services="services" :scan-locked="configLocked" @open-scan="openMonitorScan"/>
+      <AsyncPanel v-else-if="page === 'connectivity'" key="connectivity" :loader="panels.connectivity" :groups="groups" :services="services" :recent="state.recent.value" :ready="state.discoveryValid.value && !!health?.mihomo_connected" :loading="state.loading.value" :read-at="state.discoveryUpdatedAt.value" :locked="configLocked || state.openingServiceScan.value" @refresh="load" @candidates="state.openServiceCandidates" @scan="state.openServiceScan" @setup="page = 'scan'" @verify="state.prepareServiceVerification"/>
+      <AsyncPanel v-else-if="page === 'history'" key="history" :loader="panels.history" :state="state"/>
 
       <section v-else>
-        <ConnectionSettings :connected="!!health?.mihomo_connected" :locked="configLocked" @restarted="load()"/>
-        <SettingsPanel :locked="configLocked" :groups="groups" :profiles="services?.profiles || []" @saved="load()"/>
-		<StoragePanel :locked="configLocked"/>
-        <div class="settings">
-        <div class="panel"><h2>{{ t('外观') }}</h2><p>{{ t('主题偏好保存在当前浏览器。') }}</p><button class="primary" @click="theme = theme === 'light' ? 'dark' : 'light'">{{ t('切换主题') }}</button></div>
+        <AppearanceSettings v-model:palette="palette" v-model:mode="appearanceMode" :theme="theme"/>
+        <AsyncPanel :loader="panels.connection" :connected="!!health?.mihomo_connected" :locked="configLocked" @restarted="load()"/>
+        <AsyncPanel :loader="panels.settings" :locked="configLocked" :groups="groups" :profiles="services?.profiles || []" @saved="load()"/>
+		<AsyncPanel :loader="panels.storage" :locked="configLocked"/>
+        <div class="runtime-settings">
         <div class="panel"><h2>{{ t('扫描安全') }}</h2><p>{{ t('可达性与时延扫描不切换业务选择器。严格状态/正文验证默认关闭，只有配置独立的探测选择器和本地代理后才会运行。') }}</p></div>
         </div>
       </section>

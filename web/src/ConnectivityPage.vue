@@ -7,6 +7,7 @@ import ConnectivityGroup from './components/connectivity/ConnectivityGroup.vue'
 import {useConnectivity} from './connectivity/useConnectivity'
 import {useConnectivityBindings} from './connectivity/useConnectivityBindings'
 import ServiceViewControls from './components/connectivity/ServiceViewControls.vue'
+import ServiceFilters from './components/connectivity/ServiceFilters.vue'
 import type {Group, Scan, ServiceCatalog} from './models'
 
 const props = defineProps<{groups: Group[]; services: ServiceCatalog | null; recent: Scan[]; ready: boolean; loading: boolean; readAt: number | null; locked: boolean}>()
@@ -15,7 +16,8 @@ const {bindings, available, updatedAt, mineIds, changedIds, capture} = useConnec
   groups: props.groups, services: props.services, recent: props.recent, ready: props.ready, loading: props.loading, readAt: props.readAt,
 }))
 const {sections, results, busy, progress, summary, stopped, finishedAt, lastScope, onlyIssues, collapsed,
-  view, setView, setOnlyIssues, toggleGroup, run, runIssues, runService, stop} = useConnectivity({mineIds: () => mineIds.value, onStart: capture})
+  view, setView, category, query, categoryCounts, viewTotal, scopeLabel, setCategory, setQuery, clearFilters,
+  setOnlyIssues, toggleGroup, run, runIssues, runService, stop} = useConnectivity({mineIds: () => mineIds.value, onStart: capture})
 const toolbar = useTemplateRef<InstanceType<typeof ConnectivityToolbar>>('toolbar')
 const pageRoot = useTemplateRef<HTMLDivElement>('pageRoot')
 const visibleIds = computed(() => sections.value.flatMap(group => group.visibleTargets.map(target => target.id)))
@@ -33,13 +35,19 @@ watch(visibleIds, async ids => {
 <template>
   <div ref="pageRoot" class="connectivity-page">
     <ServiceViewControls :view="view" :count="mineIds.length" :changed="changedIds.length" :available="available" :loading="loading" :updated-at="updatedAt" :locked="locked" @view="setView" @refresh="$emit('refresh')"/>
-    <ConnectivityToolbar ref="toolbar" :view="view" :busy="busy" :stopped="stopped" :finished-at="finishedAt" :last-scope="lastScope" :only-issues="onlyIssues" :progress="progress" :summary="summary" @retest="run()" @stop="stop" @retest-issues="runIssues" @filter="setOnlyIssues"/>
+    <ServiceFilters :category="category" :query="query" :categories="categoryCounts" :total="viewTotal" :matched="visibleIds.length" @category="setCategory" @query="setQuery" @clear="clearFilters"/>
+    <ConnectivityToolbar ref="toolbar" :view="view" :scope-label="scopeLabel" :filtered="category !== 'all' || !!query.trim()" :busy="busy" :stopped="stopped" :finished-at="finishedAt" :last-scope="lastScope" :only-issues="onlyIssues" :progress="progress" :summary="summary" @retest="run()" @stop="stop" @retest-issues="runIssues" @filter="setOnlyIssues"/>
     <ConnectivityGroup v-for="group in sections" :key="group.id" :group="group" :results="results" :busy="busy" :bindings="bindings" :available="available" :loading="loading" :locked="locked || loading" :collapsed="!!collapsed[group.id]" :only-issues="onlyIssues" @refresh="run" @retest-service="runService" @toggle="toggleGroup" @candidates="$emit('candidates', $event)" @scan="$emit('scan', $event)" @verify="(group, profile) => $emit('verify', group, profile)"/>
     <div v-if="view === 'mine' && !mineIds.length" class="connectivity-empty" role="status">
       <strong>{{ t(loading ? '正在读取策略组配置…' : !available ? '策略组配置暂不可用' : '尚无可展示的已绑定服务') }}</strong>
       <p>{{ t('在扫描工作台选择策略组和服务，点击“保存绑定”后即可在这里查看。') }}</p>
       <button :disabled="locked" @click="$emit('setup')">{{ t('前往扫描工作台') }}</button>
-      <button @click="setView('regions')">{{ t('查看全部服务') }}</button>
+      <button @click="setView('all'); clearFilters()">{{ t('查看全部服务') }}</button>
+    </div>
+    <div v-else-if="!summary.total" class="connectivity-empty" role="status">
+      <strong>{{ t('没有匹配的服务') }}</strong>
+      <p>{{ t('试试其他名称或服务类型。') }}</p>
+      <button @click="clearFilters">{{ t('清除筛选') }}</button>
     </div>
     <div v-else-if="onlyIssues && !visibleIds.length" class="connectivity-empty" role="status">
       <strong>{{ t('当前没有符合条件的异常服务') }}</strong>
@@ -51,7 +59,7 @@ watch(visibleIds, async ids => {
       <div>
         <p>{{ t('从当前浏览器发起轻量请求，每个服务采样 8 次，显示成功请求的响应时间中位数。') }}</p>
         <p>{{ t('可达：收到响应；验证通过：状态与响应规则匹配；资源可达：静态资源入口收到响应；无法验证：跨域校验未完成。详情中可查看判定范围与节点验证记录。') }}</p>
-        <details><summary>{{ t('查看测量细节') }}</summary><p>{{ t('结果不代表登录、播放或地区解锁。地区仅用于服务归类，不代表实际服务器或出口位置。') }}</p><p>{{ t('可读取的错误响应仍计入可达，但标记为异常；延迟仅统计成功探测。') }}</p><p>{{ t('单次超时 2.5 秒，最多 9 个服务并发，时延计至响应头。可读取的正文最多校验 64 KiB，校验时间不计入时延；不透明响应不能验证状态或正文。') }}</p><p>{{ t('缓存与跳转按目标规则处理，不携带 Cookie、认证信息或来源地址。切换页面保留结果，返回时不会自动重测。读取节点验证记录不会发起新扫描。') }}</p></details>
+        <details><summary>{{ t('查看测量细节') }}</summary><p>{{ t('服务按主要用途分类，结果不代表登录、播放或地区解锁。') }}</p><p>{{ t('可读取的错误响应仍计入可达，但标记为异常；延迟仅统计成功探测。') }}</p><p>{{ t('单次超时 2.5 秒，最多 9 个服务并发，时延计至响应头。可读取的正文最多校验 64 KiB，校验时间不计入时延；不透明响应不能验证状态或正文。') }}</p><p>{{ t('缓存与跳转按目标规则处理，不携带 Cookie、认证信息或来源地址。切换页面保留结果，返回时不会自动重测。读取节点验证记录不会发起新扫描。') }}</p></details>
       </div>
     </div>
   </div>

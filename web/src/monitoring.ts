@@ -2,7 +2,7 @@ import {t, translateMessage, locale, formatDate} from './i18n.ts'
 export interface MonitorNode { id: string; name: string; provider: string; protocol: string; series_id?: string; anchor?: number }
 export interface MonitorPlan {
   id: string; revision: number; enabled: boolean; auto_switch: boolean; group: string; profile_id: string
-  profile_hash: string; nodes: MonitorNode[]; created_at: string
+  profile_hash: string; nodes: MonitorNode[]; created_at: string; candidate_limit?: number
 }
 export interface MonitorSample { node_id: string; kind: string; slot: number; at: string; outcome: string; delay_ms: number; reason?: string }
 export interface MonitorRow extends MonitorNode {
@@ -14,7 +14,10 @@ export interface MonitorOverview {
   plan: MonitorPlan | null; current: string; issue: string; suspended: boolean; failover_message: string; observed_at: string; now: string; next_at: string
   rows: MonitorRow[]; events: { id: number; node_id: string; node_name: string; at: string; status: string; message: string }[]; retention_days: number; window: string; data_version: number; instance_id: string
 }
-export interface MonitorCatalog { nodes: MonitorNode[]; current: string; suggested: string[]; probe_count: number }
+export interface MonitorCatalog {
+  nodes: MonitorNode[]; current: string; suggested: string[]; probe_count: number
+  limits: { default_candidate_limit: number; max_candidate_limit: number; max_probe_count: number; min_requests_per_minute: number; requests_per_candidate_probe: number }
+}
 export const monitorStatus: Record<string, string> = { healthy: '健康', suspect: '疑似异常', unavailable: '不可用', recovering: '恢复观察', unknown: '未知 / 缺测' }
 export function monitorTime(value?: string) { return !value || value.startsWith('0001-') ? t('尚无记录') : formatDate(new Date(value)) }
 export function monitorPercent(value: number) { return (value * 100).toFixed(1) + '%' }

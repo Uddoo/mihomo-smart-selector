@@ -9,7 +9,7 @@ export function parsePage(hash: string): Page {
 }
 
 // Hash routes also work with the embedded Go static server, without rewrites.
-export function usePageRoute() {
+export function usePageRoute(canLeave: () => boolean = () => true) {
   const page = ref<Page>(parsePage(window.location.hash))
   const canonical = () => '#/' + page.value
   if (window.location.hash !== canonical()) window.history.replaceState(null, '', canonical())
@@ -18,7 +18,16 @@ export function usePageRoute() {
     if (window.location.hash !== canonical()) window.history.replaceState(null, '', canonical())
   }
   window.addEventListener('hashchange', sync)
-  const stop = watch(page, () => {
+  let restoring = false
+  const stop = watch(page, (_, previous) => {
+    if (restoring) return
+    if (!canLeave()) {
+      restoring = true
+      page.value = previous
+      restoring = false
+      window.history.replaceState(null, '', canonical())
+      return
+    }
     if (window.location.hash !== canonical()) window.location.hash = canonical()
   }, {flush: 'sync'})
   onBeforeUnmount(() => { stop(); window.removeEventListener('hashchange', sync) })

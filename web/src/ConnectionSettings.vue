@@ -32,6 +32,7 @@ function restarted() { void reload(); emit('restarted') }
       <p v-if="notice" class="notice" role="status">{{ translateMessage(notice) }}</p>
       <p v-if="testedVersion" class="notice" role="status">{{ t('测试通过 · Mihomo {version}。仅验证当前填写的连接，尚未应用。', {version: testedVersion}) }}</p>
       <p v-if="busy === 'load'" role="status">{{ t('正在读取连接配置…') }}</p>
+      <p v-if="dirty" class="settings-note">{{ t('有未保存的修改') }}</p>
       <fieldset v-if="state" class="connection-fields" :disabled="!!busy || serviceBusy">
         <legend class="sr-only">{{ t('Mihomo 连接配置') }}</legend>
         <div class="settings-inputs connection-inputs">

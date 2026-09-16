@@ -77,7 +77,7 @@ function duration(seconds?: number) {
 
 <style scoped>
 .scan-feedback { --feedback-color:var(--muted);border-bottom:1px solid var(--line); }
-.scan-feedback.running { --feedback-color:var(--blue); }
+.scan-feedback.running { --feedback-color:var(--info); }
 .scan-feedback.complete { --feedback-color:var(--green); }
 .scan-feedback.failed { --feedback-color:var(--red); }
 .scan-feedback.stopped { --feedback-color:var(--warning); }

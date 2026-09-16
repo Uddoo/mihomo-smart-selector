@@ -1,5 +1,6 @@
 import {computed, onBeforeUnmount, onMounted, ref, shallowRef, watch} from 'vue'
 import {api} from './api'
+import {useUnsavedForm} from './unsavedChanges'
 
 interface ConnectionSettings {
   controller: string
@@ -29,6 +30,7 @@ export function useConnectionSettings() {
   let disposed = false
   const dirty = computed(() => !!state.value && (draft.value.controller !== state.value.saved.controller
     || draft.value.request_timeout_seconds !== state.value.saved.request_timeout_seconds || secretAction.value !== 'keep'))
+  const confirmReload = useUnsavedForm(() => dirty.value)
   const sourceLabel = computed(() => {
     const saved = state.value?.saved
     if (!saved?.secret_configured) return '未配置密钥'
@@ -72,5 +74,5 @@ export function useConnectionSettings() {
   onMounted(() => run('load'))
   onBeforeUnmount(() => { disposed = true; request?.abort(); secret.value = '' })
   return {state, draft, secretAction, secret, busy, error, notice, testedVersion, dirty, sourceLabel,
-    reload: () => run('load'), save: () => run('save'), test: () => run('test'), restore: () => run('save', true)}
+    reload: () => confirmReload() ? run('load') : Promise.resolve(), save: () => run('save'), test: () => run('test'), restore: () => confirmReload() ? run('save', true) : Promise.resolve()}
 }

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import {t, translateMessage} from './i18n'
-import {onMounted, ref} from 'vue'
+import {computed, onMounted, ref} from 'vue'
 import {api} from './api'
+import {useUnsavedForm} from './unsavedChanges'
 import type {Group, ProbeProfileSummary, RuntimeSettings} from './models'
 
 defineProps<{locked: boolean; groups: Group[]; profiles: ProbeProfileSummary[]}>()
@@ -10,12 +11,17 @@ const draft = ref<RuntimeSettings | null>(null)
 const busy = ref(false)
 const error = ref('')
 const notice = ref('')
+const saved = ref('')
+const dirty = computed(() => !!draft.value && JSON.stringify(draft.value) !== saved.value)
+const confirmReload = useUnsavedForm(() => dirty.value)
+function apply(value: RuntimeSettings) { draft.value = value; saved.value = JSON.stringify(value) }
+function reloadDraft() { if (confirmReload()) void reload() }
 
 async function reload() {
   busy.value = true
   error.value = ''
   notice.value = ''
-  try { draft.value = await api<RuntimeSettings>('/settings') }
+  try { apply(await api<RuntimeSettings>('/settings')) }
   catch (e) { error.value = e instanceof Error ? e.message : '无法读取运行设置' }
   finally { busy.value = false }
 }
@@ -26,7 +32,7 @@ async function save() {
   error.value = ''
   notice.value = ''
   try {
-    draft.value = await api<RuntimeSettings>('/settings', {method: 'PUT', body: JSON.stringify(draft.value)})
+    apply(await api<RuntimeSettings>('/settings', {method: 'PUT', body: JSON.stringify(draft.value)}))
     notice.value = '设置已保存，后续扫描立即使用；重启服务后仍保留。'
     emit('saved')
   } catch (e) { error.value = e instanceof Error ? e.message : '无法保存设置' }
@@ -44,9 +50,10 @@ onMounted(reload)
       <p v-if="locked" role="status">{{ t('当前正在扫描或切换，请结束后保存设置。') }}</p>
       <p v-if="error" class="notice error" role="alert">{{ translateMessage(error) }}</p>
       <p v-if="notice" class="notice" role="status">{{ translateMessage(notice) }}</p>
+      <p v-if="dirty" class="settings-note">{{ t('有未保存的修改') }}</p>
       <div class="settings-actions">
         <button class="primary" type="submit" :disabled="locked || busy || !draft">{{ busy ? t('正在处理') : t('保存设置') }}</button>
-        <button type="button" :disabled="busy" @click="reload">{{ t('重新加载已保存设置') }}</button>
+        <button type="button" :disabled="busy" @click="reloadDraft">{{ t('重新加载已保存设置') }}</button>
       </div>
     </div>
     <fieldset v-if="draft" class="runtime-fields" :disabled="locked || busy">

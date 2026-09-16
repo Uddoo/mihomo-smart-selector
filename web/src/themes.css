@@ -1,0 +1,84 @@
+/* Surface/action palettes are independent of status and chart semantics.
+   Radix Slate/Blue and Mauve/Iris, Nord, and Catppuccin are adapted for this UI. */
+:root, .theme-sample {
+  color-scheme: light;
+  --bg:#fafafa; --surface:#fff; --surface-muted:#f5f5f5;
+  --line:#e5e5e5; --control-border:#8c8c8c; --text:#171717; --muted:#666;
+  --soft:#f0f0f0; --accent:#006bdf; --primary:#171717; --primary-hover:#333; --on-primary:#fff;
+  --selection-bg:#f0f0f0; --selection-text:var(--text); --selection-muted:var(--muted);
+  --nav-text:var(--text); --focus:var(--accent);
+  --info:#006bdf; --info-bg:#edf5ff;
+  --green:#167047; --good-bg:#edf8f1; --red:#c0202b; --bad-bg:#fff0f0;
+  --warning:#845a13; --warning-bg:#fff6e3; --overlay:#0006;
+}
+:root[data-theme="dark"], .theme-sample[data-theme="dark"] {
+  color-scheme: dark;
+  --bg:#0a0a0a; --surface:#111; --surface-muted:#191919;
+  --line:#303030; --control-border:#737373; --text:#ededed; --muted:#a1a1a1;
+  --soft:#242424; --accent:#70b7ff; --primary:#ededed; --primary-hover:#ccc; --on-primary:#0a0a0a;
+  --selection-bg:#242424; --info:#70b7ff; --info-bg:#142336;
+  --green:#75d4a0; --good-bg:#142b20; --red:#ff9da4; --bad-bg:#351a1d;
+  --warning:#eaca89; --warning-bg:#3c3323; --overlay:#000a;
+}
+:root[data-palette="ocean"], .theme-sample[data-palette="ocean"] {
+  --bg:#f9f9fb; --surface:#fff; --surface-muted:#f0f0f3;
+  --line:#d9d9e0; --control-border:#8b8d98; --text:#1c2024; --muted:#60646c; --soft:#e8e8ec;
+  --accent:#006bc4; --primary:#0d74ce; --primary-hover:#006bc4; --on-primary:#fff;
+  --selection-bg:#e6f4fe; --selection-text:#113264; --selection-muted:#485c70; --nav-text:#006bc4;
+}
+:root[data-palette="ocean"][data-theme="dark"], .theme-sample[data-palette="ocean"][data-theme="dark"] {
+  --bg:#111113; --surface:#18191b; --surface-muted:#212225;
+  --line:#363a3f; --control-border:#777b84; --text:#edeef0; --muted:#b0b4ba; --soft:#272a2d;
+  --accent:#70b8ff; --primary:#70b8ff; --primary-hover:#9bceff; --on-primary:#111113;
+  --selection-bg:#0d2847; --selection-text:#c2e6ff; --selection-muted:#b0c4d9; --nav-text:#70b8ff;
+}
+:root[data-palette="iris"], .theme-sample[data-palette="iris"] {
+  --bg:#faf9fb; --surface:#fff; --surface-muted:#f2eff3;
+  --line:#dbd8e0; --control-border:#8e8c99; --text:#211f26; --muted:#65636d; --soft:#eae7ec;
+  --accent:#5753c6; --primary:#5b5bd6; --primary-hover:#5151cd; --on-primary:#fff;
+  --selection-bg:#f0f1fe; --selection-text:#272962; --selection-muted:#5c5c7c; --nav-text:#5753c6;
+}
+:root[data-palette="iris"][data-theme="dark"], .theme-sample[data-palette="iris"][data-theme="dark"] {
+  --bg:#121113; --surface:#1a191b; --surface-muted:#232225;
+  --line:#3c393f; --control-border:#7c7a85; --text:#eeeef0; --muted:#b5b2bc; --soft:#2b292d;
+  --accent:#b1a9ff; --primary:#b1a9ff; --primary-hover:#c5bfff; --on-primary:#121113;
+  --selection-bg:#202248; --selection-text:#e0dffe; --selection-muted:#bdb9dd; --nav-text:#b1a9ff;
+}
+:root[data-palette="nord"], .theme-sample[data-palette="nord"] {
+  --bg:#eceff4; --surface:#fff; --surface-muted:#e5e9f0;
+  --line:#d8dee9; --control-border:#6b7689; --text:#2e3440; --muted:#4c566a; --soft:#dfe5ee;
+  --accent:#45658c; --primary:#45658c; --primary-hover:#3b5678; --on-primary:#fff;
+  --selection-bg:#e5edf4; --selection-text:#2e4662; --selection-muted:#4c566a; --nav-text:#45658c;
+}
+:root[data-palette="nord"][data-theme="dark"], .theme-sample[data-palette="nord"][data-theme="dark"] {
+  --bg:#2e3440; --surface:#3b4252; --surface-muted:#434c5e;
+  --line:#596579; --control-border:#9aa7bb; --text:#eceff4; --muted:#d8dee9; --soft:#4c566a;
+  --accent:#88c0d0; --primary:#88c0d0; --primary-hover:#a3d0dc; --on-primary:#2e3440;
+  --selection-bg:#344d60; --selection-text:#eceff4; --selection-muted:#d8dee9; --nav-text:#a3d0dc;
+}
+:root[data-palette="catppuccin"], .theme-sample[data-palette="catppuccin"] {
+  --bg:#eff1f5; --surface:#fff; --surface-muted:#e6e9ef;
+  --line:#ccd0da; --control-border:#7c7f93; --text:#4c4f69; --muted:#5c5f77; --soft:#dce0e8;
+  --accent:#7828db; --primary:#8839ef; --primary-hover:#7527d5; --on-primary:#fff;
+  --selection-bg:#eee5fc; --selection-text:#54248a; --selection-muted:#655078; --nav-text:#7828db;
+}
+:root[data-palette="catppuccin"][data-theme="dark"], .theme-sample[data-palette="catppuccin"][data-theme="dark"] {
+  --bg:#1e1e2e; --surface:#313244; --surface-muted:#393a4f;
+  --line:#585b70; --control-border:#9399b2; --text:#cdd6f4; --muted:#bac2de; --soft:#45475a;
+  --accent:#cba6f7; --primary:#cba6f7; --primary-hover:#ddc2fa; --on-primary:#1e1e2e;
+  --selection-bg:#45405f; --selection-text:#e4d7fb; --selection-muted:#d0c4e8; --nav-text:#ddc2fa;
+}
+/* Status hues remain stable; subtle fills derive from the current surface. */
+:root[data-palette]:not([data-palette="geist"]), .theme-sample[data-palette]:not([data-palette="geist"]) {
+  --good-bg:color-mix(in srgb, var(--green) 8%, var(--surface));
+  --bad-bg:color-mix(in srgb, var(--red) 8%, var(--surface));
+  --warning-bg:color-mix(in srgb, var(--warning) 8%, var(--surface));
+  --info-bg:color-mix(in srgb, var(--info) 4%, var(--surface));
+}
+/* Dark status chips sit below the raised panels to preserve text contrast. */
+:root[data-palette][data-theme="dark"]:not([data-palette="geist"]), .theme-sample[data-palette][data-theme="dark"]:not([data-palette="geist"]) {
+  --good-bg:color-mix(in srgb, var(--green) 8%, var(--bg));
+  --bad-bg:color-mix(in srgb, var(--red) 8%, var(--bg));
+  --warning-bg:color-mix(in srgb, var(--warning) 8%, var(--bg));
+  --info-bg:color-mix(in srgb, var(--info) 4%, var(--bg));
+}

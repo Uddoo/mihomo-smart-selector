@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import {t, translateMessage, formatNumber} from './i18n'
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { Activity, Pause, Play, RefreshCw, ShieldCheck, ChevronDown } from '@lucide/vue'
+import {t, translateMessage} from './i18n'
+import { computed, ref, watch } from 'vue'
+import { Activity, Pause, Play, ShieldCheck, ChevronDown } from '@lucide/vue'
 import { api } from './api'
 import { useMonitorOverview } from './useMonitorOverview'
 import type { Group, ServiceCatalog } from './models'
 import MonitorNodeList from './MonitorNodeList.vue'
+import MonitorPlanEditor from './MonitorPlanEditor.vue'
 import MonitorHistoryPanel from './MonitorHistoryPanel.vue'
 import MonitorDiagnosticsPanel from './MonitorDiagnosticsPanel.vue'
 import { monitorStatus, monitorTime } from './monitoring'
-import type { MonitorActivity, MonitorRow, MonitorCatalog, MonitorPlan } from './monitoring'
+import type { MonitorActivity, MonitorRow } from './monitoring'
 
 const props = defineProps<{ groups: Group[]; services: ServiceCatalog | null; scanLocked: boolean }>()
 const emit = defineEmits<{ openScan: [group: string, profile: string] }>()
@@ -33,61 +34,20 @@ function moveTab(event: KeyboardEvent, index: number) {
 }
 const windowLabel = computed(() => windowRange.value === '7d' ? '最近 7 天' : windowRange.value === '1h' ? '最近 1 小时' : '最近 24 小时')
 const message = ref(''), busy = ref(false), editing = ref(false), initialized = ref(false)
-const group = ref(''), profile = ref(''), chosen = ref<string[]>([]), query = ref('')
-const catalog = ref<MonitorCatalog | null>(null), catalogBusy = ref(false), catalogError = ref('')
-let disposed = false, catalogRevision = 0, hydrating = false
-let catalogAbort: AbortController | undefined
 const plan = computed(() => data.value?.plan)
-const profiles = computed(() => props.services?.profiles.filter(p => !p.requires_configuration) || [])
 const current = computed(() => data.value?.rows.find(n => n.name === data.value?.current))
-const filtered = computed(() => catalog.value?.nodes.filter(n => n.name.toLowerCase().includes(query.value.toLowerCase())) || [])
-const capacity = computed(() => Math.min(6, Math.floor(6 / Math.max(1, catalog.value?.probe_count || 1))))
-const estimated = computed(() => (chosen.value.length * 720 + 2160) * (catalog.value?.probe_count || 1))
 const runLabel = computed(() => !plan.value ? '尚未启用' : data.value?.suspended ? '存储异常 · 已停止采样' : !plan.value.enabled ? '已暂停' : data.value?.issue ? '等待环境恢复' : '后台监控中')
 const runTone = computed(() => data.value?.suspended ? 'bad' : plan.value?.enabled && !data.value?.issue ? 'good' : 'neutral')
 
-function defaults() {
-  if (!group.value) group.value = props.groups.find(g => /ChatGPT/i.test(g.name))?.name || props.groups[0]?.name || ''
-  if (!profile.value && group.value) profile.value = props.services?.suggestions[group.value] || props.services?.default_profile_id || profiles.value[0]?.id || ''
-}
-watch(() => [props.groups, props.services], () => { if (editing.value && !plan.value) defaults() })
-watch([group, profile], () => { if (editing.value && !hydrating) void loadCatalog() })
-
-async function loadCatalog(preserve = false) {
-  const rev = ++catalogRevision
-  catalogAbort?.abort(); catalogAbort = new AbortController()
-  catalog.value = null; catalogError.value = ''
-  if (!group.value || !profile.value) { catalogBusy.value = false; return }
-  catalogBusy.value = true
-  try {
-    const result = await api<MonitorCatalog>(`/monitor/catalog?group=${encodeURIComponent(group.value)}&profile_id=${encodeURIComponent(profile.value)}`, {signal: catalogAbort.signal})
-    if (rev !== catalogRevision || disposed) return
-    catalog.value = result
-    const available = new Set(result.nodes.map(n => n.name))
-    chosen.value = (preserve ? chosen.value.filter(n => available.has(n)) : result.suggested).slice(0, Math.min(6, Math.floor(6 / Math.max(1, result.probe_count))))
-  } catch (e) { if (rev === catalogRevision && !disposed) catalogError.value = e instanceof Error ? e.message : '无法读取候选' }
-  finally { if (rev === catalogRevision) catalogBusy.value = false }
-}
-
 watch(data, result => {
-  if (result && !initialized.value) { initialized.value = true; if (!result.plan) { editing.value = true; tab.value = 'settings'; defaults(); void loadCatalog() } }
+  if (result && !initialized.value) { initialized.value = true; if (!result.plan) { editing.value = true; tab.value = 'settings' } }
 })
 function changeWindow() { focusedEvent.value = null }
-onBeforeUnmount(() => { disposed = true; catalogAbort?.abort() })
-
-async function edit() {
-  tab.value = 'settings'
-	 hydrating = true
-  if (plan.value) { group.value = plan.value.group; profile.value = plan.value.profile_id; chosen.value = plan.value.nodes.map(n => n.name) }
-  editing.value = true; defaults(); await nextTick(); hydrating = false; await loadCatalog(true)
-}
-async function save() {
-  busy.value = true; message.value = ''; failure.value = ''
-  try {
-    await api<MonitorPlan>('/monitor/plan', {method: 'PUT', body: JSON.stringify({revision: plan.value?.revision || 0, enabled: true, group: group.value, profile_id: profile.value, nodes: chosen.value})})
-    editing.value = false; tab.value = 'overview'; message.value = '监控已保存。关闭页面后，路由器仍会持续采样。'; await refresh()
-  } catch (e) { failure.value = e instanceof Error ? e.message : '保存失败' }
-  finally { busy.value = false }
+function edit() { tab.value = 'settings'; editing.value = true }
+async function saved() {
+  editing.value = false; tab.value = 'overview'; failure.value = ''
+  message.value = '监控已保存。关闭页面后，路由器仍会持续采样。'
+  await refresh()
 }
 async function toggle() {
   if (!plan.value) return
@@ -140,24 +100,7 @@ async function retest(id: string) {
     <div :id="'monitor-panel-' + tab" role="tabpanel" :aria-labelledby="'monitor-tab-' + tab" class="monitor-section">
     <p v-if="initialized && !plan && tab !== 'settings'" class="monitor-note">{{ t('尚未创建监控方案。') }}<button @click="tab = 'settings'">{{ t('前往监控设置') }}</button></p>
     <p v-if="!initialized" role="status">{{ t('正在读取路由器上的监控记录…') }}</p>
-    <form v-show="tab === 'settings' && editing" class="monitor-panel monitor-config" @submit.prevent="save">
-      <h3>{{ plan ? t('调整监控方案') : t('创建第一个监控方案') }}</h3>
-      <p>{{ t('一次启用，后台持续运行。默认加入当前叶子节点及最近扫描候选；最多六个探测目标组合。') }}</p>
-      <div class="monitor-fields">
-        <label>{{ t('监控策略组') }}<select v-model="group" :disabled="busy"><option value="" disabled>{{ t('选择策略组') }}</option><option v-for="g in groups" :key="g.name" :value="g.name">{{ g.name }}</option></select></label>
-        <label>{{ t('监控服务模板') }}<select v-model="profile" :disabled="busy"><option value="" disabled>{{ t('选择服务') }}</option><option v-for="p in profiles" :key="p.id" :value="p.id">{{ translateMessage(p.label) }}</option></select></label>
-      </div>
-      <p v-if="catalogError" class="bad" role="alert">{{ translateMessage(catalogError) }}</p>
-      <div class="monitor-picker-head"><label>{{ t('搜索监控候选') }}<input v-model="query" type="search" name="monitor-candidate-query" autocomplete="off" :spellcheck="false" :placeholder="t('输入节点名称…')"></label><span>{{ t('{p0} / {p1} 已选', {p0: chosen.length, p1: capacity}) }}</span><button type="button" :disabled="busy || catalogBusy" @click="loadCatalog(true)"><RefreshCw :size="14" aria-hidden="true"/>{{ t('刷新候选') }}</button></div>
-      <p v-if="catalogBusy" role="status">{{ t('正在核实策略组与候选身份…') }}</p>
-      <fieldset class="monitor-picker" :disabled="busy || catalogBusy"><legend class="sr-only">{{ t('选择监控节点') }}</legend>
-        <label v-for="n in filtered" :key="n.id"><input v-model="chosen" type="checkbox" :value="n.name" :disabled="!chosen.includes(n.name) && chosen.length >= capacity"><span>{{ n.name }} <small v-if="catalog?.current === n.name">{{ t('当前选择') }}</small><small>{{ n.provider || t('独立节点') }} · {{ n.protocol }}</small></span></label>
-      </fieldset>
-      <p v-if="catalog && !filtered.length">{{ t('没有匹配的候选；请调整搜索或检查策略组。') }}</p>
-      <p class="monitor-note">{{ t('基准采样每 2 分钟；当前节点附加检查每 30 秒。预计约 {p0} 次探测/天，确认请求另计；最多 12 次后台探测/分钟。', {p0: formatNumber(estimated)}) }}</p>
-      <p v-if="plan" class="monitor-note">{{ t('暂停、继续同一方案保留评分。调整候选列表会保留未变化节点的历史；模板或节点身份改变时分开记录，可在历史序列中查看。') }}</p>
-      <div class="monitor-actions"><button class="primary" :disabled="busy || catalogBusy || !catalog || !chosen.length || chosen.length > capacity">{{ busy ? t('正在保存') : plan ? t('保存并监控') : t('开始监控') }}</button><button v-if="plan" type="button" :disabled="busy" @click="editing = false">{{ t('取消调整') }}</button></div>
-    </form>
+    <MonitorPlanEditor v-if="editing" v-show="tab === 'settings'" :plan="plan" :groups="groups" :services="services" :disabled="busy" @busy="busy = $event" @saved="saved" @cancel="editing = false"/>
     <template v-if="plan && data">
       <div v-if="data.issue" class="notice warning" role="alert">{{ translateMessage(data.issue) }}</div>
 
@@ -192,7 +135,7 @@ async function retest(id: string) {
 </template>
 
 <style scoped>
-.monitor-section{display:grid;gap:var(--space-4);min-width:0}.monitor-navigation{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-4)}.monitor-tabs{display:flex;gap:4px;padding:4px;background:var(--surface-muted);border:1px solid var(--line);border-radius:var(--radius-md)}.monitor-tabs button[aria-selected="true"]{color:var(--text);background:var(--surface);border-color:var(--line);font-weight:600}.monitor-tabs button{min-height:44px;border-color:transparent;background:transparent}
+.monitor-section{display:grid;gap:var(--space-4);min-width:0}.monitor-navigation{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-4)}.monitor-tabs{display:flex;gap:4px;padding:4px;background:var(--surface-muted);border:1px solid var(--line);border-radius:var(--radius-md)}.monitor-tabs button[aria-selected="true"]{color:var(--nav-text);background:var(--selection-bg);border-color:var(--line);font-weight:600}.monitor-tabs button{min-height:44px;border-color:transparent;background:transparent}
 
 .monitor-window { display:flex;align-items:center;gap:10px;font-size:13px; }.monitor-window select{padding:10px;min-height:44px;border:1px solid var(--control-border);background:var(--surface);color:var(--text);border-radius:var(--radius-sm);}
 .monitor-page { --monitor-panel-padding: var(--space-5); display: grid; gap: var(--space-5); padding-top: var(--space-1); }
@@ -206,20 +149,15 @@ async function retest(id: string) {
 .monitor-page h2,.monitor-page h3 { margin: 0 0 9px; }
 .monitor-page h2 { font-size: 20px; }.monitor-page h3 { font-size: 16px; }
 .monitor-page p { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 8px 0; }
-.monitor-banner,.monitor-heading,.monitor-actions,.monitor-picker-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.monitor-banner,.monitor-heading,.monitor-actions { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
 .monitor-banner,.monitor-heading { justify-content:space-between; }.monitor-banner>div:first-child { display:flex; align-items:center; gap:14px;min-width:0; }.monitor-banner>div:first-child>svg{flex-shrink:0}.monitor-banner{padding-bottom:20px;border-bottom:1px solid var(--line)}
-.monitor-actions button,.monitor-picker-head button {display:inline-flex;align-items:center;gap:var(--space-2);min-height:44px;}
+.monitor-actions button {display:inline-flex;align-items:center;gap:var(--space-2);min-height:44px;}
 .monitor-panel {border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface);padding:var(--monitor-panel-padding);min-width:0;}
-.monitor-fields,.monitor-overview {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4);}
-.monitor-fields label,.monitor-picker-head label {display:grid;gap:8px;font-size:13px;min-width:0;}
-.monitor-fields select,.monitor-picker-head input {border:1px solid var(--control-border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);padding:10px;min-height:44px;min-width:0;width:100%;}
-.monitor-picker-head {align-items:flex-end;margin:var(--space-4) 0 var(--space-3);}.monitor-picker-head>span{display:flex;align-items:center;min-height:44px;font-size:13px;font-variant-numeric:tabular-nums;}.monitor-picker-head label{flex:1;min-width:160px;}
-.monitor-picker {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;max-height:260px;overflow:auto;border:1px solid var(--line);padding:12px;border-radius:6px;}
-.monitor-picker label{display:flex;align-items:flex-start;gap:8px;font-size:13px;overflow-wrap:anywhere;padding:6px;}.monitor-picker input{margin-top:3px;}
-.monitor-picker small{display:block;margin-top:5px;}.monitor-page .monitor-note{font-size:12px;overflow-wrap:anywhere}
+.monitor-overview {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4);}
+.monitor-page .monitor-note{font-size:12px;overflow-wrap:anywhere}
 .monitor-overview article>small:first-child {display:flex;align-items:center;gap:6px;margin-bottom:12px;}.monitor-overview h3{overflow-wrap:anywhere;line-height:1.5;}
 .monitor-badge {display:inline-block;border-radius:5px;padding:4px 7px;font-size:12px;white-space:nowrap;background:var(--soft);color:var(--muted);}
-.monitor-badge.healthy {background:var(--good-bg);color:var(--green);}.monitor-badge.unavailable,.monitor-badge.suspect{background:var(--bad-bg);color:var(--red);}.monitor-badge.recovering{color:var(--blue);}
+.monitor-badge.healthy {background:var(--good-bg);color:var(--green);}.monitor-badge.unavailable,.monitor-badge.suspect{background:var(--bad-bg);color:var(--red);}.monitor-badge.recovering{color:var(--info);background:var(--info-bg);}
 .monitor-detail{border-top:1px solid var(--line);padding:13px 0;}.monitor-detail summary{font-size:13px;font-weight:600;overflow-wrap:anywhere;}.monitor-detail summary small{margin-left:10px;font-weight:400;}
 .monitor-series{display:flex;gap:4px;flex-wrap:wrap;margin:14px 0;}.monitor-series span{display:block;width:12px;height:24px;border-radius:3px;background:var(--muted);}.monitor-series .success{background:var(--green);}.monitor-series .failure{background:var(--red);}
 .monitor-events{list-style:none;padding:0;margin:0;max-height:380px;overflow:auto;}.monitor-events li{border-top:1px solid var(--line);padding:12px 0;font-size:13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}.monitor-events time{font-size:12px;color:var(--muted);}.monitor-events p{flex-basis:100%;margin:0;}.bad{color:var(--red)!important;}
@@ -229,6 +167,6 @@ async function retest(id: string) {
 .monitor-context > summary > svg { flex-shrink:0; }
 .monitor-context[open] > summary > svg:last-child { transform:rotate(180deg); }
 .monitor-context > div { max-width:72ch;padding:0 24px 4px; }
-@media(max-width:760px){.monitor-page{--monitor-panel-padding:var(--space-4);gap:var(--space-4)}.monitor-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;gap:2px}.monitor-tabs button{font-size:12px;padding:8px 4px;white-space:normal;overflow-wrap:anywhere}.monitor-window{margin-left:auto}.monitor-window select{font-size:16px}.monitor-banner{padding-bottom:16px}.monitor-heading{align-items:flex-start}.monitor-heading>div{flex-basis:100%}.monitor-heading>button{width:100%}.monitor-fields select,.monitor-picker-head input{font-size:16px}}
-@media(max-width:640px){.monitor-fields,.monitor-picker,.monitor-overview{grid-template-columns:1fr;}.monitor-picker-head label{flex-basis:100%}.monitor-picker-head>button{margin-left:auto}.monitor-detail summary small{display:block;margin:7px 0;}}
+@media(max-width:760px){.monitor-page{--monitor-panel-padding:var(--space-4);gap:var(--space-4)}.monitor-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;gap:2px}.monitor-tabs button{font-size:12px;padding:8px 4px;white-space:normal;overflow-wrap:anywhere}.monitor-window{margin-left:auto}.monitor-window select{font-size:16px}.monitor-banner{padding-bottom:16px}.monitor-heading{align-items:flex-start}.monitor-heading>div{flex-basis:100%}.monitor-heading>button{width:100%}}
+@media(max-width:640px){.monitor-overview{grid-template-columns:1fr;}.monitor-detail summary small{display:block;margin:7px 0;}}
 </style>

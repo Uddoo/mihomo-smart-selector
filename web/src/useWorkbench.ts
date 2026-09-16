@@ -11,9 +11,9 @@ import {useSwitchHistory} from './useSwitchHistory'
 import {t, formatRegion, formatNumber} from './i18n'
 
 // Owned by the app shell so navigation never interrupts an active scan or switch.
-export function useWorkbench() {
+export function useWorkbench(canLeave?: () => boolean) {
 
-  const page = usePageRoute()
+  const page = usePageRoute(canLeave)
   const health = ref<Health | null>(null)
   const groups = ref<Group[]>([])
   const providers = ref<Provider[]>([])
@@ -56,11 +56,6 @@ export function useWorkbench() {
   // Remove credentials left by older versions without reading them back.
   try { sessionStorage.removeItem('mss-api-token') } catch { /* Storage can be disabled. */ }
   try { localStorage.removeItem('mss-api-token') } catch { /* Storage can be disabled. */ }
-  function savedTheme(): 'light' | 'dark' {
-    try { return localStorage.getItem('mss-theme') === 'dark' ? 'dark' : 'light' }
-    catch { return 'light' }
-  }
-  const theme = ref<'light' | 'dark'>(savedTheme())
   const notice = ref('')
   const noticeWarning = ref(false)
   watch(notice, () => { noticeWarning.value = false }, {flush:'sync'})
@@ -133,12 +128,6 @@ export function useWorkbench() {
     if (selected.length !== areas.value.length) areas.value = selected
   })
 
-  watch(theme, value => {
-    document.documentElement.dataset.theme = value
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content',
-      getComputedStyle(document.documentElement).getPropertyValue('--bg').trim())
-    try { localStorage.setItem('mss-theme', value) } catch { /* Keep the in-memory preference when storage is disabled. */ }
-  }, {immediate: true})
   watch(group, () => { serviceID.value = ''; nestedNavigation.value = null; void preflight() })
   watch([serviceID, areas, providerSet, mode], () => void preflight())
   watch(pendingChoice, value => {
@@ -498,7 +487,7 @@ export function useWorkbench() {
     catalog,
     nestedNavigation, selectNestedGroup, returnToParentGroup, clearScanFilters,
     syncError, refreshScan: refresh, connectionMode, focusedName, page, health, groups, services, access, token,
-    theme, notice, noticeWarning, failure, pendingChoice, choiceDialog, switching,
+    notice, noticeWarning, failure, pendingChoice, choiceDialog, switching,
     current, configLocked, load, unlock, confirmChoice, openMonitorScan, openServiceCandidates, openServiceScan, prepareServiceVerification, regionLabel,
     statusLabel, scan, providers, regions, availableRegions, group, serviceID, loading,
     discoveryValid, discoveryUpdatedAt, openingServiceScan, areas, providerSet, mode, preview, starting, showProfile,

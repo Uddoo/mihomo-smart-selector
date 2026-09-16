@@ -1,7 +1,7 @@
 [
   {
     "id": "deepseek",
-    "group": "cn",
+    "category": "ai",
     "name": "DeepSeek",
     "url": "https://www.deepseek.com/favicon.ico",
     "kind": "resource",
@@ -17,7 +17,7 @@
   },
   {
     "id": "douyin",
-    "group": "cn",
+    "category": "media",
     "name": "抖音",
     "url": "https://lf1-cdn-tos.bytegoofy.com/goofy/ies/douyin_web/public/favicon.ico",
     "kind": "resource",
@@ -33,7 +33,7 @@
   },
   {
     "id": "bilibili",
-    "group": "cn",
+    "category": "media",
     "name": "哔哩哔哩",
     "url": "https://www.bilibili.com/favicon.ico",
     "kind": "resource",
@@ -49,7 +49,7 @@
   },
   {
     "id": "jd",
-    "group": "cn",
+    "category": "shopping",
     "name": "京东",
     "url": "https://www.jd.com/favicon.ico",
     "kind": "resource",
@@ -65,7 +65,7 @@
   },
   {
     "id": "qq",
-    "group": "cn",
+    "category": "social",
     "name": "腾讯QQ",
     "url": "https://mat1.gtimg.com/qqcdn/xw/favicon.ico",
     "kind": "resource",
@@ -81,7 +81,7 @@
   },
   {
     "id": "wechat",
-    "group": "cn",
+    "category": "social",
     "name": "微信",
     "url": "https://res.wx.qq.com/a/wx_fed/assets/res/NTI4MWU5.ico",
     "kind": "resource",
@@ -97,7 +97,7 @@
   },
   {
     "id": "xiaohongshu",
-    "group": "cn",
+    "category": "social",
     "name": "小红书",
     "url": "https://www.xiaohongshu.com/favicon.ico",
     "kind": "resource",
@@ -113,7 +113,7 @@
   },
   {
     "id": "weibo",
-    "group": "cn",
+    "category": "social",
     "name": "新浪微博",
     "url": "https://weibo.com/favicon.ico",
     "kind": "resource",
@@ -129,7 +129,7 @@
   },
   {
     "id": "baidu",
-    "group": "cn",
+    "category": "information",
     "name": "百度",
     "url": "https://www.baidu.com/favicon.ico",
     "kind": "resource",
@@ -145,7 +145,7 @@
   },
   {
     "id": "netease",
-    "group": "cn",
+    "category": "information",
     "name": "网易",
     "url": "https://www.163.com/favicon.ico",
     "kind": "resource",
@@ -161,7 +161,7 @@
   },
   {
     "id": "taobao",
-    "group": "cn",
+    "category": "shopping",
     "name": "淘宝",
     "url": "https://gw.alicdn.com/imgextra/i4/O1CN01qOI6vB1zaqrBKbyFr_!!6000000006731-73-tps-64-64.ico",
     "kind": "resource",
@@ -177,7 +177,7 @@
   },
   {
     "id": "xiaomi",
-    "group": "cn",
+    "category": "tools",
     "name": "小米",
     "url": "https://www.mi.com/favicon.ico",
     "kind": "resource",
@@ -193,7 +193,7 @@
   },
   {
     "id": "sony",
-    "group": "jp",
+    "category": "tools",
     "name": "Sony",
     "url": "https://www.sony.jp/favicon.ico",
     "kind": "resource",
@@ -209,7 +209,7 @@
   },
   {
     "id": "nintendo",
-    "group": "jp",
+    "category": "gaming",
     "name": "任天堂",
     "url": "https://www.nintendo.co.jp/favicon.ico",
     "kind": "resource",
@@ -225,7 +225,7 @@
   },
   {
     "id": "yahoo",
-    "group": "jp",
+    "category": "information",
     "name": "Yahoo! JP",
     "url": "https://www.yahoo.co.jp/favicon.ico",
     "kind": "resource",
@@ -241,7 +241,7 @@
   },
   {
     "id": "line",
-    "group": "jp",
+    "category": "social",
     "name": "LINE",
     "url": "https://line.me/favicon.ico",
     "kind": "resource",
@@ -257,7 +257,7 @@
   },
   {
     "id": "apple",
-    "group": "us",
+    "category": "tools",
     "name": "Apple",
     "url": "https://www.apple.com/favicon.ico",
     "kind": "resource",
@@ -273,7 +273,7 @@
   },
   {
     "id": "google",
-    "group": "us",
+    "category": "information",
     "name": "Google",
     "url": "https://www.google.com/generate_204",
     "kind": "connectivity",
@@ -288,7 +288,7 @@
   },
   {
     "id": "youtube",
-    "group": "us",
+    "category": "media",
     "name": "YouTube",
     "url": "https://www.youtube.com/generate_204",
     "kind": "connectivity",
@@ -303,7 +303,7 @@
   },
   {
     "id": "github",
-    "group": "us",
+    "category": "development",
     "name": "GitHub",
     "url": "https://api.github.com/rate_limit",
     "kind": "api",
@@ -322,7 +322,7 @@
   },
   {
     "id": "cloudflare",
-    "group": "us",
+    "category": "development",
     "name": "Cloudflare",
     "url": "https://www.cloudflare.com/cdn-cgi/trace",
     "kind": "diagnostic",
@@ -338,7 +338,7 @@
   },
   {
     "id": "claude",
-    "group": "us",
+    "category": "ai",
     "name": "Claude",
     "url": "https://claude.ai/favicon.ico",
     "kind": "resource",
@@ -354,7 +354,7 @@
   },
   {
     "id": "chatgpt",
-    "group": "us",
+    "category": "ai",
     "name": "ChatGPT",
     "url": "https://chatgpt.com/cdn-cgi/trace",
     "kind": "diagnostic",
@@ -370,7 +370,7 @@
   },
   {
     "id": "aistudio",
-    "group": "us",
+    "category": "ai",
     "name": "AI Studio",
     "url": "https://generativelanguage.googleapis.com/$discovery/rest?version=v1beta",
     "kind": "api",
@@ -386,7 +386,7 @@
   },
   {
     "id": "amazon",
-    "group": "us",
+    "category": "shopping",
     "name": "Amazon",
     "url": "https://www.amazon.com/favicon.ico",
     "kind": "resource",
@@ -402,7 +402,7 @@
   },
   {
     "id": "bing",
-    "group": "us",
+    "category": "information",
     "name": "Bing",
     "url": "https://www.bing.com/favicon.ico",
     "kind": "resource",
@@ -418,7 +418,7 @@
   },
   {
     "id": "steam",
-    "group": "us",
+    "category": "gaming",
     "name": "Steam",
     "url": "https://store.steampowered.com/favicon.ico",
     "kind": "resource",
@@ -434,7 +434,7 @@
   },
   {
     "id": "oracle",
-    "group": "us",
+    "category": "development",
     "name": "Oracle",
     "url": "https://www.oracle.com/favicon.ico",
     "kind": "resource",
@@ -450,7 +450,7 @@
   },
   {
     "id": "zoom",
-    "group": "us",
+    "category": "tools",
     "name": "Zoom",
     "url": "https://st1.zoom.us/favicon.ico",
     "kind": "resource",
@@ -466,7 +466,7 @@
   },
   {
     "id": "facebook",
-    "group": "us",
+    "category": "social",
     "name": "Facebook",
     "url": "https://static.xx.fbcdn.net/rsrc.php/yb/r/hLRJ1GG_y0J.ico",
     "kind": "resource",
@@ -482,7 +482,7 @@
   },
   {
     "id": "instagram",
-    "group": "us",
+    "category": "social",
     "name": "Instagram",
     "url": "https://static.cdninstagram.com/rsrc.php/yb/r/hLRJ1GG_y0J.ico",
     "kind": "resource",
@@ -498,7 +498,7 @@
   },
   {
     "id": "x",
-    "group": "us",
+    "category": "social",
     "name": "X",
     "url": "https://abs.twimg.com/favicons/twitter.3.ico",
     "kind": "resource",
@@ -514,7 +514,7 @@
   },
   {
     "id": "reddit",
-    "group": "us",
+    "category": "social",
     "name": "Reddit",
     "url": "https://www.reddit.com/favicon.ico",
     "kind": "resource",
@@ -530,7 +530,7 @@
   },
   {
     "id": "linkedin",
-    "group": "us",
+    "category": "social",
     "name": "LinkedIn",
     "url": "https://www.linkedin.com/favicon.ico",
     "kind": "resource",
@@ -546,7 +546,7 @@
   },
   {
     "id": "twitch",
-    "group": "us",
+    "category": "media",
     "name": "Twitch",
     "url": "https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png",
     "kind": "resource",
@@ -562,7 +562,7 @@
   },
   {
     "id": "netflix",
-    "group": "us",
+    "category": "media",
     "name": "Netflix",
     "url": "https://assets.nflxext.com/us/ffe/siteui/common/icons/nficon2016.ico",
     "kind": "resource",
@@ -578,7 +578,7 @@
   },
   {
     "id": "tiktok",
-    "group": "global",
+    "category": "media",
     "name": "TikTok",
     "url": "https://www.tiktok.com/favicon.ico",
     "kind": "resource",
@@ -594,7 +594,7 @@
   },
   {
     "id": "spotify",
-    "group": "global",
+    "category": "media",
     "name": "Spotify",
     "url": "https://open.spotify.com/favicon.ico",
     "kind": "resource",
@@ -610,7 +610,7 @@
   },
   {
     "id": "npm",
-    "group": "global",
+    "category": "development",
     "name": "npm",
     "url": "https://registry.npmjs.org/-/ping",
     "kind": "api",
@@ -626,7 +626,7 @@
   },
   {
     "id": "takealot",
-    "group": "global",
+    "category": "shopping",
     "name": "Takealot",
     "url": "https://www.takealot.com/",
     "kind": "web",
@@ -642,7 +642,7 @@
   },
   {
     "id": "pixpix",
-    "group": "global",
+    "category": "ai",
     "name": "PixPix",
     "url": "https://www.pixpix.com/favicon.ico",
     "kind": "resource",
@@ -658,7 +658,7 @@
   },
   {
     "id": "naver",
-    "group": "global",
+    "category": "information",
     "name": "Naver",
     "url": "https://www.naver.com/favicon.ico",
     "kind": "resource",
@@ -674,7 +674,7 @@
   },
   {
     "id": "noon",
-    "group": "global",
+    "category": "shopping",
     "name": "Noon",
     "url": "https://www.noon.com/",
     "kind": "web",
@@ -690,7 +690,7 @@
   },
   {
     "id": "wikipedia",
-    "group": "global",
+    "category": "information",
     "name": "Wikipedia",
     "url": "https://www.wikipedia.org/static/favicon/wikipedia.ico",
     "kind": "resource",
@@ -706,7 +706,7 @@
   },
   {
     "id": "bbc",
-    "group": "global",
+    "category": "information",
     "name": "BBC",
     "url": "https://www.bbc.com/favicon.ico",
     "kind": "resource",
@@ -722,7 +722,7 @@
   },
   {
     "id": "mistral",
-    "group": "global",
+    "category": "ai",
     "name": "Mistral AI",
     "url": "https://mistral.ai/favicon.ico",
     "kind": "resource",
@@ -738,7 +738,7 @@
   },
   {
     "id": "yandex",
-    "group": "global",
+    "category": "information",
     "name": "Yandex",
     "url": "https://yastatic.net/favicon.ico",
     "kind": "resource",
@@ -754,7 +754,7 @@
   },
   {
     "id": "mercadolibre",
-    "group": "global",
+    "category": "shopping",
     "name": "MercadoLibre",
     "url": "https://www.mercadolibre.com/favicon.ico",
     "kind": "resource",

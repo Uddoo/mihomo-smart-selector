@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {t, translateMessage} from './i18n'
 import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
-import {ArrowDown, ArrowUp, ChevronsUpDown, X} from '@lucide/vue'
+import {ArrowDown, ArrowUp, ChevronsUpDown, ListFilter, X} from '@lucide/vue'
 import type {Workbench} from './useWorkbench'
 import type {NodeSummary} from './models'
 import type {CatalogSort} from './nodeCatalog'
@@ -17,6 +17,8 @@ const scrollArea = ref<HTMLElement>()
 const detail = ref<HTMLElement>()
 const drawer = ref<HTMLDialogElement>()
 const filterBar = ref<HTMLElement>()
+const filtersOpen = ref(false)
+const filterCount = computed(() => filters.regions.length + filters.providers.length + filters.protocols.length + Number(!!filters.status) + Number(filters.scope !== 'proxies'))
 const selectedName = ref<string | null>(null)
 const selected = computed(() => nodes.value.find(node => node.name === selectedName.value))
 const narrow = ref(false)
@@ -95,11 +97,12 @@ onBeforeUnmount(() => { media.removeEventListener('change', resize); document.re
 </script>
 
 <template>
-  <section class="catalog" :aria-label="t('节点目录浏览')">
+  <section class="catalog" :class="{'filters-open': filtersOpen}" :aria-label="t('节点目录浏览')">
     <div v-if="groupScope !== null" class="catalog-group-scope" role="status"><span>{{ t('当前仅查看策略组 {group} 的直接成员；不展开嵌套策略组。', {group: groupScope}) }}</span><button @click="reset">{{ t('查看全部节点') }}</button></div>
     <div class="catalog-tools">
       <TableSearch id="catalog-search" ref="search" v-model="filters.query" class="catalog-search" :label="t('搜索节点')" :placeholder="t('名称、地区、来源或协议')" describedby="catalog-search-hint"/>
-      <div ref="filterBar" class="catalog-filters">
+      <button class="catalog-filter-toggle" :aria-expanded="filtersOpen" aria-controls="catalog-filter-options catalog-view-options" @click="filtersOpen = !filtersOpen"><ListFilter :size="16" aria-hidden="true"/>{{ t('筛选与排序') }}<span v-if="filterCount">{{ filterCount }}</span></button>
+      <div id="catalog-filter-options" ref="filterBar" class="catalog-filters">
         <details v-for="dimension in dimensions" :key="dimension.key" @keydown.esc="escapeFilter">
           <summary>{{ translateMessage(dimension.label) }}<span v-if="filters[dimension.key].length"> · {{ filters[dimension.key].length }}</span><ChevronsUpDown :size="14" aria-hidden="true"/></summary>
           <fieldset><legend>{{ t('{p0}筛选（可多选）', {p0: translateMessage(dimension.label)}) }}</legend><label v-for="option in dimension.options" :key="option.key" :title="option.key"><input v-model="filters[dimension.key]" type="checkbox" :value="option.key"><span>{{ option.label }}</span><small>{{ option.count }}</small></label><p v-if="!dimension.options.length">{{ t('暂无选项') }}</p></fieldset>
@@ -109,7 +112,7 @@ onBeforeUnmount(() => { media.removeEventListener('change', resize); document.re
       </div>
     </div>
     <p id="catalog-search-hint" class="catalog-hint">{{ t('支持组合关键词，例如“日本 Hysteria2”。各类筛选同时生效，同类多选匹配任一项。') }}</p>
-    <div class="catalog-view-options">
+    <div id="catalog-view-options" class="catalog-view-options">
       <label>{{ t('条目范围') }}<select v-model="filters.scope" :aria-label="t('条目范围')"><option v-for="(label, key) in scopeLabels" :key="key" :value="key">{{ translateMessage(label) }}</option></select></label>
       <label>{{ t('地区状态') }}<select v-model="filters.status" :aria-label="t('地区状态')"><option value="">{{ t('全部状态') }}</option><option v-for="(label, key) in statusLabels" :key="key" :value="key">{{ translateMessage(label) }}</option></select></label>
       <span v-if="filters.scope === 'proxies' && specialCount">{{ t('已隐藏 {p0} 个内置出站及疑似订阅提示。', {p0: specialCount}) }}<button @click="filters.scope = 'all'">{{ t('查看全部') }}</button></span>

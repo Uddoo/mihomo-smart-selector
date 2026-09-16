@@ -63,8 +63,10 @@ const emit = defineEmits<{open: [row: MonitorRow]; retest: [id: string]}>()
 .monitor-table td { font-size: 13px; }
 .monitor-table .numeric { text-align: right; white-space: nowrap; }
 .monitor-table th.numeric { white-space: normal; }
-.monitor-table tr.current { background: color-mix(in srgb, var(--soft) 50%, var(--surface)); }
-.monitor-table tr:hover { background: var(--soft); }
+.monitor-table tr.current { background:var(--selection-bg); color:var(--selection-text); }
+.monitor-table tr.current .node-link { color:var(--selection-text); }
+.monitor-table tr.current td > small { color:var(--selection-muted); }
+.monitor-table tr:hover:not(.current) { background: var(--soft); }
 .monitor-table td small { display: block; margin-top: 6px; font-size: 12px; }
 .monitor-table .current-tag { display: inline-block; margin-top: 8px; }
 .node-link { display: inline-flex; align-items: center; min-height: 40px; max-width: 100%; padding: 6px 0; border: 0; background: transparent; color: var(--text); text-align: left; white-space: normal; overflow-wrap: anywhere; font-size: 14px; font-weight: 500; }
@@ -73,7 +75,7 @@ const emit = defineEmits<{open: [row: MonitorRow]; retest: [id: string]}>()
 .monitor-badge { display: inline-block; align-self: start; padding: 4px 8px; border-radius: 5px; background: var(--surface-muted); color: var(--muted); font-size: 12px; white-space: nowrap; }
 .monitor-badge.healthy { color: var(--green); background: var(--good-bg); }
 .monitor-badge.suspect, .monitor-badge.unavailable { color: var(--red); background: var(--bad-bg); }
-.monitor-badge.recovering { color: var(--text); background: var(--soft); }
+.monitor-badge.recovering { color:var(--info); background:var(--info-bg); }
 @media (max-width: 1100px) {
   .monitor-table-wrap { display: none; }
   .monitor-node-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }

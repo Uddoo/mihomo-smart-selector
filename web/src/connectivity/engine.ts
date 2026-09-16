@@ -1,5 +1,6 @@
 import {bodyMatches, readBoundedBody} from './responseRules.ts'
 import type {ResponseRule} from './responseRules'
+import type {CategoryID} from './categories'
 
 export const ROUNDS = 8
 export const CONCURRENCY = 9
@@ -8,7 +9,7 @@ let requestSequence = 0
 export type EvidenceLevel = 'reachable' | 'resource' | 'verified'
 export type Sample = {outcome: 'success' | 'timeout' | 'error' | 'unverifiable' | 'mismatch'; ms: number | null; at: number;
   level?: EvidenceLevel; status?: number; reason?: 'csp' | 'browser' | 'status' | 'body' | 'content-type' | 'response-too-large'}
-export type Target = {id: string; group: string; name: string; url: string;
+export type Target = {id: string; category: CategoryID; name: string; url: string;
   kind: 'resource' | 'connectivity' | 'api' | 'diagnostic' | 'web'; requestMode: 'cors' | 'no-cors';
   expected: ResponseRule; redirect: 'follow' | 'error'; cache: 'no-store'; cacheBust: boolean}
 export type Result = {phase: 'idle' | 'queued' | 'running' | 'complete' | 'stopped'; samples: Sample[]}

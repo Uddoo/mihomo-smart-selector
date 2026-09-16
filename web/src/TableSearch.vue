@@ -22,7 +22,7 @@ defineExpose({focus})
 
 <style scoped>
 .table-search { display:flex;align-items:center;gap:8px;min-width:0;min-height:40px;padding-left:12px;border:1px solid var(--control-border);border-radius:var(--radius-sm);background:var(--surface);color:var(--muted); }
-.table-search:focus-within { outline:2px solid var(--blue);outline-offset:2px; }
+.table-search:focus-within { outline:2px solid var(--accent);outline-offset:2px; }
 .table-search > svg { flex-shrink:0; }
 .table-search input { flex:1;min-width:0;width:100%;border:0;border-radius:inherit;padding:9px 8px 9px 0;outline:none;background:transparent; }
 .table-search input::-webkit-search-cancel-button { appearance:none; }
