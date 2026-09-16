@@ -4,6 +4,21 @@ import {scanResultMessages} from './scanResults.ts'
 import {connectivityMessages} from './connectivity.ts'
 import {historyMessages} from './history.ts'
 export const en = {
+  "正在启动扫描": "Starting scan",
+  "扫描未启动": "Scan did not start",
+  "确认新任务前保留上次结果。": "Previous results stay available until the new task is confirmed.",
+  "正在提交扫描请求，等待任务确认…": "Submitting the scan request, waiting for confirmation…",
+  "请检查错误提示后重新扫描，上次结果仍可查看。": "Check the error and retry the scan. Previous results are still available.",
+  "停止请求已提交，等待扫描确认；已返回的结果会保留。": "Stop requested, waiting for the scan to confirm. Returned results will be kept.",
+  "当前批次继续完成，之后不再启动新批次。也可立即停止。": "The current batch will finish without starting another. You can also stop immediately.",
+  "扫描不改变当前节点。请比较结果，再确认选择。": "Scanning keeps the current node unchanged. Compare the results, then confirm a selection.",
+  "已返回的数据保留供查看；重新扫描完成后可选择节点。": "Returned data stays available. Complete a new scan before selecting a node.",
+  "等待任务确认": "Awaiting confirmation",
+  "请重新尝试": "Please try again",
+  "已完成探测任务 {p0} / {p1}": "Probe tasks completed {p0} / {p1}",
+  "第 {p0} / {p1} 批": "Batch {p0} / {p1}",
+  "正在提交停止请求…": "Submitting stop request…",
+  "已请求批次结束后停止": "Stop after batch requested",
   ...scanResultMessages,
   ...connectivityMessages,
   ...historyMessages,

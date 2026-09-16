@@ -70,6 +70,9 @@ export function useWorkbench() {
   const choiceDialog = ref<HTMLDialogElement | null>(null)
   const switching = ref(false)
   const starting = ref(false)
+  const scanStartError = shallowRef('')
+  const stopPending = shallowRef(false)
+  const stopRequested = shallowRef<'batch' | 'now' | null>(null)
   const showProfile = ref(false)
   const now = ref(Date.now())
   let ageTimer: number | undefined
@@ -83,6 +86,9 @@ export function useWorkbench() {
     else if (value.request.nodes?.length) notice.value = '复测已完成，请检查新结果并再次确认选择。'
   })
   const {scan, running, recent, refresh, close, connectionMode, syncError} = session
+  watch([() => scan.value?.id, () => scan.value?.status], () => {
+    stopPending.value = false; stopRequested.value = null; scanStartError.value = ''
+  }, {flush: 'sync'})
   async function openRecent(event: Event) {
     try { await session.open((event.target as HTMLSelectElement).value); await restoreForm(); focusedName.value = ''; pendingChoice.value = null }
     catch (error) { failure.value = error instanceof Error ? error.message : '无法打开扫描' }
@@ -305,6 +311,7 @@ export function useWorkbench() {
       return
     }
     failure.value = ''
+    scanStartError.value = ''
     notice.value = ''
     starting.value = true
     try {
@@ -312,6 +319,7 @@ export function useWorkbench() {
       monitor(response)
     } catch (error) {
       failure.value = error instanceof Error ? error.message : '无法开始扫描'
+      scanStartError.value = failure.value
     } finally {
       starting.value = false
     }
@@ -323,20 +331,32 @@ export function useWorkbench() {
     if (!scan.value || !candidate.value || configLocked.value) return
     starting.value = true
     failure.value = ''
+    scanStartError.value = ''
     try {
       const response = await api<Scan>('/scans/' + encodeURIComponent(scan.value.id) + '/retest', {method:'POST', body:JSON.stringify({node:candidate.value.name})})
       monitor(response)
       notice.value = '正在复测此节点；完成后请检查新结果并再次确认选择。'
-    } catch (error) { failure.value = error instanceof Error ? error.message : '复测失败' }
+    } catch (error) {
+      failure.value = error instanceof Error ? error.message : '复测失败'
+      scanStartError.value = failure.value
+    }
     finally { starting.value = false }
   }
 
   async function stop(after: boolean) {
-    if (!scan.value) return
+    if (!scan.value || !running.value || stopPending.value || stopRequested.value === 'now') return
+    if (after && (stopRequested.value === 'batch' || scan.value.progress.stop_after_current_batch)) return
+    const id = scan.value.id
+    stopPending.value = true
+    failure.value = ''
     try {
-      await api('/scans/' + encodeURIComponent(scan.value.id) + '/stop', {method: 'POST', body: JSON.stringify({after_current_batch: after})})
-      notice.value = after ? '将在本批结束后停止' : '正在停止扫描'
-    } catch (error) { failure.value = error instanceof Error ? error.message : '无法停止扫描' }
+      await api('/scans/' + encodeURIComponent(id) + '/stop', {method: 'POST', body: JSON.stringify({after_current_batch: after})})
+      if (scan.value?.id === id && running.value) stopRequested.value = after ? 'batch' : 'now'
+    } catch (error) {
+      if (scan.value?.id === id && running.value) failure.value = error instanceof Error ? error.message : '无法停止扫描'
+    } finally {
+      if (scan.value?.id === id) stopPending.value = false
+    }
   }
 
   function selectionReason(result?: NodeResult) {
@@ -482,7 +502,7 @@ export function useWorkbench() {
     current, configLocked, load, unlock, confirmChoice, openMonitorScan, openServiceCandidates, openServiceScan, prepareServiceVerification, regionLabel,
     statusLabel, scan, providers, regions, availableRegions, group, serviceID, loading,
     discoveryValid, discoveryUpdatedAt, openingServiceScan, areas, providerSet, mode, preview, starting, showProfile,
-    results, candidate, scanLabel, progress, percent, profile, groupMissing,
+    results, candidate, scanLabel, progress, percent, profile, groupMissing, scanStartError, stopPending, stopRequested,
     binding, invalidBindings, serviceSource, profileReady, openRecent, saveBinding,
     provider, start, stop, selectionReason, choose, percentLabel, latency,
     clock, statusTone, probeKind, running, recent, now, best,

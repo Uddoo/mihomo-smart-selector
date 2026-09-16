@@ -115,7 +115,7 @@ test('discovery renders completed fields while a secondary request is stalled', 
   await page.clock.install()
   await page.route('**/api/v1/nodes', () => {})
   await page.goto('/')
-  await expect(page.getByText('Controller 已连接', {exact: true})).toBeVisible()
+  await expect(page.getByRole('main').getByText('Controller 已连接', {exact: true})).toBeVisible()
   await page.locator('.advanced-config > summary').click()
   await expect(page.getByLabel('目标策略组', {exact: true})).not.toHaveValue('')
   await page.clock.runFor(10100)

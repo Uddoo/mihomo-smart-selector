@@ -164,8 +164,8 @@ async function retest(id: string) {
       <p v-if="tab === 'overview' && data.window !== windowRange" role="status">{{ t('正在读取所选观察窗口，请稍候。') }}</p>
       <div v-show="tab === 'overview' && data.window === windowRange" class="monitor-section">
       <div class="monitor-overview">
-        <article class="monitor-panel"><small>{{ t('策略组当前选择') }}</small><h3>{{ data.current || t('等待 Controller 回读') }}</h3><span :class="['monitor-badge', current?.state.status || 'unknown']">{{ translateMessage(monitorStatus[current?.state.status || 'unknown']) }}</span><p>{{ plan.group }} · {{ plan.profile_id }}</p><p v-if="data.current && !current" class="bad">{{ t('当前选择不在监控列表或为嵌套策略组，请调整方案加入实际叶子节点。') }}</p><small>{{ t('组选择不代表已有连接已迁移。') }}</small><button v-if="current?.series_id" @click="openNode(current)">{{ t('查看当前节点趋势') }}</button></article>
-        <article class="monitor-panel"><small>{{ t('需要关注') }}</small><h3>{{ t('{p0} 个异常 / 恢复观察 · {p1} 个缺测', {p0: abnormal.length, p1: unknownCount}) }}</h3><p>{{ t('自动切换：{p0}', {p0: plan.auto_switch ? t('已开启') : t('已关闭')}) }}</p><button v-for="row in abnormal" :key="row.id" :disabled="!row.series_id" @click="openNode(row)">{{ t('{p0} · 查看趋势', {p0: row.name}) }}</button><button @click="tab = 'events'">{{ t('查看事件时间线') }}</button></article>
+        <article class="monitor-panel monitor-summary"><small>{{ t('策略组当前选择') }}</small><h3>{{ data.current || t('等待 Controller 回读') }}</h3><span :class="['monitor-badge', current?.state.status || 'unknown']">{{ translateMessage(monitorStatus[current?.state.status || 'unknown']) }}</span><p>{{ plan.group }} · {{ plan.profile_id }}</p><p v-if="data.current && !current" class="bad">{{ t('当前选择不在监控列表或为嵌套策略组，请调整方案加入实际叶子节点。') }}</p><small>{{ t('组选择不代表已有连接已迁移。') }}</small><div class="monitor-summary-actions"><button v-if="current?.series_id" @click="openNode(current)">{{ t('查看当前节点趋势') }}</button></div></article>
+        <article class="monitor-panel monitor-summary"><small>{{ t('需要关注') }}</small><h3>{{ t('{p0} 个异常 / 恢复观察 · {p1} 个缺测', {p0: abnormal.length, p1: unknownCount}) }}</h3><p>{{ t('自动切换：{p0}', {p0: plan.auto_switch ? t('已开启') : t('已关闭')}) }}</p><div v-if="abnormal.length" class="monitor-attention-nodes"><button v-for="row in abnormal" :key="row.id" :disabled="!row.series_id" @click="openNode(row)">{{ t('{p0} · 查看趋势', {p0: row.name}) }}</button></div><div class="monitor-summary-actions"><button @click="tab = 'events'">{{ t('查看事件时间线') }}</button></div></article>
       </div>
       <details class="monitor-context"><summary><ShieldCheck :size="16" aria-hidden="true"/><span>{{ t('评分与证据范围 · {p0}', {p0: windowRange === '1h' ? t('1 小时观测指标') : windowRange === '7d' ? t('7 天 HTTPS 健康分') : t('24 小时 HTTPS 健康分')}) }}</span><ChevronDown :size="16" aria-hidden="true"/></summary><div><p>{{ t('可用性 70 · 连续性 20 · 延迟 10') }}</p><p>{{ t('少于 100 个有效样本显示积累中。完整覆盖所选时间跨度且覆盖率 ≥ 80% 后标记数据充足；1 小时只展示观测指标。') }}</p></div></details>
       <section class="monitor-panel">
@@ -192,21 +192,28 @@ async function retest(id: string) {
 </template>
 
 <style scoped>
-.monitor-section{display:grid;gap:18px;min-width:0}.monitor-navigation{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px}.monitor-tabs{display:flex;gap:4px;padding:4px;background:var(--surface-muted);border:1px solid var(--line);border-radius:var(--radius-md)}.monitor-tabs button[aria-selected="true"]{color:var(--text);background:var(--surface);border-color:var(--line);font-weight:600}.monitor-overview button{margin:8px 8px 0 0}.monitor-tabs button{min-height:44px;border-color:transparent;background:transparent}
+.monitor-section{display:grid;gap:var(--space-4);min-width:0}.monitor-navigation{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-4)}.monitor-tabs{display:flex;gap:4px;padding:4px;background:var(--surface-muted);border:1px solid var(--line);border-radius:var(--radius-md)}.monitor-tabs button[aria-selected="true"]{color:var(--text);background:var(--surface);border-color:var(--line);font-weight:600}.monitor-tabs button{min-height:44px;border-color:transparent;background:transparent}
 
 .monitor-window { display:flex;align-items:center;gap:10px;font-size:13px; }.monitor-window select{padding:10px;min-height:44px;border:1px solid var(--control-border);background:var(--surface);color:var(--text);border-radius:var(--radius-sm);}
-.monitor-page { display: grid; gap: 24px; padding-top: 4px; }
+.monitor-page { --monitor-panel-padding: var(--space-5); display: grid; gap: var(--space-5); padding-top: var(--space-1); }
+.monitor-summary { display:flex;flex-direction:column;align-items:flex-start; }
+.monitor-summary > p { overflow-wrap:anywhere; }
+.monitor-summary-actions { margin-top:auto;padding-top:var(--space-4); }
+.monitor-summary-actions button,.monitor-attention-nodes button { min-height:44px;text-align:left;overflow-wrap:anywhere; }
+.monitor-attention-nodes { display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-2); }
+.monitor-heading > div { flex:1 1 320px;min-width:0; }
+.monitor-heading > button { flex-shrink:0;min-height:44px; }
 .monitor-page h2,.monitor-page h3 { margin: 0 0 9px; }
 .monitor-page h2 { font-size: 20px; }.monitor-page h3 { font-size: 16px; }
 .monitor-page p { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 8px 0; }
 .monitor-banner,.monitor-heading,.monitor-actions,.monitor-picker-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
 .monitor-banner,.monitor-heading { justify-content:space-between; }.monitor-banner>div:first-child { display:flex; align-items:center; gap:14px;min-width:0; }.monitor-banner>div:first-child>svg{flex-shrink:0}.monitor-banner{padding-bottom:20px;border-bottom:1px solid var(--line)}
-.monitor-actions button,.monitor-picker-head button {display:inline-flex;align-items:center;gap:7px;}
-.monitor-panel {border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface);padding:22px;min-width:0;}
-.monitor-fields,.monitor-overview {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;}
+.monitor-actions button,.monitor-picker-head button {display:inline-flex;align-items:center;gap:var(--space-2);min-height:44px;}
+.monitor-panel {border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface);padding:var(--monitor-panel-padding);min-width:0;}
+.monitor-fields,.monitor-overview {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4);}
 .monitor-fields label,.monitor-picker-head label {display:grid;gap:8px;font-size:13px;min-width:0;}
 .monitor-fields select,.monitor-picker-head input {border:1px solid var(--control-border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);padding:10px;min-height:44px;min-width:0;width:100%;}
-.monitor-picker-head {margin:18px 0 12px;}.monitor-picker-head label{flex:1;min-width:160px;}
+.monitor-picker-head {align-items:flex-end;margin:var(--space-4) 0 var(--space-3);}.monitor-picker-head>span{display:flex;align-items:center;min-height:44px;font-size:13px;font-variant-numeric:tabular-nums;}.monitor-picker-head label{flex:1;min-width:160px;}
 .monitor-picker {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;max-height:260px;overflow:auto;border:1px solid var(--line);padding:12px;border-radius:6px;}
 .monitor-picker label{display:flex;align-items:flex-start;gap:8px;font-size:13px;overflow-wrap:anywhere;padding:6px;}.monitor-picker input{margin-top:3px;}
 .monitor-picker small{display:block;margin-top:5px;}.monitor-page .monitor-note{font-size:12px;overflow-wrap:anywhere}
@@ -222,6 +229,6 @@ async function retest(id: string) {
 .monitor-context > summary > svg { flex-shrink:0; }
 .monitor-context[open] > summary > svg:last-child { transform:rotate(180deg); }
 .monitor-context > div { max-width:72ch;padding:0 24px 4px; }
-@media(max-width:760px){.monitor-page{gap:18px}.monitor-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;gap:2px}.monitor-tabs button{font-size:12px;padding:8px 4px;white-space:normal;overflow-wrap:anywhere}.monitor-window{margin-left:auto}.monitor-window select{font-size:16px}.monitor-banner{padding-bottom:16px}.monitor-heading{align-items:flex-start}.monitor-heading>button{width:100%}.monitor-fields select,.monitor-picker-head input{font-size:16px}}
-@media(max-width:640px){.monitor-fields,.monitor-picker,.monitor-overview{grid-template-columns:1fr;}.monitor-panel{padding:16px;}.monitor-overview{gap:12px}.monitor-overview h3{font-size:17px}.monitor-detail summary small{display:block;margin:7px 0;}}
+@media(max-width:760px){.monitor-page{--monitor-panel-padding:var(--space-4);gap:var(--space-4)}.monitor-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;gap:2px}.monitor-tabs button{font-size:12px;padding:8px 4px;white-space:normal;overflow-wrap:anywhere}.monitor-window{margin-left:auto}.monitor-window select{font-size:16px}.monitor-banner{padding-bottom:16px}.monitor-heading{align-items:flex-start}.monitor-heading>div{flex-basis:100%}.monitor-heading>button{width:100%}.monitor-fields select,.monitor-picker-head input{font-size:16px}}
+@media(max-width:640px){.monitor-fields,.monitor-picker,.monitor-overview{grid-template-columns:1fr;}.monitor-picker-head label{flex-basis:100%}.monitor-picker-head>button{margin-left:auto}.monitor-detail summary small{display:block;margin:7px 0;}}
 </style>

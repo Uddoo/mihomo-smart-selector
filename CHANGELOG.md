@@ -9,6 +9,14 @@ versioned releases begin.
 
 ## [Unreleased]
 
+### Fixed
+
+- Align monitoring summary actions, node-card metrics and candidate-picker
+  controls; use consistent panel spacing across monitoring views.
+- Keep scan progress and terminal statistics in one persistent feedback panel,
+  with explicit start/stop request states, duplicate-stop protection and
+  reduced-motion support. Preserve returned results after failure or stop.
+
 ## [v0.1.0-rc.9] - 2026-09-16
 
 ### Added

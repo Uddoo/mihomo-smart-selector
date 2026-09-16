@@ -138,21 +138,8 @@ dt { color: var(--muted); }
 .private-target { color: var(--muted); }
 .warning .profile-hint { color: var(--red); }
 .preflight { margin-top: 16px; display: flex; gap: 14px; padding: 14px; border-radius: 8px; background: var(--bad-bg); color: var(--red); font-size: 13px; }
-.progress { padding: 20px; margin-top: 16px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); font-size: 14px; font-variant-numeric: tabular-nums; }
-.progress > div:first-child, .progress section { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-.progress-track { display: block; margin: 14px 0; height: 6px; border-radius: 8px; overflow: hidden; background: var(--soft); }
-.progress-track span { display: block; width: 100%; height: 100%; background: var(--blue); transform-origin: left center; transition: transform .2s ease-out; }
-.progress section { color: var(--muted); }
-.progress p { display: flex; gap: 10px; margin: 16px 0 0; }
 .danger { color: var(--red); }
 .result-workspace { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); margin-top: 20px; overflow: hidden; }
-.scan-state { padding: 14px 20px; display: flex; gap: 20px; align-items: center; border-bottom: 1px solid var(--line); font-size: 13px; }
-.scan-state > span:first-child { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
-.scan-state b, .scan-state svg { color: var(--muted); }
-.scan-state.complete b, .scan-state.complete svg { color: var(--green); }
-.scan-state.failed b, .scan-state.failed svg { color: var(--red); }
-.scan-state.running b, .scan-state.running svg { color: var(--blue); }
-.scan-recovery { color: var(--red); background: var(--bad-bg); font-size: 13px; line-height: 1.7; padding: 12px 20px; margin: 0; }
 .fixture-label { margin-left: auto; background: var(--bg); color: var(--muted); padding: 4px 8px; border-radius: 5px; font-size: 11px; white-space: nowrap; }
 .grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; }
 .panel { min-width: 0; padding: 20px; background: var(--surface); }
@@ -301,8 +288,6 @@ dialog { overscroll-behavior: contain; max-height: calc(100dvh - 32px); overflow
   .command .scan-button { margin-left: auto; }
   .config-summary { align-items: center; flex-direction: row; padding: 4px 0; gap: 2px 8px; font-size: 12px; }
   .config-summary button { padding-left: 0; }
-  .scan-state { flex-wrap: wrap; gap: 9px; padding: 14px; }
-  .scan-state small { order: 3; flex-basis: 100%; font-size: 12px; overflow-wrap: anywhere; }
   .fixture-label { margin-left: auto; }
   .profile-card, .profile-targets ul, .settings { grid-template-columns: 1fr; }
   .compare { display: flex; }
@@ -404,10 +389,6 @@ html:has(dialog[open]) { overflow:hidden; }
 .header-actions { display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-shrink:0; }
 .nav-short { display:none; }
 .ranking th { white-space:normal; }
-.scan-state > span:first-child { min-width:0;white-space:normal;flex-wrap:wrap; }
-.scan-state > small { min-width:0;overflow-wrap:anywhere; }
-.scan-state > span:first-child > svg { flex-shrink:0; }
-.progress p { flex-wrap:wrap; }
 .comparison-table th { white-space:normal; }
 .candidate-heading p { overflow-wrap:anywhere; }
 @media(max-width:760px) {

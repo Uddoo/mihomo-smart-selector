@@ -5,15 +5,16 @@ import {usePagination} from './usePagination'
 import ListPagination from './ListPagination.vue'
 import TableSearch from './TableSearch.vue'
 import type {Workbench} from './useWorkbench'
-import {RefreshCw, ChevronDown, CheckCircle2, Radio, CircleAlert, CirclePause, ScanLine} from '@lucide/vue'
+import {RefreshCw, ChevronDown, ScanLine} from '@lucide/vue'
 const {state} = defineProps<{state: Workbench}>()
-const { syncError, refreshScan, connectionMode, health, groups, providers, availableRegions, group, serviceID, services, loading, discoveryValid, areas, providerSet, mode, preview, failure, switching, starting, showProfile, current, results, candidate, scanLabel, configLocked, progress, percent, profile, groupMissing, binding, invalidBindings, serviceSource, profileReady, openRecent, load, saveBinding, provider, start, stop, selectionReason, choose, regionLabel, percentLabel, latency, clock, statusLabel, statusTone, probeKind, scan, running, recent } = state
+const { syncError, refreshScan, connectionMode, health, groups, providers, availableRegions, group, serviceID, services, loading, discoveryValid, areas, providerSet, mode, preview, failure, switching, starting, showProfile, current, results, candidate, configLocked, profile, groupMissing, binding, invalidBindings, serviceSource, profileReady, openRecent, load, saveBinding, provider, start, stop, selectionReason, choose, regionLabel, percentLabel, latency, statusLabel, statusTone, probeKind, scan, running, recent, scanStartError, stopPending, stopRequested } = state
 import {ref, nextTick, onMounted, onBeforeUnmount, useTemplateRef, watch} from 'vue'
 import CandidateDetails from './CandidateDetails.vue'
 import ScanCompatibility from './ScanCompatibility.vue'
 import ScanRegionFilter from './ScanRegionFilter.vue'
 import ScanWarnings from './ScanWarnings.vue'
 import ScanMeasurement from './components/scan-results/ScanMeasurement.vue'
+import ScanFeedback from './components/scan-results/ScanFeedback.vue'
 import ResultViewControls from './components/scan-results/ResultViewControls.vue'
 import ResultExport from './components/scan-results/ResultExport.vue'
 import {orderResults} from './scanResults'
@@ -39,7 +40,6 @@ watch(compactConfig, async compact => {
 })
 const drawerOpen = ref(false)
 const scanFailed = computed(() => scan.value?.status === 'failed' || scan.value?.status === 'interrupted')
-const scanTone = computed(() => scanFailed.value ? 'failed' : scan.value?.status === 'complete' ? 'complete' : running.value ? 'running' : 'idle')
 const emptyTitle = computed(() => results.value.length ? '没有匹配的节点' : running.value ? '正在检测节点' : scanFailed.value ? '本次扫描未完成' : scan.value ? '本次扫描没有结果' : '准备开始扫描')
 const emptyDescription = computed(() => results.value.length ? '换一个节点名称，或清空搜索查看全部结果。' : running.value ? '第一个节点完成后，检测结果会实时显示在这里。' : scan.value ? '检查上方扫描状态与配置，然后重新扫描。' : '选择目标策略组和测试服务，开始扫描后在这里比较节点。')
 function scanStatus(value: string) { return ({running: '进行中', complete: '已完成', cancelled: '已停止', failed: '失败', interrupted: '已中断'} as Record<string, string>)[value] || value }
@@ -127,17 +127,8 @@ onBeforeUnmount(() => { closeDetails(); mobileQuery.removeEventListener('change'
         <ScanCompatibility v-if="!running && !groupMissing && discoveryValid" :preview="preview" :disabled="configLocked || loading" :navigation="state.nestedNavigation.value" @select-group="state.selectNestedGroup" @return-to-parent="state.returnToParentGroup" @clear-filters="state.clearScanFilters"/>
         <div v-if="!running && !groupMissing && discoveryValid && !profile?.requires_configuration && !preview" class="preflight warning"><b>{{ t('扫描预检') }}</b><span>{{ translateMessage(!group ? t('未发现可选择的 Selector 策略组。') : failure || t('正在加载预检。')) }}</span></div>
 
-        <div v-if="running" class="progress">
-          <div><b>{{ t('{p0} · 已完成探测任务 {p1} / {p2} · 第 {p3} / {p4} 批', {p0: progress?.stage === 'refining' ? t('复测阶段') : t('初筛阶段'), p1: progress?.completed || 0, p2: progress?.total || 0, p3: progress?.current_batch || 0, p4: progress?.total_batches || 0}) }}</b><strong>{{ percent }}%</strong></div>
-          <div class="progress-track" role="progressbar" :aria-label="t('扫描进度')" :aria-valuenow="percent" :aria-valuemin="0" :aria-valuemax="100"><span :style="{transform: `scaleX(${percent / 100})`}"></span></div>
-          <section><span>{{ t('成功') }} <b>{{ progress?.succeeded || 0 }}</b></span><span>{{ t('失败') }} <b>{{ progress?.failed || 0 }}</b></span><span>{{ t('耗时') }} <b>{{ clock(progress?.elapsed_seconds) }}</b></span><span>{{ t('预计剩余') }} <b>{{ clock(progress?.estimated_remaining_seconds) }}</b></span></section>
-          <p><button @click="stop(true)">{{ t('本批结束后停止') }}</button><button class="danger" @click="stop(false)">{{ t('立即停止') }}</button></p>
-        </div>
-
         <div class="result-workspace">
-        <div v-if="running" class="scope-note" role="status">{{ connectionMode === 'live' ? t('实时更新中') : connectionMode === 'paused' ? t('页面刷新已暂停，后台扫描继续运行') : t('定时刷新中') }}</div>
-        <div class="scan-state" :class="scanTone" role="status"><span><CircleAlert v-if="scanFailed" :size="18" aria-hidden="true"/><CheckCircle2 v-else-if="scan?.status === 'complete'" :size="18" aria-hidden="true"/><CirclePause v-else-if="scan?.status === 'cancelled'" :size="18" aria-hidden="true"/><Radio v-else :size="18" aria-hidden="true"/><b>{{ translateMessage(scanLabel) }}</b> {{ t('· {p0} 个节点', {p0: results.length}) }}</span><small>{{ scan ? scan.request.target_group + ' · ' + t(scan.profile.label) + ' · ' : '' }}{{ running ? t('结果返回即更新排名，验证后分数仍可能变化') : t('扫描不改变当前节点') }}</small><span v-if="health?.mihomo_version === 'dev-mock'" class="fixture-label">{{ t('示例数据') }}</span></div>
-        <p v-if="scanFailed || scan?.status === 'cancelled'" class="scan-recovery">{{ t('{p0}，已返回的数据保留供查看；重新扫描完成后可选择节点。', {p0: scanFailed ? t('本次扫描未完成') : t('本次扫描已停止')}) }}</p>
+        <ScanFeedback :scan="scan" :starting="starting" :start-error="scanStartError" :stop-pending="stopPending" :stop-requested="stopRequested" :connection-mode="connectionMode" :demo="health?.mihomo_version === 'dev-mock'" @stop="stop"/>
         <ScanWarnings :warnings="scan?.warnings"/>
         <ScanMeasurement v-if="scan" :scan="scan"/>
         <div class="grid">

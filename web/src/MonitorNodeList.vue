@@ -41,7 +41,7 @@ const emit = defineEmits<{open: [row: MonitorRow]; retest: [id: string]}>()
           <div><button class="node-link" :disabled="!row.series_id" :aria-label="t('查看趋势 ') + row.name" @click="emit('open', row)">{{ row.name }}</button><small>{{ row.provider || t('独立节点') }}</small></div>
           <span :class="['monitor-badge', row.state.status]">{{ translateMessage(monitorStatus[row.state.status] || t('未知')) }}</span>
         </div>
-        <span v-if="current === row.name" class="current-tag">{{ t('策略组当前选择') }}</span>
+        <div class="node-card-selection"><span v-if="current === row.name" class="current-tag">{{ t('策略组当前选择') }}</span></div>
         <dl class="node-metrics">
           <div><dt>{{ t('成功率') }}</dt><dd>{{ row.metrics.samples ? monitorPercent(row.metrics.success_rate) : '—' }}</dd></div>
           <div><dt>P95</dt><dd>{{ row.metrics.p95_ms ? row.metrics.p95_ms + ' ms' : '—' }}</dd></div>
@@ -77,20 +77,22 @@ const emit = defineEmits<{open: [row: MonitorRow]; retest: [id: string]}>()
 @media (max-width: 1100px) {
   .monitor-table-wrap { display: none; }
   .monitor-node-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
-  .monitor-node-card { min-width: 0; padding: 18px 0; border-top: 1px solid var(--line); }
+  .monitor-node-card { display:flex;flex-direction:column;min-width: 0; padding: var(--space-4) 0; border-top: 1px solid var(--line); }
   .node-card-heading { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
   .node-card-heading > div { min-width: 0; }
   .node-card-heading small { display: block; overflow-wrap: anywhere; }
   .node-link { min-height: 44px; padding: 2px 0 8px; font-size: 16px; }
-  .current-tag { display: inline-block; margin-top: 10px; }
+  .node-card-selection { min-height:34px;padding-top:var(--space-2); }
+  .current-tag { display: inline-block; }
   .node-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0; font-variant-numeric: tabular-nums; }
   .node-metrics dt { margin-bottom: 6px; font-size: 12px; }
   .node-metrics dd { font-size: 15px; font-weight: 650; overflow-wrap: anywhere; }
   .node-metrics small { display: block; margin-top: 4px; font-weight: 400; }
-  .node-card-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 16px; }
+  .node-card-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top:auto;padding-top:var(--space-4); }
   .node-card-actions button { min-width: 80px; min-height: 44px; }
 }
 @media (max-width: 760px) {
   .monitor-node-cards { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .node-card-selection:empty { display:none; }
 }
 </style>
