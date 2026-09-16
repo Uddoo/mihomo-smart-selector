@@ -46,10 +46,10 @@ const currentPage = computed(() => navigation.find(item => item.id === page.valu
         <button v-for="item in navigation" :key="item.id" :class="{active: page === item.id}" :aria-label="t(item.label)" :aria-current="page === item.id ? 'page' : undefined" @click="page = item.id"><component :is="item.icon" aria-hidden="true"/><span class="nav-full">{{ t(item.label) }}</span><span class="nav-short">{{ t(item.shortLabel) }}</span></button>
       </nav>
       <footer class="sidebar-footer">
-        <div class="sidebar-connection" :class="{offline: !health?.mihomo_connected}"><span class="connection-dot"></span>{{ health?.mihomo_connected ? t('Controller 已连接') : t('Controller 不可用') }}<small>{{ t('扫描手动选择 · 监控可自动切换') }}</small></div>
         <a class="project-link" href="https://github.com/Uddoo/mihomo-smart-selector" target="_blank" rel="noopener noreferrer" :aria-label="t('在新标签页打开 Mihomo Smart Selector 开源项目')">
-          <CodeXml :size="18" aria-hidden="true"/><span>GitHub<span class="project-link-description">{{ t('开源项目') }}</span></span><ExternalLink :size="14" class="project-link-external" aria-hidden="true"/>
+          <CodeXml :size="20" :stroke-width="1.6" aria-hidden="true"/><span class="project-link-label">GitHub {{ t('开源项目') }}</span><ExternalLink :size="14" class="project-link-external" aria-hidden="true"/>
         </a>
+        <div class="sidebar-connection" :class="{offline: !health?.mihomo_connected}"><span class="connection-dot"></span><span>{{ health?.mihomo_connected ? t('Controller 已连接') : t('Controller 不可用') }}</span></div>
       </footer>
     </aside>
 

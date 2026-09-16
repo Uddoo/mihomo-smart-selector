@@ -79,14 +79,14 @@ nav { display: grid; gap: 4px; }
 nav button { display: flex; align-items: center; gap: 12px; border: 1px solid transparent; text-align: left; color: var(--muted); background: transparent; padding: 10px 12px; font-size: 14px; font-weight: 500; position: relative; }
 nav button svg { width: 20px; height: 20px; stroke-width: 1.6; }
 nav button.active { background: var(--soft); color: var(--text); border-color: transparent; font-weight: 600; }
-footer { margin-top: auto; border-top: 1px solid var(--line); padding: 23px 7px 4px; color: var(--green); font-size: 12px; }
-footer small { display: block; padding: 7px 0 0 13px; font-size: 11px; }
-.connection-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; background: currentColor; }
+.sidebar-footer { margin-top: auto; padding-top: var(--space-5); font-size: 12px; }
+.sidebar-connection { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: var(--space-1) var(--space-2); margin-top: var(--space-2); border-top: 1px solid var(--line); padding: var(--space-3) var(--space-3) 0; color: var(--green); }
+.connection-dot { width: 7px; height: 7px; border-radius: 50%; justify-self: center; margin-top: 6px; background: currentColor; }
 .sidebar-connection.offline { color: var(--red); }
-.project-link { display: flex; align-items: center; gap: var(--space-2); min-height: 44px; margin-top: var(--space-4); padding: var(--space-2); color: var(--muted); border-radius: var(--radius-sm); text-decoration: none; }
+.project-link { display: flex; align-items: center; gap: var(--space-2); min-height: 44px; padding: var(--space-2) var(--space-3); color: var(--muted); border-radius: var(--radius-sm); text-decoration: none; }
 .project-link:hover { color: var(--text); background: var(--soft); }
 .project-link > svg { flex-shrink: 0; }
-.project-link-description { display: block; font-size: 11px; }
+.project-link-label { min-width: 0; line-height: 1.5; }
 .project-link-external { margin-left: auto; }
 .work { width: 100%; max-width: 1920px; min-width: 0; margin: 0 auto; padding: 0 var(--space-5) var(--space-6); }
 .work > header { min-height: 104px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 24px 0; }
@@ -287,10 +287,8 @@ dialog { overscroll-behavior: contain; max-height: calc(100dvh - 32px); overflow
   nav { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; }
   nav button { min-width: 0; min-height: 54px; flex-direction: column; justify-content: center; white-space: nowrap; font-size: 12px; padding: 6px 0; gap: 5px; }
   nav button svg { width: 18px; height: 18px; }
-  .sidebar-footer { display: flex; justify-content: flex-end; margin-top: var(--space-2); padding: var(--space-1) 0 0; }
+  .sidebar-footer { display: flex; justify-content: flex-end; margin-top: var(--space-2); border-top: 1px solid var(--line); padding: var(--space-1) 0 0; }
   .sidebar-connection { display: none; }
-  .project-link { margin-top: 0; }
-  .project-link-description { display: inline; margin-left: var(--space-2); }
   .work { padding: 0 max(14px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
   .work > header { min-height: 90px; padding: 18px 0; gap: 10px; }
   .work h1 { font-size: 24px; }
