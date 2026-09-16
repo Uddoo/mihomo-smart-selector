@@ -30,25 +30,27 @@ type MonitorRevision struct {
 }
 
 type MonitorPlan struct {
-	ID          string        `json:"id"`
-	Revision    int           `json:"revision"`
-	Enabled     bool          `json:"enabled"`
-	AutoSwitch  bool          `json:"auto_switch"`
-	Group       string        `json:"group"`
-	ProfileID   string        `json:"profile_id"`
-	ProfileHash string        `json:"profile_hash"`
-	Nodes       []MonitorNode `json:"nodes"`
-	CreatedAt   time.Time     `json:"created_at"`
-	UpdatedAt   time.Time     `json:"updated_at,omitempty"`
+	ID             string        `json:"id"`
+	Revision       int           `json:"revision"`
+	Enabled        bool          `json:"enabled"`
+	AutoSwitch     bool          `json:"auto_switch"`
+	CandidateLimit int           `json:"candidate_limit"`
+	Group          string        `json:"group"`
+	ProfileID      string        `json:"profile_id"`
+	ProfileHash    string        `json:"profile_hash"`
+	Nodes          []MonitorNode `json:"nodes"`
+	CreatedAt      time.Time     `json:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at,omitempty"`
 }
 
 type MonitorRequest struct {
-	Revision   int      `json:"revision"`
-	Enabled    bool     `json:"enabled"`
-	AutoSwitch *bool    `json:"auto_switch,omitempty"`
-	Group      string   `json:"group"`
-	ProfileID  string   `json:"profile_id"`
-	Nodes      []string `json:"nodes"`
+	Revision       int      `json:"revision"`
+	Enabled        bool     `json:"enabled"`
+	AutoSwitch     *bool    `json:"auto_switch,omitempty"`
+	CandidateLimit *int     `json:"candidate_limit,omitempty"`
+	Group          string   `json:"group"`
+	ProfileID      string   `json:"profile_id"`
+	Nodes          []string `json:"nodes"`
 }
 
 type MonitorSample struct {

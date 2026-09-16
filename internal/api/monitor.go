@@ -197,7 +197,7 @@ func (s *Server) monitorRoute(w http.ResponseWriter, r *http.Request) {
 			present[n.Name] = true
 		}
 		add := func(name string) {
-			if present[name] && !seen[name] && len(suggested) < 6 {
+			if present[name] && !seen[name] && len(suggested) < monitor.Limits().DefaultCandidateLimit {
 				suggested = append(suggested, name)
 				seen[name] = true
 			}
@@ -219,7 +219,7 @@ func (s *Server) monitorRoute(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		writeJSON(w, 200, map[string]any{"nodes": nodes, "current": current, "suggested": suggested, "probe_count": len(p.Probes)})
+		writeJSON(w, 200, map[string]any{"nodes": nodes, "current": current, "suggested": suggested, "probe_count": len(p.Probes), "limits": monitor.Limits()})
 	default:
 		writeError(w, 404, "监控接口不存在")
 	}

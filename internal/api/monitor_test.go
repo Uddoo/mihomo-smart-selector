@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
@@ -20,6 +21,83 @@ import (
 )
 
 type monitorController struct{ testController }
+
+type manyMonitorController struct{ monitorController }
+
+func (manyMonitorController) ListProxies(context.Context) (map[string]mihomo.Proxy, error) {
+	proxies := map[string]mihomo.Proxy{}
+	names := []string{}
+	for i := 1; i <= 31; i++ {
+		name := fmt.Sprintf("node-%02d", i)
+		names = append(names, name)
+		proxies[name] = mihomo.Proxy{Name: name, Type: "VLESS"}
+	}
+	proxies["ChatGPT"] = mihomo.Proxy{Name: "ChatGPT", Type: "Selector", Now: names[0], All: names}
+	return proxies, nil
+}
+
+func TestMonitorCandidateLimitHTTPContract(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.HTTP = config.HTTPConfig{Listen: "127.0.0.1:8788", AllowedCIDRs: []string{"127.0.0.1/32"}}
+	store, err := history.Open(filepath.Join(t.TempDir(), "monitor.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	controller := manyMonitorController{}
+	scanner := scan.NewManager(cfg, controller, store)
+	mon, err := monitor.New(store, scanner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := New(cfg.HTTP, scanner, controller)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.WithMonitor(mon)
+	call := func(method, path, body string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(method, path, strings.NewReader(body))
+		r.RemoteAddr = "127.0.0.1:4321"
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, r)
+		return w
+	}
+	w := call("GET", "/api/v1/monitor/catalog?group=ChatGPT&profile_id=chatgpt", "")
+	var catalog struct {
+		Nodes  []model.MonitorNode     `json:"nodes"`
+		Limits monitor.CandidateLimits `json:"limits"`
+	}
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &catalog) != nil || len(catalog.Nodes) != 31 || catalog.Limits != monitor.Limits() {
+		t.Fatal("discovery contract", w.Code, w.Body.String())
+	}
+	for _, value := range []string{"0", "31", "1.5", `"30"`} {
+		body := `{"revision":0,"enabled":true,"group":"ChatGPT","profile_id":"chatgpt","nodes":["node-01"],"candidate_limit":` + value + `}`
+		w = call("PUT", "/api/v1/monitor/plan", body)
+		if w.Code != 400 && w.Code != 409 {
+			t.Fatal("invalid limit accepted", value, w.Code)
+		}
+	}
+	names := []string{}
+	for i := 1; i <= 30; i++ {
+		names = append(names, fmt.Sprintf("node-%02d", i))
+	}
+	body, _ := json.Marshal(map[string]any{"revision": 0, "enabled": true, "group": "ChatGPT", "profile_id": "chatgpt", "nodes": names, "candidate_limit": 30})
+	w = call("PUT", "/api/v1/monitor/plan", string(body))
+	var p model.MonitorPlan
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &p) != nil || p.CandidateLimit != 30 || len(p.Nodes) != 30 {
+		t.Fatal("30-node save failed", w.Code, w.Body.String())
+	}
+	if w = call("PUT", "/api/v1/monitor/plan", string(body)); w.Code != 409 {
+		t.Fatal("stale revision accepted", w.Code)
+	}
+	w = call("GET", "/api/v1/monitor", "")
+	var overview struct {
+		Plan model.MonitorPlan `json:"plan"`
+	}
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &overview) != nil || overview.Plan.CandidateLimit != 30 || len(overview.Plan.Nodes) != 30 {
+		t.Fatal("saved plan readback", w.Code, w.Body.String())
+	}
+}
 
 func (monitorController) ListProxies(context.Context) (map[string]mihomo.Proxy, error) {
 	return map[string]mihomo.Proxy{"ChatGPT": {Name: "ChatGPT", Type: "Selector", Now: "node", All: []string{"node", "DIRECT"}}, "node": {Name: "node", Type: "VLESS"}, "DIRECT": {Name: "DIRECT", Type: "Direct"}}, nil

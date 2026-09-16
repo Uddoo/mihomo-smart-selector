@@ -62,6 +62,9 @@ func New(store *history.Store, source Source) (*Manager, error) {
 	}
 	m.instanceID = hex.EncodeToString(boot[:])
 	if p != nil {
+		if p.CandidateLimit == 0 {
+			p.CandidateLimit = Limits().DefaultCandidateLimit
+		}
 		m.states, m.slots, err = store.MonitorCheckpoint(context.Background(), p.Nodes)
 	}
 	return m, err
@@ -103,11 +106,25 @@ func (m *Manager) Save(ctx context.Context, r model.MonitorRequest) (*model.Moni
 	if r.Revision != previous {
 		return nil, fmt.Errorf("监控配置已变化，请刷新后重试")
 	}
+	limit := Limits().DefaultCandidateLimit
+	if old != nil {
+		limit = old.CandidateLimit
+	}
+	if r.CandidateLimit != nil {
+		limit = *r.CandidateLimit
+	}
+	if limit < 1 || limit > Limits().MaxCandidateLimit {
+		return nil, fmt.Errorf("监控候选上限必须为 1–30 的整数")
+	}
 	// Pausing must also work while the Controller or profile is unavailable.
 	if !r.Enabled {
 		if old == nil {
 			return nil, fmt.Errorf("尚未创建监控")
 		}
+		if len(old.Nodes) > limit {
+			return nil, fmt.Errorf("已选节点超过候选上限，请减少节点或提高上限")
+		}
+		old.CandidateLimit = limit
 		old.Enabled = false
 		if r.AutoSwitch != nil {
 			old.AutoSwitch = *r.AutoSwitch
@@ -126,8 +143,11 @@ func (m *Manager) Save(ctx context.Context, r model.MonitorRequest) (*model.Moni
 	if err != nil {
 		return nil, err
 	}
-	if len(r.Nodes) < 1 || len(r.Nodes) > 6 || len(r.Nodes)*len(p.Probes) > 6 {
-		return nil, fmt.Errorf("请选 1–6 个叶子节点；节点数 × 探测目标数不能超过 6")
+	if len(p.Probes) < 1 || len(p.Probes) > Limits().MaxProbeCount {
+		return nil, fmt.Errorf("监控模板须包含 1–6 个探测目标，请调整服务模板")
+	}
+	if len(r.Nodes) < 1 || len(r.Nodes) > limit {
+		return nil, fmt.Errorf("请选择至少 1 个叶子节点，且不超过候选上限")
 	}
 	selected := []model.MonitorNode{}
 	seen := map[string]bool{}
@@ -149,7 +169,7 @@ func (m *Manager) Save(ctx context.Context, r model.MonitorRequest) (*model.Moni
 		}
 	}
 	hash := scan.MonitorProfileHash(p)
-	plan := &model.MonitorPlan{Enabled: true, Group: r.Group, ProfileID: p.ID, ProfileHash: hash, Nodes: selected, Revision: previous + 1, CreatedAt: m.now()}
+	plan := &model.MonitorPlan{Enabled: true, CandidateLimit: limit, Group: r.Group, ProfileID: p.ID, ProfileHash: hash, Nodes: selected, Revision: previous + 1, CreatedAt: m.now()}
 	if old != nil && old.Group == plan.Group {
 		plan.AutoSwitch = old.AutoSwitch
 	}
@@ -422,7 +442,7 @@ func (m *Manager) step(ctx context.Context, now time.Time) {
 	} else {
 		sample.Outcome = "success"
 		for _, probe := range profile.Probes {
-			if !m.takeBudget(now) {
+			if !m.takeBudget(m.now()) {
 				sample.Outcome = "unknown"
 				sample.Reason = "已达到后台请求预算，本次未完成"
 				sample.ReasonCode = "budget"
@@ -488,7 +508,11 @@ func (m *Manager) takeBudget(now time.Time) bool {
 		}
 	}
 	m.attempts = recent
-	if len(m.attempts) >= 12 {
+	nodes := 0
+	if m.plan != nil {
+		nodes = len(m.plan.Nodes)
+	}
+	if len(m.attempts) >= requestBudget(nodes, len(m.profile.Probes)) {
 		return false
 	}
 	m.attempts = append(m.attempts, now)
