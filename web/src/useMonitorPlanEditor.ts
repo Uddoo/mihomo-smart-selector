@@ -1,9 +1,9 @@
 import {computed, nextTick, onBeforeUnmount, ref, watch} from 'vue'
 import {api} from './api'
 import type {Group, ServiceCatalog} from './models'
-import type {MonitorCatalog, MonitorPlan} from './monitoring'
+import type {MonitorCatalog, MonitorPlan, MonitorRetention} from './monitoring'
 
-export interface MonitorPlanEditorProps {plan?: MonitorPlan | null; groups: Group[]; services: ServiceCatalog | null; disabled: boolean}
+export interface MonitorPlanEditorProps {plan?: MonitorPlan | null; groups: Group[]; services: ServiceCatalog | null; disabled: boolean; retentionPolicy?: MonitorRetention | null}
 
 export function useMonitorPlanEditor(props: MonitorPlanEditorProps, events: {saved: () => void; busy: (value: boolean) => void}) {
   // Capture the revision when editing begins. Polling must not silently rebase a draft.
@@ -13,6 +13,8 @@ export function useMonitorPlanEditor(props: MonitorPlanEditorProps, events: {sav
   const candidateLimit = ref<number | string>(props.plan?.candidate_limit || 6)
   const query = ref(''), catalog = ref<MonitorCatalog | null>(null)
   const catalogBusy = ref(false), catalogError = ref(''), saveError = ref(''), saving = ref(false)
+  const storedRetention = ref<MonitorRetention | null>(null), retentionError = ref(false)
+  const retention = computed(() => props.retentionPolicy || storedRetention.value)
   const profiles = computed(() => props.services?.profiles.filter(p => !p.requires_configuration) || [])
   const filtered = computed(() => catalog.value?.nodes.filter(n => n.name.toLowerCase().includes(query.value.toLowerCase())) || [])
   const missing = computed(() => catalog.value ? chosen.value.filter(name => !catalog.value!.nodes.some(n => n.name === name)) : [])
@@ -28,6 +30,16 @@ export function useMonitorPlanEditor(props: MonitorPlanEditorProps, events: {sav
   const canSave = computed(() => !props.disabled && !saving.value && !catalogBusy.value && validLimit.value && validProfile.value && chosen.value.length > 0 && !overLimit.value && !missing.value.length)
   let disposed = false, catalogRevision = 0, initializing = true
   let catalogAbort: AbortController | undefined
+  let retentionAbort: AbortController | undefined
+  async function loadRetention() {
+    retentionAbort?.abort()
+    const controller = new AbortController(); retentionAbort = controller
+    retentionError.value = false
+    try {
+      const value = await api<MonitorRetention>('/monitor/retention', {signal: controller.signal})
+      if (!disposed && !controller.signal.aborted) storedRetention.value = value
+    } catch { if (!disposed && !controller.signal.aborted) retentionError.value = true }
+  }
 
   function defaults() {
     if (!group.value) group.value = props.groups.find(g => /ChatGPT/i.test(g.name))?.name || props.groups[0]?.name || ''
@@ -56,7 +68,8 @@ export function useMonitorPlanEditor(props: MonitorPlanEditorProps, events: {sav
     if (!disposed) await loadCatalog(!!props.plan)
   }
   void initialize()
-  onBeforeUnmount(() => { disposed = true; catalogAbort?.abort() })
+  void loadRetention()
+  onBeforeUnmount(() => { disposed = true; catalogAbort?.abort(); retentionAbort?.abort() })
   async function save() {
     if (!canSave.value) return
     saving.value = true; events.busy(true); saveError.value = ''
@@ -66,5 +79,5 @@ export function useMonitorPlanEditor(props: MonitorPlanEditorProps, events: {sav
     } catch (e) { if (!disposed) saveError.value = e instanceof Error ? e.message : '保存失败' }
     finally { saving.value = false; events.busy(false) }
   }
-  return {group, profile, chosen, candidateLimit, query, catalog, catalogBusy, catalogError, saveError, saving, profiles, filtered, missing, maxLimit, validLimit, overLimit, validProfile, estimated, budget, canSave, loadCatalog, save}
+  return {group, profile, chosen, candidateLimit, query, catalog, catalogBusy, catalogError, retention, retentionError, loadRetention, saveError, saving, profiles, filtered, missing, maxLimit, validLimit, overLimit, validProfile, estimated, budget, canSave, loadCatalog, save}
 }

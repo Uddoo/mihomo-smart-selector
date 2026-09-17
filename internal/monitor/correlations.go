@@ -103,6 +103,9 @@ func (m *Manager) correlate(ctx context.Context, now time.Time) {
 func (m *Manager) Storage(ctx context.Context) (model.MonitorStorage, error) {
 	return m.store.MonitorStorage(ctx, m.source.MonitorScope())
 }
+func (m *Manager) Retention(ctx context.Context) (model.MonitorRetention, error) {
+	return m.store.MonitorRetention(ctx, m.source.MonitorScope())
+}
 func (m *Manager) SaveRetention(ctx context.Context, p model.MonitorRetention) (model.MonitorRetention, error) {
 	saved, err := m.store.SaveMonitorRetention(ctx, m.source.MonitorScope(), p)
 	if err == nil {

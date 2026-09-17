@@ -2,11 +2,12 @@
 import {RefreshCw} from '@lucide/vue'
 import {t, translateMessage, formatNumber} from './i18n'
 import {useMonitorPlanEditor} from './useMonitorPlanEditor'
+import MonitorCapacityNotice from './MonitorCapacityNotice.vue'
 import type {MonitorPlanEditorProps} from './useMonitorPlanEditor'
 
 const props = defineProps<MonitorPlanEditorProps>()
 const emit = defineEmits<{saved: []; cancel: []; busy: [value: boolean]}>()
-const {group, profile, chosen, candidateLimit, query, catalog, catalogBusy, catalogError, saveError, saving, profiles, filtered, missing, maxLimit, validLimit, overLimit, validProfile, estimated, budget, canSave, loadCatalog, save} = useMonitorPlanEditor(props, {saved: () => emit('saved'), busy: value => emit('busy', value)})
+const {group, profile, chosen, candidateLimit, query, catalog, catalogBusy, catalogError, retention, retentionError, loadRetention, saveError, saving, profiles, filtered, missing, maxLimit, validLimit, overLimit, validProfile, estimated, budget, canSave, loadCatalog, save} = useMonitorPlanEditor(props, {saved: () => emit('saved'), busy: value => emit('busy', value)})
 </script>
 
 <template>
@@ -33,6 +34,8 @@ const {group, profile, chosen, candidateLimit, query, catalog, catalogBusy, cata
     <p v-if="catalog && !filtered.length">{{ t('没有匹配的候选；请调整搜索或检查策略组。') }}</p>
     <p v-if="catalog && validProfile" class="monitor-note">{{ t('每个节点探测 {p0} 个目标。基准采样每 2 分钟，当前节点附加检查每 30 秒；预计约 {p1} 次探测/天，确认请求另计。后台共享预算为每分钟 {p2} 次。', {p0: catalog.probe_count, p1: formatNumber(estimated), p2: budget}) }}</p>
     <p class="monitor-note">{{ t('节点越多，探测与存储开销越高。慢响应或扫描占用可能造成缺测；缺测不会计为节点失败。') }}</p>
+    <MonitorCapacityNotice v-if="retention" :candidate-count="chosen.length" :policy="retention"/>
+    <p v-if="retentionError && !retention" class="monitor-note" role="status">{{ t('保留策略读取失败，暂不能估算容量。') }} <button type="button" @click="loadRetention">{{ t('重新读取') }}</button></p>
     <p v-if="plan" class="monitor-note">{{ t('暂停、继续同一方案保留评分。调整候选列表会保留未变化节点的历史；模板或节点身份改变时分开记录，可在历史序列中查看。') }}</p>
     <p v-if="saveError" class="bad" role="alert">{{ translateMessage(saveError) }}</p>
     <div class="monitor-actions"><button class="primary" :disabled="!canSave">{{ saving ? t('正在保存') : plan ? t('保存并监控') : t('开始监控') }}</button><button v-if="plan" type="button" :disabled="disabled" @click="emit('cancel')">{{ t('取消调整') }}</button></div>

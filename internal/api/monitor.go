@@ -21,6 +21,13 @@ func (s *Server) monitorRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch {
+	case r.URL.Path == "/api/v1/monitor/retention" && r.Method == http.MethodGet:
+		out, err := s.monitor.Retention(r.Context())
+		if err != nil {
+			writeError(w, 500, "无法读取监控保留策略")
+			return
+		}
+		writeJSON(w, 200, out)
 	case r.URL.Path == "/api/v1/monitor/storage" && r.Method == http.MethodGet:
 		out, err := s.monitor.Storage(r.Context())
 		if err != nil {

@@ -4,6 +4,22 @@ import {scanResultMessages} from './scanResults.ts'
 import {connectivityMessages} from './connectivity.ts'
 import {historyMessages} from './history.ts'
 export const en = {
+  "容量不足": "Insufficient capacity",
+  "候选与保留容量": "Candidate and retention capacity",
+  "按 {p0} 个已选候选估算保留容量": "Estimated retention for {p0} selected candidates",
+  "原始记录": "Raw records",
+  "小时聚合": "Hourly aggregates",
+  "约 {p0} / {p1} 天": "About {p0} / {p1} days",
+  "覆盖所设天数预计需要原始 {p0} 条、聚合 {p1} 条。": "The configured duration needs an estimated {p0} raw records and {p1} hourly records.",
+  "条数上限不足，历史可能提前淘汰：原始还差 {p0} 条，聚合还差 {p1} 条。": "Record limits may expire history early: short by {p0} raw records and {p1} hourly records.",
+  "按实际勾选数量计算，不按候选上限计算。原始估算含当前节点检查；确认、复测与旧序列另占容量，实际可保留时间可能更短。": "Uses actual selections, not the candidate limit. The raw estimate includes current-node checks; confirmations, retests and older series use additional capacity, so actual retention may be shorter.",
+  "所需容量超过允许上限，请缩短保留天数或减少候选。": "Required capacity exceeds the allowed limits. Reduce retention days or the number of candidates.",
+  "补足容量，尽量预留 20% 余量": "Fill capacity, allowing 20% headroom where possible",
+  "仅填入条数草稿，不降低已有上限；点击保存保留策略后生效。": "Only fills the draft record limits, without lowering existing caps. Save the retention policy to apply.",
+  "可在监控设置的保留策略中补足容量，保存监控方案不会自动更改保留策略。": "Increase capacity in monitoring retention settings. Saving a monitoring plan does not change the retention policy.",
+  "保留策略读取失败，暂不能估算容量。": "Could not read the retention policy. Capacity estimates are unavailable.",
+  "容量已填入草稿，请保存保留策略后生效。": "Capacity limits filled in the draft. Save the retention policy to apply.",
+  "无法读取监控保留策略": "Could not read the monitoring retention policy",
   "经典 Geist": "Classic Geist",
   "雾蓝 Ocean": "Ocean",
   "鸢尾 Iris": "Iris",

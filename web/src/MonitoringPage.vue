@@ -10,11 +10,12 @@ import MonitorPlanEditor from './MonitorPlanEditor.vue'
 import MonitorHistoryPanel from './MonitorHistoryPanel.vue'
 import MonitorDiagnosticsPanel from './MonitorDiagnosticsPanel.vue'
 import { monitorStatus, monitorTime } from './monitoring'
-import type { MonitorActivity, MonitorRow } from './monitoring'
+import type { MonitorActivity, MonitorRow, MonitorRetention } from './monitoring'
 
 const props = defineProps<{ groups: Group[]; services: ServiceCatalog | null; scanLocked: boolean }>()
 const emit = defineEmits<{ openScan: [group: string, profile: string] }>()
 const windowRange = ref('24h')
+const retentionPolicy = ref<MonitorRetention | null>(null)
 const {data, failure, lastUpdated, refresh} = useMonitorOverview(windowRange)
 const tabs = [{id: 'overview', label: '概览'}, {id: 'details', label: '节点详情'}, {id: 'events', label: '事件时间线'}, {id: 'settings', label: '监控设置'}] as const
 type MonitorTab = typeof tabs[number]['id']
@@ -100,7 +101,7 @@ async function retest(id: string) {
     <div :id="'monitor-panel-' + tab" role="tabpanel" :aria-labelledby="'monitor-tab-' + tab" class="monitor-section">
     <p v-if="initialized && !plan && tab !== 'settings'" class="monitor-note">{{ t('尚未创建监控方案。') }}<button @click="tab = 'settings'">{{ t('前往监控设置') }}</button></p>
     <p v-if="!initialized" role="status">{{ t('正在读取路由器上的监控记录…') }}</p>
-    <MonitorPlanEditor v-if="editing" v-show="tab === 'settings'" :plan="plan" :groups="groups" :services="services" :disabled="busy" @busy="busy = $event" @saved="saved" @cancel="editing = false"/>
+    <MonitorPlanEditor v-if="editing" v-show="tab === 'settings'" :plan="plan" :retention-policy="retentionPolicy" :groups="groups" :services="services" :disabled="busy" @busy="busy = $event" @saved="saved" @cancel="editing = false"/>
     <template v-if="plan && data">
       <div v-if="data.issue" class="notice warning" role="alert">{{ translateMessage(data.issue) }}</div>
 
@@ -127,7 +128,7 @@ async function retest(id: string) {
       <section class="monitor-panel"><div class="monitor-heading"><div><h3>{{ t('故障自动切换') }}</h3><p>{{ t('当前节点连续失败并确认不可用时，从当前健康且近期有成功样本的监控节点中选择近 24 小时成功率最高者；并列时选 P95 更低者。') }}</p></div><button role="switch" :aria-label="t('故障自动切换')" :aria-checked="plan.auto_switch" :class="{primary: plan.auto_switch}" :disabled="busy" @click="toggleAuto">{{ plan.auto_switch ? t('已开启') : t('已关闭') }}</button></div><p class="monitor-note">{{ t('切换前再测一次；没有可用候选时不切换。自动切换距最近一次切换至少间隔 2 分钟，结果不确定时停止自动重试，可在“选择历史”核对。暂停监控也会暂停自动切换。') }}</p><p v-if="data.failover_message" role="status">{{ translateMessage(data.failover_message) }}</p></section>
       <p v-if="!editing"><button @click="edit">{{ t('编辑监控方案') }}</button> {{ t('· 当前方案创建于 {p0}', {p0: monitorTime(plan.created_at)}) }}</p>
       </div>
-      <MonitorDiagnosticsPanel v-show="tab === 'events' || tab === 'settings'" :window="windowRange" :active="tab === 'events' || tab === 'settings'" :mode="tab === 'events' ? 'events' : 'settings'" @locate="locateEvent"/>
+      <MonitorDiagnosticsPanel v-show="tab === 'events' || tab === 'settings'" :candidate-count="plan.nodes.length" @retention-read="retentionPolicy = $event" :window="windowRange" :active="tab === 'events' || tab === 'settings'" :mode="tab === 'events' ? 'events' : 'settings'" @locate="locateEvent"/>
       <p class="monitor-note">{{ t('页面每 5 秒读取后台快照。原始记录保留 {p0} 天；支持 1h/24h/7d 分析与小时聚合。长连接未验证，同名节点换出口可能无法识别。', {p0: data.retention_days}) }}</p>
     </template>
     </div>
