@@ -23,6 +23,7 @@ CREATE INDEX IF NOT EXISTS monitor_samples_retention ON monitor_samples(at);
 CREATE TABLE IF NOT EXISTS monitor_states (plan_id TEXT NOT NULL,node_id TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(plan_id,node_id));
 CREATE TABLE IF NOT EXISTS monitor_events (id INTEGER PRIMARY KEY AUTOINCREMENT,plan_id TEXT NOT NULL,at INTEGER NOT NULL,payload TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS monitor_events_time ON monitor_events(plan_id,at);
+CREATE INDEX IF NOT EXISTS monitor_events_plan_id ON monitor_events(plan_id,id);
 `)
 	if err != nil {
 		return err
@@ -224,8 +225,13 @@ func (s *Store) MonitorSamples(ctx context.Context, plan string, since time.Time
 	return out, rows.Err()
 }
 
+// Resolve the bounded identities before loading JSON. The matching plan/id index
+// makes this an ordered seek; the narrow subquery also avoids reading every JSON
+// payload when an older read-only database only has the plan/time index.
+const monitorEventsQuery = `SELECT id,payload FROM monitor_events WHERE id IN (SELECT id FROM monitor_events WHERE plan_id=? ORDER BY id DESC LIMIT 100) ORDER BY id DESC`
+
 func (s *Store) MonitorEvents(ctx context.Context, plan string) ([]model.MonitorEvent, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id,payload FROM monitor_events WHERE plan_id=? ORDER BY id DESC LIMIT 100`, plan)
+	rows, err := s.db.QueryContext(ctx, monitorEventsQuery, plan)
 	if err != nil {
 		return nil, err
 	}
