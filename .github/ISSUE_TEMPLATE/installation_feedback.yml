@@ -16,7 +16,7 @@ body:
     attributes:
       label: 应用版本 / Application version
       description: Release tag or source commit; copy from the package name or -version output.
-      placeholder: v0.1.0-rc.x / commit SHA
+      placeholder: v0.1.0 / commit SHA
     validations:
       required: true
   - type: input

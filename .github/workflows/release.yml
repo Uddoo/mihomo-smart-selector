@@ -18,7 +18,7 @@ jobs:
       contents: read
 
   draft:
-    name: Attach tested packages to a draft prerelease
+    name: Attach tested packages to a draft release
     needs: checks
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -43,8 +43,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          prerelease_args=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            prerelease_args+=(--prerelease)
+          fi
           gh release create "$RELEASE_TAG" \
             dist/release/*.zip dist/release/*.tar.gz dist/release/SHA256SUMS.txt \
-            --verify-tag --draft --prerelease \
+            --verify-tag --draft "${prerelease_args[@]}" \
             --title "Mihomo Smart Selector $RELEASE_TAG" \
             --notes-file "docs/releases/$RELEASE_TAG.md"

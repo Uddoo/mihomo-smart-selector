@@ -4,10 +4,37 @@ All notable user-visible and operator-visible changes to Mihomo Smart Selector
 will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
-the project intends to use [Semantic Versioning](https://semver.org/) once
-versioned releases begin.
+the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+
+## [v0.1.0] - 2026-09-17
+
+The first stable release brings the release-candidate series into a regular
+release: service-oriented node comparison, confirmed switching with audit
+history, persistent monitoring, browser connectivity checks, and portable
+Windows/macOS packages. Pre-1.0 API and configuration compatibility may evolve;
+the existing measurement and platform-validation boundaries still apply.
+
+### Added
+
+- Link retention-capacity estimates to the actual selected monitoring candidates.
+  Show effective raw/hourly retention, required record counts and shortfalls in
+  the plan editor and storage settings. Offer an explicit draft-only adjustment
+  that fills record limits with up to 20% headroom, without lowering existing
+  caps or changing configured days. Saving a monitoring plan never silently
+  changes the retention policy.
+- Add a lightweight read-only retention-policy endpoint and eight capacity
+  regressions for 12/30 candidates, reactive drafts, invalid input and limits.
+
+### Fixed
+
+- Select the latest 100 event IDs before loading JSON payloads, and add a
+  `(plan_id,id)` index so monitoring overviews do not read and sort every event
+  payload as history grows. Preserve event identities, contents and ordering;
+  provide an opt-in regression against an existing read-only database.
+- Distinguish stable tags from prerelease tags when preparing release drafts.
+  Update the download entry points and release badges to prefer stable releases.
 
 ## [v0.1.0-rc.11] - 2026-09-16
 
@@ -397,7 +424,10 @@ The rc.6 build candidate was not published. This release includes its changes.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.8...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0...HEAD
+[v0.1.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.11...v0.1.0
+[v0.1.0-rc.11]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.9...v0.1.0-rc.11
+[v0.1.0-rc.9]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.8...v0.1.0-rc.9
 [v0.1.0-rc.8]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.7...v0.1.0-rc.8
 [v0.1.0-rc.7]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.5...v0.1.0-rc.7
 [v0.1.0-rc.5]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.4...v0.1.0-rc.5

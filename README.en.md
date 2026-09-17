@@ -11,7 +11,7 @@
   <a href="README.md">简体中文</a>
 </p>
 <p align="center">
-  <a href="https://github.com/Uddoo/mihomo-smart-selector/releases"><img src="https://img.shields.io/github/v/release/Uddoo/mihomo-smart-selector?include_prereleases&amp;sort=semver&amp;label=release" alt="Latest release (including pre-releases)" /></a>
+  <a href="https://github.com/Uddoo/mihomo-smart-selector/releases"><img src="https://img.shields.io/github/v/release/Uddoo/mihomo-smart-selector?sort=semver&amp;label=release" alt="Latest stable release" /></a>
   <a href="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml"><img src="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status" /></a>
   <a href="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/codeql.yml"><img src="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL status" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license" /></a>
@@ -51,8 +51,8 @@ separate probe Selector. The Controller secret stays on the backend.
 You need a running Mihomo instance, its HTTP Controller address and secret, and
 a `Selector` group whose nodes you want to compare. Desktop packages need **no Go or Node.js**.
 
-Open **[GitHub Releases](https://github.com/Uddoo/mihomo-smart-selector/releases)**,
-choose a published release, and expand **Assets**:
+Open the **[latest stable release](https://github.com/Uddoo/mihomo-smart-selector/releases/latest)**
+and expand **Assets**:
 
 | Your device | Choose this asset suffix | Installation guide |
 | --- | --- | --- |
@@ -158,7 +158,7 @@ ties), after a fresh check. Switches have durable audits and a two-minute cooldo
 <a id="compatibility"></a>
 ## Verified environments & project status
 
-**Pre-release.** This README follows `main`; downloadable builds follow their
+**First stable release: `v0.1.0`.** This README follows `main`; downloadable builds follow their
 [release notes](https://github.com/Uddoo/mihomo-smart-selector/releases). Changes
 on `main` can arrive before a public package. Check your installed version before
 relying on a newly documented behavior.

@@ -11,7 +11,7 @@
   <a href="README.en.md">English</a>
 </p>
 <p align="center">
-  <a href="https://github.com/Uddoo/mihomo-smart-selector/releases"><img src="https://img.shields.io/github/v/release/Uddoo/mihomo-smart-selector?include_prereleases&amp;sort=semver&amp;label=%E7%89%88%E6%9C%AC" alt="最新版本（含预发布）" /></a>
+  <a href="https://github.com/Uddoo/mihomo-smart-selector/releases"><img src="https://img.shields.io/github/v/release/Uddoo/mihomo-smart-selector?sort=semver&amp;label=%E7%89%88%E6%9C%AC" alt="最新正式版本" /></a>
   <a href="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml"><img src="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 状态" /></a>
   <a href="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/codeql.yml"><img src="https://github.com/Uddoo/mihomo-smart-selector/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL 状态" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT-blue" alt="MIT 许可证" /></a>
@@ -50,8 +50,8 @@
 你需要一个正在运行的 Mihomo、它的 HTTP Controller 地址与密钥，以及要比较的 `Selector` 策略组。
 桌面便携包 **无需安装 Go 或 Node.js**。
 
-打开 **[GitHub Releases](https://github.com/Uddoo/mihomo-smart-selector/releases)**，
-选择已发布版本，展开 **Assets**，按设备下载：
+打开 **[最新正式版](https://github.com/Uddoo/mihomo-smart-selector/releases/latest)**，
+展开 **Assets**，按设备下载：
 
 | 你的设备 | 选择文件名以此结尾的附件 | 安装说明 |
 | --- | --- | --- |
@@ -139,7 +139,7 @@ Clash Party 用户可以在客户端 **内核设置** 中找到 Controller 的�
 <a id="compatibility"></a>
 ## 已验证环境与项目状态
 
-**预发布阶段。** 本 README 跟随 `main`，下载版本以对应的
+**首个正式版 `v0.1.0`。** 本 README 跟随 `main`，下载版本以对应的
 [Release 说明](https://github.com/Uddoo/mihomo-smart-selector/releases) 为准。
 主分支的改进可能尚未包含在公开下载包中，使用新描述的行为前请核对安装版本。
 
