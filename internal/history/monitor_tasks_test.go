@@ -125,8 +125,12 @@ func TestMonitorTaskConcurrentRevisionOnlyOneWriter(t *testing.T) {
 	}
 	defer s.Close()
 	p := taskPlan("a", "g", time.Now().UTC())
+	inputNodes := append([]model.MonitorNode(nil), p.Nodes...)
 	if err = s.SaveMonitorTask(context.Background(), "scope", p, 0); err != nil {
 		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(p.Nodes, inputNodes) {
+		t.Fatal("save mutated caller-owned candidate slice")
 	}
 	p.Revision = 2
 	var wg sync.WaitGroup
@@ -149,6 +153,9 @@ func TestMonitorTaskConcurrentRevisionOnlyOneWriter(t *testing.T) {
 	}
 	if success != 1 || stale != 1 {
 		t.Fatal(success, stale)
+	}
+	if !reflect.DeepEqual(p.Nodes, inputNodes) {
+		t.Fatal("concurrent saves mutated shared input")
 	}
 }
 

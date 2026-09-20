@@ -43,6 +43,8 @@ monitoring schema; back up the complete data directory before upgrading.
 
 ### Fixed
 
+- Copy caller-owned candidate slices before preparing monitoring series, so
+  concurrent saves cannot race while filling identities and serializing plans.
 - Preserve absent and unknown fields in legacy revision payloads during
   migration, and retain task ownership in history pagination and audit queries.
 - Keep initial overview retries working on settings tabs and prevent slow

@@ -91,6 +91,9 @@ INSERT OR IGNORE INTO monitor_migration(id,cursor) VALUES(1,0);
 }
 
 func (s *Store) PrepareMonitorPlan(ctx context.Context, scope string, p *model.MonitorPlan) error {
+	// Plan values can share a caller-owned candidate slice. Own it before filling
+	// identities/anchors so concurrent saves never mutate each other's input.
+	p.Nodes = append([]model.MonitorNode(nil), p.Nodes...)
 	if p.TaskID == "" {
 		old, err := s.MonitorPlan(ctx, scope)
 		if err != nil {
