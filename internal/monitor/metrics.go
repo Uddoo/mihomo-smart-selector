@@ -68,6 +68,37 @@ func metrics(samples []model.MonitorSample, anchor int64, now time.Time) model.M
 }
 
 func windowMetrics(samples []model.MonitorSample, anchor int64, now time.Time, window time.Duration) model.MonitorMetrics {
+	// Generic callers may supply unordered/duplicate evidence. History queries
+	// already guarantee unique, ordered baseline slots and need no normalization.
+	ordered := true
+	last := int64(-1)
+	for _, s := range samples {
+		if s.Kind != "baseline" || s.Slot <= last {
+			ordered = false
+			break
+		}
+		last = s.Slot
+	}
+	if !ordered {
+		indices := make([]int, 0, len(samples))
+		for i := range samples {
+			if samples[i].Kind == "baseline" {
+				indices = append(indices, i)
+			}
+		}
+		sort.SliceStable(indices, func(i, j int) bool { return samples[indices[i]].Slot < samples[indices[j]].Slot })
+		baseline := make([]model.MonitorSample, 0, len(indices))
+		for _, i := range indices {
+			if len(baseline) == 0 || baseline[len(baseline)-1].Slot != samples[i].Slot {
+				baseline = append(baseline, samples[i])
+			}
+		}
+		samples = baseline
+	}
+	return orderedWindowMetrics(samples, anchor, now, window)
+}
+
+func orderedWindowMetrics(samples []model.MonitorSample, anchor int64, now time.Time, window time.Duration) model.MonitorMetrics {
 	out := model.MonitorMetrics{Readiness: "collecting", WindowSeconds: int64(window / time.Second), ObservedSeconds: min(int64(window/time.Second), max(int64(0), now.Unix()-anchor))}
 	start := max(anchor, now.Add(-window).Unix())
 	first := max(int64(0), (start-anchor+Interval-1)/Interval)
@@ -75,23 +106,14 @@ func windowMetrics(samples []model.MonitorSample, anchor int64, now time.Time, w
 	if now.Unix() >= anchor && last >= first {
 		out.Expected = int(last - first + 1)
 	}
-	delays := []int{}
+	delays := make([]int, 0, len(samples))
 	successes := 0
 	previousSlot := int64(-2)
 	failed := false
-	baseline := make([]model.MonitorSample, 0, len(samples))
 	for _, s := range samples {
-		if s.Kind == "baseline" && s.Slot >= first && s.Slot <= last {
-			baseline = append(baseline, s)
-		}
-	}
-	sort.SliceStable(baseline, func(i, j int) bool { return baseline[i].Slot < baseline[j].Slot })
-	seen := make(map[int64]bool, len(baseline))
-	for _, s := range baseline {
-		if seen[s.Slot] {
+		if s.Slot < first || s.Slot > last {
 			continue
 		}
-		seen[s.Slot] = true
 		if s.Outcome == "unknown" {
 			failed = false
 			previousSlot = s.Slot

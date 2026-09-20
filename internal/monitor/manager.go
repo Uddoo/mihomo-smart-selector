@@ -23,7 +23,9 @@ type Source interface {
 	MonitorReachable(context.Context) bool
 }
 
-type Manager struct {
+type TaskRuntime struct {
+	owner              *Manager
+	saveMu             sync.Mutex
 	mu                 sync.Mutex
 	dataVersion        uint64
 	instanceID         string
@@ -42,32 +44,27 @@ type Manager struct {
 	states             map[string]model.MonitorState
 	manual             map[string]bool
 	slots              map[string]int64
-	attempts           []time.Time
 	refreshAt, cleanAt time.Time
-	cancel, inflight   context.CancelFunc
-	done               chan struct{}
+	inflight           context.CancelFunc
 	closed             bool
 	now                func() time.Time
 }
 
-func New(store *history.Store, source Source) (*Manager, error) {
-	p, err := store.MonitorPlan(context.Background(), source.MonitorScope())
-	if err != nil {
-		return nil, err
-	}
-	m := &Manager{store: store, queries: newQueryBudget(), source: source, plan: p, states: map[string]model.MonitorState{}, manual: map[string]bool{}, slots: map[string]int64{}, now: func() time.Time { return time.Now().UTC() }}
-	var boot [12]byte
-	if _, err = rand.Read(boot[:]); err != nil {
-		return nil, err
-	}
-	m.instanceID = hex.EncodeToString(boot[:])
+func newTask(owner *Manager, p *model.MonitorPlan) (*TaskRuntime, error) {
+	m := &TaskRuntime{owner: owner, store: owner.storeRef, source: owner.sourceRef, plan: p, queries: newQueryBudget(), states: map[string]model.MonitorState{}, manual: map[string]bool{}, slots: map[string]int64{}, instanceID: owner.instance, now: owner.clock}
+	m.queries.slots = owner.historySlots
 	if p != nil {
 		if p.CandidateLimit == 0 {
 			p.CandidateLimit = Limits().DefaultCandidateLimit
 		}
-		m.states, m.slots, err = store.MonitorCheckpoint(context.Background(), p.Nodes)
+		var err error
+		m.states, m.slots, err = m.store.MonitorCheckpoint(context.Background(), p.Nodes)
+		if err != nil {
+			return nil, err
+		}
+		owner.budget.set(p.TaskID, requestBudget(len(p.Nodes), 1), p.Enabled)
 	}
-	return m, err
+	return m, nil
 }
 
 func sameNodes(a, b []model.MonitorNode) bool {
@@ -91,13 +88,23 @@ func clonePlan(p *model.MonitorPlan) *model.MonitorPlan {
 	return &v
 }
 
-func (m *Manager) Save(ctx context.Context, r model.MonitorRequest) (*model.MonitorPlan, error) {
+func (m *TaskRuntime) Save(ctx context.Context, r model.MonitorRequest) (*model.MonitorPlan, error) {
+	return m.savePlan(ctx, r, false)
+}
+
+func (m *TaskRuntime) savePlan(ctx context.Context, r model.MonitorRequest, implicit bool) (*model.MonitorPlan, error) {
+	m.saveMu.Lock()
+	defer m.saveMu.Unlock()
 	m.mu.Lock()
 	old := clonePlan(m.plan)
 	closed := m.closed
 	m.mu.Unlock()
 	if closed {
 		return nil, fmt.Errorf("服务正在停止")
+	}
+	var configuredProfile *config.ProbeProfile
+	commit := func(p *model.MonitorPlan, previous int) (*model.MonitorPlan, error) {
+		return m.commitPlan(ctx, p, previous, implicit, configuredProfile)
 	}
 	previous := 0
 	if old != nil {
@@ -109,6 +116,9 @@ func (m *Manager) Save(ctx context.Context, r model.MonitorRequest) (*model.Moni
 	limit := Limits().DefaultCandidateLimit
 	if old != nil {
 		limit = old.CandidateLimit
+		if limit == 0 {
+			limit = Limits().DefaultCandidateLimit
+		}
 	}
 	if r.CandidateLimit != nil {
 		limit = *r.CandidateLimit
@@ -117,7 +127,7 @@ func (m *Manager) Save(ctx context.Context, r model.MonitorRequest) (*model.Moni
 		return nil, fmt.Errorf("监控候选上限必须为 1–30 的整数")
 	}
 	// Pausing must also work while the Controller or profile is unavailable.
-	if !r.Enabled {
+	if !r.Enabled && (implicit || r.Group == "") {
 		if old == nil {
 			return nil, fmt.Errorf("尚未创建监控")
 		}
@@ -130,7 +140,7 @@ func (m *Manager) Save(ctx context.Context, r model.MonitorRequest) (*model.Moni
 			old.AutoSwitch = *r.AutoSwitch
 		}
 		old.Revision++
-		return m.commitPlan(ctx, old, previous)
+		return commit(old, previous)
 	}
 	if r.Group == "" && old != nil {
 		r.Group = old.Group
@@ -169,7 +179,11 @@ func (m *Manager) Save(ctx context.Context, r model.MonitorRequest) (*model.Moni
 		}
 	}
 	hash := scan.MonitorProfileHash(p)
-	plan := &model.MonitorPlan{Enabled: true, CandidateLimit: limit, Group: r.Group, ProfileID: p.ID, ProfileHash: hash, Nodes: selected, Revision: previous + 1, CreatedAt: m.now()}
+	configuredProfile = &p
+	plan := &model.MonitorPlan{Enabled: r.Enabled, CandidateLimit: limit, Group: r.Group, ProfileID: p.ID, ProfileHash: hash, Nodes: selected, Revision: previous + 1, CreatedAt: m.now()}
+	if old != nil {
+		plan.TaskID = old.TaskID
+	}
 	if old != nil && old.Group == plan.Group {
 		plan.AutoSwitch = old.AutoSwitch
 	}
@@ -186,13 +200,16 @@ func (m *Manager) Save(ctx context.Context, r model.MonitorRequest) (*model.Moni
 		}
 		plan.ID = hex.EncodeToString(bytes[:])
 	}
-	return m.commitPlan(ctx, plan, previous)
+	if plan.TaskID == "" {
+		plan.TaskID = plan.ID
+	}
+	return commit(plan, previous)
 }
 
-func (m *Manager) commitPlan(ctx context.Context, p *model.MonitorPlan, previous int) (*model.MonitorPlan, error) {
+func (m *TaskRuntime) commitPlan(ctx context.Context, p *model.MonitorPlan, previous int, implicit bool, profile *config.ProbeProfile) (*model.MonitorPlan, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.closed {
+	if m.closed || m.owner.closing.Load() {
 		return nil, fmt.Errorf("服务正在停止")
 	}
 	if (m.plan == nil && previous != 0) || (m.plan != nil && m.plan.Revision != previous) {
@@ -212,7 +229,11 @@ func (m *Manager) commitPlan(ctx context.Context, p *model.MonitorPlan, previous
 			return nil, e
 		}
 	}
-	if err := m.store.SaveMonitorPlan(ctx, m.source.MonitorScope(), *p, previous); err != nil {
+	save := m.store.SaveMonitorTask
+	if implicit {
+		save = m.store.SaveMonitorPlan
+	}
+	if err := save(ctx, m.source.MonitorScope(), *p, previous); err != nil {
 		return nil, err
 	}
 	if m.inflight != nil {
@@ -223,21 +244,28 @@ func (m *Manager) commitPlan(ctx context.Context, p *model.MonitorPlan, previous
 		m.slots = restoredSlots
 	}
 	m.plan = clonePlan(p)
+	if profile != nil {
+		m.profile = *profile
+	}
 	m.dataVersion++
 	m.manual = map[string]bool{}
 	m.refreshAt = time.Time{}
 	m.current = ""
 	m.issue = ""
-	m.fault = false
+	if p.Enabled {
+		m.fault = false
+		m.owner.storageFault.Store(false)
+	}
+	m.owner.budget.set(p.TaskID, requestBudget(len(p.Nodes), len(m.profile.Probes)), p.Enabled)
 	m.failoverMessage = ""
 	m.failoverAt = time.Time{}
 	return clonePlan(p), nil
 }
 
-func (m *Manager) Retest(node string, revision int) error {
+func (m *TaskRuntime) Retest(node string, revision int) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.closed || m.plan == nil || !m.plan.Enabled || m.fault {
+	if m.closed || m.owner.closing.Load() || m.plan == nil || !m.plan.Enabled || m.fault || m.owner.storageFault.Load() {
 		return fmt.Errorf("请先启动监控")
 	}
 	if m.plan.Revision != revision {
@@ -252,69 +280,13 @@ func (m *Manager) Retest(node string, revision int) error {
 	return fmt.Errorf("节点不在当前监控中")
 }
 
-func (m *Manager) Start() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.cancel != nil || m.closed {
-		return
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	m.cancel = cancel
-	m.done = make(chan struct{})
-	go func() {
-		defer close(m.done)
-		var workers sync.WaitGroup
-		workers.Add(2)
-		go func() {
-			defer workers.Done()
-			ticker := time.NewTicker(time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					m.step(ctx, m.now())
-					m.failover(ctx, m.now())
-					m.correlate(ctx, m.now())
-				}
-			}
-		}()
-		go func() { defer workers.Done(); m.maintenanceLoop(ctx) }()
-
-		workers.Wait()
-	}()
-}
-
-func (m *Manager) Shutdown(ctx context.Context) error {
-	m.mu.Lock()
-	m.closed = true
-	if m.cancel != nil {
-		m.cancel()
-	}
-	if m.inflight != nil {
-		m.inflight()
-	}
-	done := m.done
-	m.mu.Unlock()
-	if done == nil {
-		return nil
-	}
-	select {
-	case <-done:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-func (m *Manager) refresh(ctx context.Context, plan model.MonitorPlan, now time.Time) {
+func (m *TaskRuntime) refresh(ctx context.Context, plan model.MonitorPlan, now time.Time) {
 	probeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	p, nodes, current, err := m.source.MonitorCatalog(probeCtx, plan.Group, plan.ProfileID)
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.plan == nil || m.plan.Revision != plan.Revision {
+	if m.closed || ctx.Err() != nil || m.plan == nil || m.plan.Revision != plan.Revision {
 		return
 	}
 	previousIssue := m.issue
@@ -330,6 +302,7 @@ func (m *Manager) refresh(ctx context.Context, plan model.MonitorPlan, now time.
 			defer cancel()
 			if err := m.store.RecordMonitorSystem(writeCtx, m.source.MonitorScope(), plan.ID, status, message, now); err != nil && ctx.Err() == nil {
 				m.fault = true
+				m.owner.storageFault.Store(true)
 				m.issue = "环境事件写入失败，监控已暂停"
 			}
 		}
@@ -341,28 +314,37 @@ func (m *Manager) refresh(ctx context.Context, plan model.MonitorPlan, now time.
 	m.catalog = map[string]bool{}
 	if err != nil {
 		m.issue = err.Error()
+		m.owner.budget.set(plan.TaskID, 0, false)
 		return
 	}
 	if scan.MonitorProfileHash(p) != plan.ProfileHash {
 		m.issue = "服务探测配置已变化，请重新保存监控，开始新的评分记录"
+		m.owner.budget.set(plan.TaskID, 0, false)
 		return
 	}
 	m.profile = p
+	m.owner.budget.set(plan.TaskID, requestBudget(len(plan.Nodes), len(p.Probes)), plan.Enabled)
 	m.issue = ""
 	for _, n := range nodes {
 		m.catalog[n.ID] = true
 	}
 }
 
-func (m *Manager) step(ctx context.Context, now time.Time) {
+func (m *TaskRuntime) step(ctx context.Context, now time.Time) {
 	m.mu.Lock()
 	p := clonePlan(m.plan)
 	refresh := !now.Before(m.refreshAt)
-	fault := m.fault
+	fault := m.fault || m.owner.storageFault.Load()
+	var stop context.CancelFunc
+	if p != nil && p.Enabled && !fault && !m.closed {
+		ctx, stop = context.WithCancel(ctx)
+		m.inflight = stop
+	}
 	m.mu.Unlock()
-	if p == nil || !p.Enabled || fault {
+	if stop == nil {
 		return
 	}
+	defer stop()
 	if refresh {
 		m.refresh(ctx, *p, now)
 	}
@@ -487,7 +469,11 @@ func (m *Manager) step(ctx context.Context, now time.Time) {
 	}
 	added, err := m.store.RecordMonitor(child, p.ID, sample, state, event)
 	if err != nil {
+		if child.Err() != nil {
+			return
+		}
 		m.fault = true
+		m.owner.storageFault.Store(true)
 		m.dataVersion++
 		m.issue = "监控写入失败，已停止采样；修复存储后点击继续监控"
 		return
@@ -498,31 +484,25 @@ func (m *Manager) step(ctx context.Context, now time.Time) {
 	}
 }
 
-func (m *Manager) takeBudget(now time.Time) bool {
+func (m *TaskRuntime) takeBudget(now time.Time) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	recent := m.attempts[:0]
-	for _, t := range m.attempts {
-		if now.Sub(t) < time.Minute {
-			recent = append(recent, t)
-		}
-	}
-	m.attempts = recent
-	nodes := 0
-	if m.plan != nil {
-		nodes = len(m.plan.Nodes)
-	}
-	if len(m.attempts) >= requestBudget(nodes, len(m.profile.Probes)) {
+	if m.plan == nil || !m.plan.Enabled || m.closed || m.owner.storageFault.Load() {
 		return false
 	}
-	m.attempts = append(m.attempts, now)
-	return true
+	m.owner.budget.set(m.plan.TaskID, requestBudget(len(m.plan.Nodes), len(m.profile.Probes)), true)
+	return m.owner.budget.take(m.plan.TaskID, now)
 }
 
-func (m *Manager) storageFailure() {
+func (m *TaskRuntime) storageFailure() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.storageFailureLocked()
+}
+
+func (m *TaskRuntime) storageFailureLocked() {
 	m.fault = true
+	m.owner.storageFault.Store(true)
 	m.dataVersion++
 	m.issue = "监控存储维护失败，已停止采样；修复存储后点击继续监控"
 }

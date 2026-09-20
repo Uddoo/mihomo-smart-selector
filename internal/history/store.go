@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -15,8 +17,13 @@ import (
 )
 
 type Store struct {
-	db   *sql.DB
-	path string
+	db               *sql.DB
+	path             string
+	evidenceEpoch    atomic.Uint64
+	evidenceMu       sync.Mutex
+	evidenceVersions map[string]uint64
+	taskCacheMu      sync.Mutex
+	taskCache        map[string]map[string]model.MonitorTask
 }
 
 func Open(path string) (*Store, error) {

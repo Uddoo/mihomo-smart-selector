@@ -92,23 +92,37 @@ func (s *Store) ObserveMonitorCorrelation(ctx context.Context, scope string, o m
 	return tx.Commit()
 }
 
-func (s *Store) EndMonitorCorrelations(ctx context.Context, scope, plan string, paused bool, now time.Time) error {
+func (s *Store) EndMonitorCorrelations(ctx context.Context, scope, plan string, paused bool, now time.Time, taskIDs ...string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err = tx.ExecContext(ctx, `UPDATE monitor_correlations SET status='scope_changed',updated_at=? WHERE scope=? AND status IN ('active','uncertain') AND (plan_id!=? OR ?)`, now.Unix(), scope, plan, paused); err != nil {
+	filter := ""
+	args := []any{now.Unix(), scope, plan, paused}
+	stateArgs := []any{scope, plan, paused}
+	if len(taskIDs) > 0 {
+		filter = ` AND plan_id IN (SELECT plan_id FROM monitor_revisions WHERE scope=? AND task_id=?)`
+		args = append(args, scope, taskIDs[0])
+		stateArgs = append(stateArgs, scope, taskIDs[0])
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE monitor_correlations SET status='scope_changed',updated_at=? WHERE scope=? AND status IN ('active','uncertain') AND (plan_id!=? OR ?)`+filter, args...); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, `DELETE FROM monitor_correlation_state WHERE scope=? AND (plan_id!=? OR ?)`, scope, plan, paused); err != nil {
+	if _, err = tx.ExecContext(ctx, `DELETE FROM monitor_correlation_state WHERE scope=? AND (plan_id!=? OR ?)`+filter, stateArgs...); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-func (s *Store) MonitorCorrelations(ctx context.Context, scope string) ([]model.MonitorCorrelation, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id,status,updated_at,payload FROM monitor_correlations WHERE scope=? ORDER BY CASE WHEN status IN ('active','uncertain') THEN 0 ELSE 1 END,updated_at DESC,id DESC LIMIT 100`, scope)
+func (s *Store) MonitorCorrelations(ctx context.Context, scope string, taskIDs ...string) ([]model.MonitorCorrelation, error) {
+	query := `SELECT id,status,updated_at,payload FROM monitor_correlations WHERE scope=?`
+	args := []any{scope}
+	if len(taskIDs) > 0 {
+		query += ` AND plan_id IN (SELECT plan_id FROM monitor_revisions WHERE scope=? AND task_id=?)`
+		args = append(args, scope, taskIDs[0])
+	}
+	rows, err := s.db.QueryContext(ctx, query+` ORDER BY CASE WHEN status IN ('active','uncertain') THEN 0 ELSE 1 END,updated_at DESC,id DESC LIMIT 100`, args...)
 	if err != nil {
 		return nil, err
 	}

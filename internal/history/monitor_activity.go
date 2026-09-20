@@ -17,9 +17,14 @@ type activityCursor struct {
 	At     int64
 	Source string
 	ID     int64
+	Task   string
 }
 
-func (s *Store) MonitorActivities(ctx context.Context, scope string, from, to time.Time, cursor string, limit int) (model.MonitorActivityPage, error) {
+func (s *Store) MonitorActivities(ctx context.Context, scope string, from, to time.Time, cursor string, limit int, taskIDs ...string) (model.MonitorActivityPage, error) {
+	taskID := ""
+	if len(taskIDs) > 0 {
+		taskID = taskIDs[0]
+	}
 	out := model.MonitorActivityPage{Items: []model.MonitorActivity{}}
 	if limit < 1 || limit > 200 || !to.After(from) || to.Sub(from) > 90*24*time.Hour {
 		return out, fmt.Errorf("无效事件范围或分页大小")
@@ -34,7 +39,7 @@ func (s *Store) MonitorActivities(ctx context.Context, scope string, from, to ti
 			return out, fmt.Errorf("无效游标")
 		}
 		var c activityCursor
-		if json.Unmarshal(data, &c) != nil || c.ID < 0 {
+		if json.Unmarshal(data, &c) != nil || c.ID < 0 || c.Task != taskID {
 			return out, fmt.Errorf("无效游标")
 		}
 		if c.Source != "node" && c.Source != "plan" && c.Source != "switch" && c.Source != "provider" && c.Source != "environment" {
@@ -46,13 +51,30 @@ func (s *Store) MonitorActivities(ctx context.Context, scope string, from, to ti
 	sources := []source{
 		{"node", `SELECT e.id,e.at,json_set(e.payload,'$.series_id',COALESCE((SELECT b.series_id FROM monitor_bindings b WHERE b.plan_id=e.plan_id AND b.node_id=json_extract(e.payload,'$.node_id')),''),'$.group',COALESCE((SELECT json_extract(r.payload,'$.group') FROM monitor_revisions r WHERE r.plan_id=e.plan_id ORDER BY r.revision DESC LIMIT 1),'')) AS payload FROM monitor_events e WHERE e.plan_id IN (SELECT plan_id FROM monitor_revisions WHERE scope=?)`},
 		{"environment", `SELECT id,at,json_object('status',status,'message',message) AS payload FROM monitor_system_events WHERE scope=?`},
-		{"plan", `SELECT revision AS id,at,payload FROM monitor_revisions WHERE scope=?`},
+		{"plan", `SELECT id,at,payload FROM monitor_revisions WHERE scope=?`},
 		{"switch", `SELECT id,CAST(strftime('%s',created_at) AS INTEGER) AS at,json_object('status',status,'group',group_name,'previous',previous_member,'selected',selected_member,'scan_id',scan_id,'message',reason) AS payload FROM switch_events WHERE group_name IN (SELECT json_extract(payload,'$.group') FROM monitor_revisions WHERE scope=?)`},
 		{"provider", `SELECT id,updated_at AS at,json_set(payload,'$.status',status) AS payload FROM monitor_correlations WHERE scope=?`},
 	}
 	for _, source := range sources {
-		query := `SELECT id,at,payload FROM (` + source.query + `) WHERE at>=? AND at<=?`
-		args := []any{scope, from.Unix(), to.Unix()}
+		sourceQuery := strings.ReplaceAll(source.query, "monitor_revisions", "filtered_revisions")
+		extraArgs := []any{scope}
+		if taskID != "" {
+			if source.name == "environment" || source.name == "provider" {
+				sourceQuery += ` AND plan_id IN (SELECT plan_id FROM filtered_revisions)`
+			}
+			if source.name == "switch" {
+				sourceQuery += ` AND controller_scope=?`
+				// A task can be rebound to another group. Automatic actions have
+				// exact plan provenance; manual actions belong to the group's
+				// configuration interval, not every task that ever used its name.
+				sourceQuery += ` AND ((scan_id LIKE 'monitor:%' AND scan_id IN (SELECT 'monitor:'||plan_id FROM filtered_revisions)) OR (scan_id NOT LIKE 'monitor:%' AND group_name=(SELECT json_extract(payload,'$.group') FROM filtered_revisions WHERE at<=CAST(strftime('%s',switch_events.created_at) AS INTEGER) ORDER BY at DESC,revision DESC LIMIT 1)))`
+				extraArgs = append(extraArgs, scope)
+			}
+		}
+		query := `WITH filtered_revisions AS (SELECT * FROM monitor_revisions WHERE scope=? AND (?='' OR task_id=?)) SELECT id,at,payload FROM (` + sourceQuery + `) WHERE at>=? AND at<=?`
+		args := []any{scope, taskID, taskID}
+		args = append(args, extraArgs...)
+		args = append(args, from.Unix(), to.Unix())
 		if after != nil {
 			if source.name < after.Source {
 				query += ` AND at<=?`
@@ -154,7 +176,7 @@ func (s *Store) MonitorActivities(ctx context.Context, scope string, from, to ti
 		last := out.Items[len(out.Items)-1]
 		parts := strings.SplitN(last.Key, ":", 2)
 		id, _ := strconv.ParseInt(parts[1], 10, 64)
-		data, _ := json.Marshal(activityCursor{At: last.At.Unix(), Source: parts[0], ID: id})
+		data, _ := json.Marshal(activityCursor{At: last.At.Unix(), Source: parts[0], ID: id, Task: taskID})
 		out.NextCursor = base64.RawURLEncoding.EncodeToString(data)
 	}
 	return out, nil

@@ -16,7 +16,7 @@ type switchSource interface {
 	MonitorSwitch(context.Context, model.MonitorPlan, string, model.MonitorNode, string) (model.SwitchEvent, error)
 }
 
-func (m *Manager) SetAutoSwitch(ctx context.Context, revision int, enabled bool) (*model.MonitorPlan, error) {
+func (m *TaskRuntime) SetAutoSwitch(ctx context.Context, revision int, enabled bool) (*model.MonitorPlan, error) {
 	m.mu.Lock()
 	p := clonePlan(m.plan)
 	m.mu.Unlock()
@@ -64,13 +64,13 @@ func failoverCandidates(o model.MonitorOverview) []model.MonitorRow {
 	return out
 }
 
-func (m *Manager) failover(ctx context.Context, now time.Time) {
+func (m *TaskRuntime) failover(ctx context.Context, now time.Time) {
 	source, ok := m.source.(switchSource)
 	if !ok {
 		return
 	}
 	m.mu.Lock()
-	if m.closed || m.plan == nil || !m.plan.Enabled || !m.plan.AutoSwitch || m.fault || now.Before(m.failoverAt) {
+	if ctx.Err() != nil || m.closed || m.plan == nil || !m.plan.Enabled || !m.plan.AutoSwitch || m.fault || m.owner.storageFault.Load() || now.Before(m.failoverAt) {
 		m.mu.Unlock()
 		return
 	}
@@ -106,7 +106,7 @@ func (m *Manager) failover(ctx context.Context, now time.Time) {
 	}
 	for _, candidate := range candidates {
 		m.mu.Lock()
-		if m.closed || m.plan == nil || m.plan.Revision != o.Plan.Revision || !m.plan.AutoSwitch {
+		if ctx.Err() != nil || m.closed || m.plan == nil || m.plan.Revision != o.Plan.Revision || !m.plan.AutoSwitch || m.owner.storageFault.Load() {
 			m.mu.Unlock()
 			return
 		}
@@ -158,6 +158,12 @@ func (m *Manager) failover(ctx context.Context, now time.Time) {
 		}
 		added, writeErr := m.store.RecordMonitor(child, o.Plan.ID, sample, state, event)
 		if writeErr != nil {
+			if child.Err() != nil {
+				m.mu.Unlock()
+				cancel()
+				return
+			}
+			m.owner.storageFault.Store(true)
 			m.fault = true
 			m.issue = "自动切换前验证记录写入失败，已停止监控"
 			m.mu.Unlock()
@@ -179,6 +185,11 @@ func (m *Manager) failover(ctx context.Context, now time.Time) {
 		}
 		// Hold the plan lock until the audited action finishes: disabling or
 		// editing a plan cannot race a switch already authorized under it.
+		if m.owner.storageFault.Load() {
+			m.mu.Unlock()
+			cancel()
+			return
+		}
 		requestID := fmt.Sprintf("monitor:%s:%d:%s", o.Plan.ID, sample.At.UnixNano(), candidate.ID)
 		result, switchErr := source.MonitorSwitch(child, *o.Plan, o.Current, candidate.MonitorNode, requestID)
 		if switchErr != nil {

@@ -21,14 +21,15 @@ type queryBudget struct {
 	mu      sync.Mutex
 	cache   map[string]viewEntry
 	flights map[string]*viewFlight
+	rows    map[rowKey]rowEntry
 	slots   chan struct{}
 }
 
 func newQueryBudget() *queryBudget {
-	return &queryBudget{cache: map[string]viewEntry{}, flights: map[string]*viewFlight{}, slots: make(chan struct{}, 1)}
+	return &queryBudget{cache: map[string]viewEntry{}, flights: map[string]*viewFlight{}, rows: map[rowKey]rowEntry{}, slots: make(chan struct{}, 1)}
 }
 
-func (m *Manager) acquireHistory(ctx context.Context) (func(), error) {
+func (m *TaskRuntime) acquireHistory(ctx context.Context) (func(), error) {
 	select {
 	case m.queries.slots <- struct{}{}:
 		return func() { <-m.queries.slots }, nil
@@ -60,7 +61,7 @@ func cloneOverview(v model.MonitorOverview) model.MonitorOverview {
 	return v
 }
 
-func (m *Manager) cachedOverview(ctx context.Context, window string) (model.MonitorOverview, error) {
+func (m *TaskRuntime) cachedOverview(ctx context.Context, window string) (model.MonitorOverview, error) {
 	if _, err := WindowDuration(window); err != nil {
 		return model.MonitorOverview{}, err
 	}
@@ -70,11 +71,12 @@ func (m *Manager) cachedOverview(ctx context.Context, window string) (model.Moni
 	for {
 		m.mu.Lock()
 		version := m.dataVersion
+		suspended := m.fault || m.owner.storageFault.Load()
 		now := m.now()
 		m.mu.Unlock()
 		q := m.queries
 		q.mu.Lock()
-		if entry, ok := q.cache[window]; ok && entry.version == version && now.Before(entry.until) {
+		if entry, ok := q.cache[window]; ok && entry.version == version && entry.value.Suspended == suspended && entry.value.Now.Unix() == now.Unix() && now.Before(entry.until) && m.evidenceCurrent(entry.value.Rows) {
 			v := cloneOverview(entry.value)
 			q.mu.Unlock()
 			return v, nil
@@ -95,7 +97,7 @@ func (m *Manager) cachedOverview(ctx context.Context, window string) (model.Moni
 		release, err := m.acquireHistory(ctx)
 		var value model.MonitorOverview
 		if err == nil {
-			value, err = m.overview(ctx, window, true)
+			value, err = m.overviewWithCache(ctx, window, true, true)
 			release()
 		}
 		q.mu.Lock()

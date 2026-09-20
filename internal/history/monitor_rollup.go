@@ -17,6 +17,13 @@ type hourPayload struct {
 	Slots [][5]int64 `json:"slots"`
 }
 
+// Keep archives compact while merging. Expanding every slot into a full sample
+// inside the map creates a separate large allocation for each baseline.
+type baselineRecord struct {
+	hourly [5]int64
+	raw    *model.MonitorSample
+}
+
 var reasonCodes = []string{"legacy_unclassified", "ok", "node_path", "controller", "budget", "busy", "node_missing", "unknown", "environment"}
 
 func reasonIndex(s string) int64 {
@@ -77,18 +84,19 @@ func (s *Store) SeriesSamples(ctx context.Context, series model.MonitorSeries, f
 	if estimate > 6000 {
 		estimate = 1000
 	}
-	bySlot := make(map[int64]model.MonitorSample, int(estimate))
+	bySlot := make(map[int64]baselineRecord, int(estimate))
 	rows, err := s.db.QueryContext(ctx, `SELECT payload FROM monitor_hourly WHERE series_id=? AND hour>=? AND hour<=? ORDER BY hour`, series.ID, from.Unix()/3600*3600, to.Unix()/3600*3600)
 	if err != nil {
 		return nil, err
 	}
+	hour := hourPayload{Slots: make([][5]int64, 0, 30)}
 	for rows.Next() {
 		var data string
 		if err = rows.Scan(&data); err != nil {
 			rows.Close()
 			return nil, err
 		}
-		var hour hourPayload
+		hour.Slots = hour.Slots[:0]
 		if err = json.Unmarshal([]byte(data), &hour); err != nil {
 			rows.Close()
 			return nil, err
@@ -98,11 +106,7 @@ func (s *Store) SeriesSamples(ctx context.Context, series model.MonitorSeries, f
 			if scheduled < from.Unix() || scheduled > to.Unix() {
 				continue
 			}
-			code := "unknown"
-			if slot[4] >= 0 && slot[4] < int64(len(reasonCodes)) {
-				code = reasonCodes[slot[4]]
-			}
-			bySlot[slot[0]] = model.MonitorSample{NodeID: series.Node.ID, SeriesID: series.ID, Kind: "baseline", Slot: slot[0], ScheduledAt: scheduled, At: time.Unix(slot[3], 0).UTC(), Outcome: outcomeName(slot[1]), DelayMS: int(slot[2]), ReasonCode: code, DataVersion: 2, Resolution: "hourly"}
+			bySlot[slot[0]] = baselineRecord{hourly: slot}
 		}
 	}
 	err = rows.Err()
@@ -132,7 +136,7 @@ func (s *Store) SeriesSamples(ctx context.Context, series model.MonitorSeries, f
 		}
 		v.Resolution = "raw"
 		if v.Kind == "baseline" {
-			bySlot[v.Slot] = v
+			bySlot[v.Slot] = baselineRecord{raw: &v}
 		} else {
 			out = append(out, v)
 		}
@@ -140,19 +144,35 @@ func (s *Store) SeriesSamples(ctx context.Context, series model.MonitorSeries, f
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	merged := make([]model.MonitorSample, 0, len(out)+len(bySlot))
-	merged = append(merged, out...)
-	for _, v := range bySlot {
+	// Sort scalar keys, not pointer-rich sample structs. Raw extras are already
+	// ordered by the query and can be merged without sorting the full payloads.
+	keys := make([]int64, 0, len(bySlot))
+	for slot := range bySlot {
+		keys = append(keys, slot)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	merged := make([]model.MonitorSample, 0, len(out)+len(keys))
+	extra := 0
+	for _, slot := range keys {
+		record := bySlot[slot]
+		var v model.MonitorSample
+		if record.raw != nil {
+			v = *record.raw
+		} else {
+			h := record.hourly
+			code := "unknown"
+			if h[4] >= 0 && h[4] < int64(len(reasonCodes)) {
+				code = reasonCodes[h[4]]
+			}
+			v = model.MonitorSample{NodeID: series.Node.ID, SeriesID: series.ID, Kind: "baseline", Slot: slot, ScheduledAt: series.Anchor + slot*120, At: time.Unix(h[3], 0).UTC(), Outcome: outcomeName(h[1]), DelayMS: int(h[2]), ReasonCode: code, DataVersion: 2, Resolution: "hourly"}
+		}
+		for extra < len(out) && (out[extra].ScheduledAt < v.ScheduledAt || (out[extra].ScheduledAt == v.ScheduledAt && out[extra].Kind < v.Kind)) {
+			merged = append(merged, out[extra])
+			extra++
+		}
 		merged = append(merged, v)
 	}
-	out = merged
-	sort.SliceStable(out, func(i, j int) bool {
-		if out[i].ScheduledAt != out[j].ScheduledAt {
-			return out[i].ScheduledAt < out[j].ScheduledAt
-		}
-		return out[i].Kind < out[j].Kind
-	})
-	return out, nil
+	return append(merged, out[extra:]...), nil
 }
 
 // Rebuild a bounded number of dirty hours. Read + replace + dirty acknowledgement

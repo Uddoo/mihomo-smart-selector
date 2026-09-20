@@ -128,3 +128,53 @@ func TestAutomaticSwitchUnknownReadbackBlocksAnotherAttempt(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAutomaticSwitchCooldownUnresolvedAndReplayAreGroupScoped(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.Defaults()
+	store, err := history.Open(filepath.Join(t.TempDir(), "groups.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	f := &fakeMihomo{proxies: map[string]mihomo.Proxy{
+		"A":   {Name: "A", Type: "Selector", Now: "old", All: []string{"old", "new"}},
+		"B":   {Name: "B", Type: "Selector", Now: "old", All: []string{"old", "new"}},
+		"old": {Name: "old", Type: "VLESS"}, "new": {Name: "new", Type: "VLESS"},
+	}}
+	m := NewManager(cfg, f, store)
+	profile, nodes, _, err := m.MonitorCatalog(ctx, "B", "chatgpt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var target model.MonitorNode
+	for _, n := range nodes {
+		if n.Name == "new" {
+			target = n
+		}
+	}
+	for _, status := range []string{"confirmed", "unknown"} {
+		if _, err = store.RecordSwitch(ctx, model.SwitchEvent{ControllerScope: m.bindingScope(), Group: "A", Status: status, CreatedAt: time.Now().UTC()}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b := model.MonitorPlan{TaskID: "task-b", ID: "plan-b", Group: "B", ProfileID: "chatgpt", ProfileHash: MonitorProfileHash(profile), Enabled: true, AutoSwitch: true, Nodes: nodes}
+	event, err := m.MonitorSwitch(ctx, b, "old", target, "group-b-switch")
+	if err != nil || event.Status != "confirmed" || event.Group != "B" || event.ScanID != "monitor:plan-b" {
+		t.Fatal("group A blocked B", event, err)
+	}
+	replay, err := m.MonitorSwitch(ctx, b, "old", target, "group-b-switch")
+	if err != nil || replay.ID != event.ID {
+		t.Fatal("replay changed audit", replay, err)
+	}
+	a := b
+	a.TaskID = "task-a"
+	a.ID = "plan-a"
+	a.Group = "A"
+	if _, err = m.MonitorSwitch(ctx, a, "old", target, "group-b-switch"); err == nil {
+		t.Fatal("request replay crossed groups")
+	}
+	if _, err = m.MonitorSwitch(ctx, a, "old", target, "group-a-switch"); err == nil {
+		t.Fatal("unresolved group A allowed another switch")
+	}
+}

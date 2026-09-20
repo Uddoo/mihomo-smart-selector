@@ -17,6 +17,7 @@ func TestLegacyMonitorMigrationPreservesPlanAndSlots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	useLegacyMonitorTables(t, s)
 	start := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
 	p := model.MonitorPlan{ID: "legacy", Revision: 7, Enabled: true, AutoSwitch: true, Group: "g", ProfileID: "chatgpt", ProfileHash: "hash", CreatedAt: start, Nodes: []model.MonitorNode{{ID: "a", Name: "A", Provider: "P", Protocol: "VLESS"}}}
 	payload, _ := json.Marshal(p)

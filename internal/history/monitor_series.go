@@ -34,6 +34,9 @@ INSERT OR IGNORE INTO monitor_migration(id,cursor) VALUES(1,0);
 	if err = s.migrateMonitorDiagnostics(ctx); err != nil {
 		return err
 	}
+	if err = s.migrateMonitorTasks(ctx); err != nil {
+		return err
+	}
 	rows, err := s.db.QueryContext(ctx, `SELECT scope,payload FROM monitor_plans`)
 	if err != nil {
 		return err
@@ -73,7 +76,7 @@ INSERT OR IGNORE INTO monitor_migration(id,cursor) VALUES(1,0);
 			var data []byte
 			data, e = json.Marshal(item.plan)
 			if e == nil {
-				_, e = tx.ExecContext(ctx, `UPDATE monitor_plans SET payload=? WHERE scope=?`, string(data), item.scope)
+				_, e = tx.ExecContext(ctx, `UPDATE monitor_plans SET payload=? WHERE scope=? AND task_id=?`, string(data), item.scope, item.plan.TaskID)
 			}
 		}
 		if e != nil {
@@ -88,9 +91,29 @@ INSERT OR IGNORE INTO monitor_migration(id,cursor) VALUES(1,0);
 }
 
 func (s *Store) PrepareMonitorPlan(ctx context.Context, scope string, p *model.MonitorPlan) error {
+	if p.TaskID == "" {
+		old, err := s.MonitorPlan(ctx, scope)
+		if err != nil {
+			return err
+		}
+		if old != nil {
+			p.TaskID = old.TaskID
+		} else {
+			p.TaskID = monitorTaskID(scope, p.ID)
+		}
+	}
+	namespace := p.TaskID
+	err := s.db.QueryRowContext(ctx, `SELECT series_namespace FROM monitor_plans WHERE scope=? AND task_id=?`, scope, p.TaskID).Scan(&namespace)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
 	for i := range p.Nodes {
 		n := &p.Nodes[i]
-		identity, _ := json.Marshal([]string{scope, n.ID, n.Name, n.Provider, n.Protocol, p.ProfileID, p.ProfileHash, "https-baseline-120-v1"})
+		parts := []string{scope, n.ID, n.Name, n.Provider, n.Protocol, p.ProfileID, p.ProfileHash, "https-baseline-120-v1"}
+		if namespace != "" {
+			parts = append(parts, namespace)
+		}
+		identity, _ := json.Marshal(parts)
 		sum := sha256.Sum256(identity)
 		id := hex.EncodeToString(sum[:16])
 		anchor := p.CreatedAt.Unix() + int64(i*120/len(p.Nodes))
@@ -113,7 +136,7 @@ func (s *Store) persistMonitorSeries(ctx context.Context, tx *sql.Tx, scope stri
 	if at.IsZero() {
 		at = p.CreatedAt
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT OR IGNORE INTO monitor_revisions(scope,revision,plan_id,at,payload) VALUES(?,?,?,?,?)`, scope, p.Revision, p.ID, at.Unix(), string(data)); err != nil {
+	if _, err = tx.ExecContext(ctx, `INSERT INTO monitor_revisions(scope,task_id,revision,plan_id,at,payload) VALUES(?,?,?,?,?,?) ON CONFLICT(scope,task_id,revision) DO NOTHING`, scope, p.TaskID, p.Revision, p.ID, at.Unix(), string(data)); err != nil {
 		return err
 	}
 	for _, n := range p.Nodes {
@@ -216,8 +239,14 @@ func insertObservation(ctx context.Context, tx *sql.Tx, v model.MonitorSample) (
 	return true, err
 }
 
-func (s *Store) MonitorSeries(ctx context.Context, scope string) ([]model.MonitorSeries, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT payload FROM monitor_series WHERE scope=? ORDER BY anchor,id`, scope)
+func (s *Store) MonitorSeries(ctx context.Context, scope string, taskIDs ...string) ([]model.MonitorSeries, error) {
+	query := `SELECT payload FROM monitor_series WHERE scope=?`
+	args := []any{scope}
+	if len(taskIDs) > 0 {
+		query += ` AND id IN (SELECT b.series_id FROM monitor_bindings b JOIN monitor_revisions r ON r.plan_id=b.plan_id WHERE r.scope=? AND r.task_id=?)`
+		args = append(args, scope, taskIDs[0])
+	}
+	rows, err := s.db.QueryContext(ctx, query+` ORDER BY anchor,id`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +267,24 @@ func (s *Store) MonitorSeries(ctx context.Context, scope string) ([]model.Monito
 }
 
 func (s *Store) MonitorRevisions(ctx context.Context, scope string) ([]model.MonitorRevision, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT at,payload FROM monitor_revisions WHERE scope=? ORDER BY revision DESC LIMIT 200`, scope)
+	return s.monitorRevisions(ctx, scope, "")
+}
+
+func (s *Store) MonitorTaskRevisions(ctx context.Context, scope, taskID string) ([]model.MonitorRevision, error) {
+	if _, err := s.MonitorTask(ctx, scope, taskID); err != nil {
+		return nil, err
+	}
+	return s.monitorRevisions(ctx, scope, taskID)
+}
+
+func (s *Store) monitorRevisions(ctx context.Context, scope, taskID string) ([]model.MonitorRevision, error) {
+	query := `SELECT at,payload FROM monitor_revisions WHERE scope=?`
+	args := []any{scope}
+	if taskID != "" {
+		query += ` AND task_id=?`
+		args = append(args, taskID)
+	}
+	rows, err := s.db.QueryContext(ctx, query+` ORDER BY id DESC LIMIT 200`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -259,10 +305,16 @@ func (s *Store) MonitorRevisions(ctx context.Context, scope string) ([]model.Mon
 	return out, rows.Err()
 }
 
-func (s *Store) SeriesDefinition(ctx context.Context, scope, id string) (model.MonitorSeries, error) {
+func (s *Store) SeriesDefinition(ctx context.Context, scope, id string, taskIDs ...string) (model.MonitorSeries, error) {
 	var data string
 	var out model.MonitorSeries
-	err := s.db.QueryRowContext(ctx, `SELECT payload FROM monitor_series WHERE scope=? AND id=?`, scope, id).Scan(&data)
+	query := `SELECT payload FROM monitor_series WHERE scope=? AND id=?`
+	args := []any{scope, id}
+	if len(taskIDs) > 0 {
+		query += ` AND id IN (SELECT b.series_id FROM monitor_bindings b JOIN monitor_revisions r ON r.plan_id=b.plan_id WHERE r.scope=? AND r.task_id=?)`
+		args = append(args, scope, taskIDs[0])
+	}
+	err := s.db.QueryRowContext(ctx, query, args...).Scan(&data)
 	if err != nil {
 		return out, fmt.Errorf("观测序列不存在")
 	}

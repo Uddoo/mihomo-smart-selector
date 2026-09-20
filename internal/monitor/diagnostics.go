@@ -15,8 +15,8 @@ import (
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 )
 
-func (m *Manager) Activities(ctx context.Context, from, to time.Time, cursor string, limit int) (model.MonitorActivityPage, error) {
-	return m.store.MonitorActivities(ctx, m.source.MonitorScope(), from, to, cursor, limit)
+func (m *TaskRuntime) Activities(ctx context.Context, from, to time.Time, cursor string, limit int) (model.MonitorActivityPage, error) {
+	return m.store.MonitorActivities(ctx, m.source.MonitorScope(), from, to, cursor, limit, m.taskID())
 }
 
 type DiagnosticRequest struct {
@@ -34,7 +34,7 @@ func safeCSV(s string) string {
 	return s
 }
 
-func (m *Manager) Diagnostics(ctx context.Context, r DiagnosticRequest) ([]byte, error) {
+func (m *TaskRuntime) Diagnostics(ctx context.Context, r DiagnosticRequest) ([]byte, error) {
 	release, budgetErr := m.acquireHistory(ctx)
 	if budgetErr != nil {
 		return nil, budgetErr
@@ -50,7 +50,13 @@ func (m *Manager) Diagnostics(ctx context.Context, r DiagnosticRequest) ([]byte,
 	if !r.To.After(r.From) || r.To.After(now.Add(time.Minute)) || r.To.Sub(r.From) > 7*24*time.Hour {
 		return nil, fmt.Errorf("诊断导出范围最多7天，结束时间不能在未来")
 	}
-	records, err := m.store.DiagnosticSamples(ctx, m.source.MonitorScope(), r.From, r.To, 20000, r.IncludeLegacy)
+	var taskIDs []string
+	// Preserve the old single-task opt-in for unmapped legacy evidence. Task
+	// routes reject this flag rather than attributing unknown records to a group.
+	if !r.IncludeLegacy {
+		taskIDs = []string{m.taskID()}
+	}
+	records, err := m.store.DiagnosticSamples(ctx, m.source.MonitorScope(), r.From, r.To, 20000, r.IncludeLegacy, taskIDs...)
 	if err != nil {
 		return nil, err
 	}

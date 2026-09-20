@@ -22,14 +22,18 @@ func WindowDuration(window string) (time.Duration, error) {
 		return 0, fmt.Errorf("window 必须为 1h、24h 或 7d")
 	}
 }
-func (m *Manager) Overview(ctx context.Context) (model.MonitorOverview, error) {
+func (m *TaskRuntime) Overview(ctx context.Context) (model.MonitorOverview, error) {
 	return m.overview(ctx, "24h", true)
 }
-func (m *Manager) WindowOverview(ctx context.Context, window string) (model.MonitorOverview, error) {
+func (m *TaskRuntime) WindowOverview(ctx context.Context, window string) (model.MonitorOverview, error) {
 	return m.cachedOverview(ctx, window)
 }
 
-func (m *Manager) overview(ctx context.Context, window string, details bool) (model.MonitorOverview, error) {
+func (m *TaskRuntime) overview(ctx context.Context, window string, details bool) (model.MonitorOverview, error) {
+	return m.overviewWithCache(ctx, window, details, false)
+}
+
+func (m *TaskRuntime) overviewWithCache(ctx context.Context, window string, details, cached bool) (model.MonitorOverview, error) {
 	duration, err := WindowDuration(window)
 	if err != nil {
 		return model.MonitorOverview{}, err
@@ -40,7 +44,10 @@ func (m *Manager) overview(ctx context.Context, window string, details bool) (mo
 	for attempt := 0; attempt < 3; attempt++ {
 		m.mu.Lock()
 		now := m.now()
-		o := model.MonitorOverview{Plan: clonePlan(m.plan), Current: m.current, Issue: m.issue, Suspended: m.fault, FailoverMessage: m.failoverMessage, ObservedAt: m.observedAt, Now: now, Rows: []model.MonitorRow{}, Events: []model.MonitorEvent{}, RetentionDays: 7, Window: window, DataVersion: m.dataVersion, InstanceID: m.instanceID}
+		o := model.MonitorOverview{Plan: clonePlan(m.plan), Current: m.current, Issue: m.issue, Suspended: m.fault || m.owner.storageFault.Load(), FailoverMessage: m.failoverMessage, ObservedAt: m.observedAt, Now: now, Rows: []model.MonitorRow{}, Events: []model.MonitorEvent{}, RetentionDays: 7, Window: window, DataVersion: m.dataVersion, InstanceID: m.instanceID}
+		if m.owner.storageFault.Load() && o.Issue == "" {
+			o.Issue = "共享监控存储异常，所有任务已停止采样"
+		}
 		states := map[string]model.MonitorState{}
 		for k, v := range m.states {
 			states[k] = v
@@ -50,6 +57,9 @@ func (m *Manager) overview(ctx context.Context, window string, details bool) (mo
 			return o, nil
 		}
 		p := *o.Plan
+		if cached {
+			m.pruneRows(p)
+		}
 		if details {
 			policy, e := m.store.MonitorRetention(ctx, m.source.MonitorScope())
 			if e != nil {
@@ -63,13 +73,13 @@ func (m *Manager) overview(ctx context.Context, window string, details bool) (mo
 		}
 		for i, n := range p.Nodes {
 			series := model.MonitorSeries{ID: n.SeriesID, Node: n, ProfileID: p.ProfileID, ProfileHash: p.ProfileHash, Anchor: nodeAnchor(p, i)}
-			samples, e := m.store.SeriesSamples(ctx, series, now.Add(-duration), now, false)
+			row, e := m.historyRow(ctx, series, now, duration, cached)
 			if e != nil {
 				return o, e
 			}
-			row := model.MonitorRow{MonitorNode: n, State: states[n.ID], Metrics: windowMetrics(samples, series.Anchor, now, duration), Series: []model.MonitorSample{}}
-			if details {
-				row.Series = append([]model.MonitorSample{}, samples[max(0, len(samples)-60):]...)
+			row.MonitorNode, row.State = n, states[n.ID]
+			if !details {
+				row.Series = []model.MonitorSample{}
 			}
 			if !p.Enabled || o.Suspended || o.Issue != "" || !fresh(row.State.LastAt, now, 2*Interval*time.Second) {
 				row.State.Status = "unknown"
@@ -107,6 +117,7 @@ func (m *Manager) overview(ctx context.Context, window string, details bool) (mo
 		m.mu.Lock()
 		valid := o.DataVersion == m.dataVersion
 		m.mu.Unlock()
+		valid = valid && m.evidenceCurrent(o.Rows)
 		if valid {
 			return o, nil
 		}
@@ -162,7 +173,7 @@ func trends(samples []model.MonitorSample, anchor int64, from, to time.Time) []m
 	return out
 }
 
-func (m *Manager) Timeline(ctx context.Context, id string, from, to time.Time) (model.MonitorTimeline, error) {
+func (m *TaskRuntime) Timeline(ctx context.Context, id string, from, to time.Time) (model.MonitorTimeline, error) {
 	release, err := m.acquireHistory(ctx)
 	if err != nil {
 		return model.MonitorTimeline{}, err
@@ -179,7 +190,7 @@ func (m *Manager) Timeline(ctx context.Context, id string, from, to time.Time) (
 	if !to.After(from) || to.After(now.Add(time.Minute)) || to.Sub(from) > 90*24*time.Hour {
 		return out, fmt.Errorf("时间范围长度不能超过 90 天，结束时间不能在未来")
 	}
-	series, err := m.store.SeriesDefinition(ctx, m.source.MonitorScope(), id)
+	series, err := m.store.SeriesDefinition(ctx, m.source.MonitorScope(), id, m.taskID())
 	if err != nil {
 		return out, err
 	}
@@ -200,9 +211,13 @@ func (m *Manager) Timeline(ctx context.Context, id string, from, to time.Time) (
 	return out, nil
 }
 
-func (m *Manager) Series(ctx context.Context) ([]model.MonitorSeries, error) {
-	return m.store.MonitorSeries(ctx, m.source.MonitorScope())
+func (m *TaskRuntime) Series(ctx context.Context) ([]model.MonitorSeries, error) {
+	return m.store.MonitorSeries(ctx, m.source.MonitorScope(), m.taskID())
 }
-func (m *Manager) Revisions(ctx context.Context) ([]model.MonitorRevision, error) {
-	return m.store.MonitorRevisions(ctx, m.source.MonitorScope())
+func (m *TaskRuntime) Revisions(ctx context.Context) ([]model.MonitorRevision, error) {
+	id := m.taskID()
+	if id == "" {
+		return []model.MonitorRevision{}, nil
+	}
+	return m.store.MonitorTaskRevisions(ctx, m.source.MonitorScope(), id)
 }

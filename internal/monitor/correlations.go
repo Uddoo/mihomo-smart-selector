@@ -61,9 +61,9 @@ func correlationObservations(p model.MonitorPlan, states map[string]model.Monito
 	return out
 }
 
-func (m *Manager) correlate(ctx context.Context, now time.Time) {
+func (m *TaskRuntime) correlate(ctx context.Context, now time.Time) {
 	m.mu.Lock()
-	if now.Before(m.correlationAt) {
+	if ctx.Err() != nil || m.closed || now.Before(m.correlationAt) {
 		m.mu.Unlock()
 		return
 	}
@@ -77,16 +77,23 @@ func (m *Manager) correlate(ctx context.Context, now time.Time) {
 	if !fresh(m.observedAt, now, 45*time.Second) {
 		issue = "metadata stale"
 	}
-	if m.fault {
+	if m.fault || m.owner.storageFault.Load() {
 		issue = "storage"
 	}
 	m.mu.Unlock()
 	if p == nil {
 		return
 	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.closed || m.plan.Revision != p.Revision || ctx.Err() != nil {
+		return
+	}
 	scope := m.source.MonitorScope()
-	if err := m.store.EndMonitorCorrelations(ctx, scope, p.ID, !p.Enabled, now); err != nil {
-		m.storageFailure()
+	if err := m.store.EndMonitorCorrelations(ctx, scope, p.ID, !p.Enabled, now, p.TaskID); err != nil {
+		if ctx.Err() == nil {
+			m.storageFailureLocked()
+		}
 		return
 	}
 	if !p.Enabled {
@@ -94,19 +101,21 @@ func (m *Manager) correlate(ctx context.Context, now time.Time) {
 	}
 	for _, o := range correlationObservations(*p, states, issue, now) {
 		if err := m.store.ObserveMonitorCorrelation(ctx, scope, o); err != nil {
-			m.storageFailure()
+			if ctx.Err() == nil {
+				m.storageFailureLocked()
+			}
 			return
 		}
 	}
 }
 
-func (m *Manager) Storage(ctx context.Context) (model.MonitorStorage, error) {
+func (m *TaskRuntime) Storage(ctx context.Context) (model.MonitorStorage, error) {
 	return m.store.MonitorStorage(ctx, m.source.MonitorScope())
 }
-func (m *Manager) Retention(ctx context.Context) (model.MonitorRetention, error) {
+func (m *TaskRuntime) Retention(ctx context.Context) (model.MonitorRetention, error) {
 	return m.store.MonitorRetention(ctx, m.source.MonitorScope())
 }
-func (m *Manager) SaveRetention(ctx context.Context, p model.MonitorRetention) (model.MonitorRetention, error) {
+func (m *TaskRuntime) SaveRetention(ctx context.Context, p model.MonitorRetention) (model.MonitorRetention, error) {
 	saved, err := m.store.SaveMonitorRetention(ctx, m.source.MonitorScope(), p)
 	if err == nil {
 		m.mu.Lock()
@@ -116,6 +125,6 @@ func (m *Manager) SaveRetention(ctx context.Context, p model.MonitorRetention) (
 	}
 	return saved, err
 }
-func (m *Manager) Correlations(ctx context.Context) ([]model.MonitorCorrelation, error) {
-	return m.store.MonitorCorrelations(ctx, m.source.MonitorScope())
+func (m *TaskRuntime) Correlations(ctx context.Context) ([]model.MonitorCorrelation, error) {
+	return m.store.MonitorCorrelations(ctx, m.source.MonitorScope(), m.taskID())
 }

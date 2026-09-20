@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"sort"
 	"time"
 
@@ -32,53 +31,22 @@ CREATE INDEX IF NOT EXISTS monitor_events_plan_id ON monitor_events(plan_id,id);
 }
 
 func (s *Store) MonitorPlan(ctx context.Context, scope string) (*model.MonitorPlan, error) {
-	var payload string
-	err := s.db.QueryRowContext(ctx, `SELECT payload FROM monitor_plans WHERE scope=?`, scope).Scan(&payload)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	tasks, err := s.MonitorTasks(ctx, scope)
 	if err != nil {
 		return nil, err
 	}
-	var p model.MonitorPlan
-	err = json.Unmarshal([]byte(payload), &p)
-	return &p, err
+	if len(tasks) > 1 {
+		return nil, ErrMonitorTaskRequired
+	}
+	if len(tasks) == 0 {
+		return nil, nil
+	}
+	return &tasks[0].Plan, nil
 }
 
 // Optimistic revision protects concurrent tabs and multiple processes.
 func (s *Store) SaveMonitorPlan(ctx context.Context, scope string, p model.MonitorPlan, previous int) error {
-	if err := s.PrepareMonitorPlan(ctx, scope, &p); err != nil {
-		return err
-	}
-	payload, err := json.Marshal(p)
-	if err != nil {
-		return err
-	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	var result sql.Result
-	if previous == 0 {
-		result, err = tx.ExecContext(ctx, `INSERT INTO monitor_plans(scope,revision,payload) VALUES(?,?,?) ON CONFLICT(scope) DO NOTHING`, scope, p.Revision, string(payload))
-	} else {
-		result, err = tx.ExecContext(ctx, `UPDATE monitor_plans SET revision=?,payload=? WHERE scope=? AND revision=?`, p.Revision, string(payload), scope, previous)
-	}
-	if err != nil {
-		return err
-	}
-	n, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n != 1 {
-		return fmt.Errorf("监控配置已变化，请刷新后重试")
-	}
-	if err = s.persistMonitorSeries(ctx, tx, scope, p); err != nil {
-		return err
-	}
-	return tx.Commit()
+	return s.saveMonitorTask(ctx, scope, p, previous, true)
 }
 
 func (s *Store) MonitorStates(ctx context.Context, plan string) (map[string]model.MonitorState, error) {
@@ -149,7 +117,11 @@ func (s *Store) RecordMonitor(ctx context.Context, plan string, sample model.Mon
 				return false, e
 			}
 		}
-		return true, tx.Commit()
+		err = tx.Commit()
+		if err == nil && sample.Kind == "baseline" {
+			s.baselineChanged(series)
+		}
+		return err == nil, err
 	}
 	if bindErr != sql.ErrNoRows {
 		return false, bindErr
@@ -256,6 +228,8 @@ func (s *Store) MonitorEvents(ctx context.Context, plan string) ([]model.Monitor
 // Raw observations are removed only after their hour is durably aggregated.
 // Never VACUUM in the sampling loop.
 func (s *Store) CleanupMonitor(ctx context.Context, now time.Time) error {
+	// A bounded cleanup can commit some batches before returning pending/error.
+	defer s.evidenceEpoch.Add(1)
 	rows, err := s.db.QueryContext(ctx, `SELECT scope FROM monitor_plans UNION SELECT scope FROM monitor_series`)
 	if err != nil {
 		return err

@@ -1,10 +1,11 @@
 // Command mihomo-mock is a development-only Mihomo Controller fixture.
-// It never leaves the workstation and is not part of router deployment.
+// It uses isolated fixtures on workstations or test devices, never live nodes.
 package main
 
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -31,7 +32,12 @@ type controller struct {
 func main() {
 	listen := flag.String("listen", "127.0.0.1:9090", "mock controller listen address")
 	delayMS := flag.Int("delay-ms", 0, "delay every healthcheck response for visual QA")
+	extraGroups := flag.Int("extra-groups", 0, "additional isolated Selector groups (0-20)")
+	extraNodes := flag.Int("extra-nodes", 0, "additional isolated nodes (0-25)")
 	flag.Parse()
+	if *extraGroups < 0 || *extraGroups > 20 || *extraNodes < 0 || *extraNodes > 25 {
+		log.Fatal("invalid fixture size")
+	}
 	instance := &controller{
 		proxies: map[string]proxy{
 			"🤖 ChatGPT":   {Name: "🤖 ChatGPT", Type: "Selector", Now: "JP-Tokyo-03", All: []string{"JP-Tokyo-01", "JP-Tokyo-03", "JP-Osaka-02", "US-LA-01", "KR-Seoul-01"}},
@@ -43,6 +49,18 @@ func main() {
 		},
 		delays:     map[string]int{"JP-Tokyo-01": 151, "JP-Tokyo-03": 109, "JP-Osaka-02": 188, "US-LA-01": 164, "KR-Seoul-01": 132},
 		delayPause: time.Duration(*delayMS) * time.Millisecond,
+	}
+	base := instance.proxies["🤖 ChatGPT"]
+	for i := 0; i < *extraNodes; i++ {
+		name := fmt.Sprintf("LAB-Node-%02d", i+1)
+		instance.proxies[name] = proxy{Name: name, Type: "VLESS"}
+		instance.delays[name] = 100 + i
+		base.All = append(base.All, name)
+	}
+	instance.proxies[base.Name] = base
+	for i := 0; i < *extraGroups; i++ {
+		name := fmt.Sprintf("Mock Group %02d", i+1)
+		instance.proxies[name] = proxy{Name: name, Type: "Selector", Now: base.Now, All: append([]string{}, base.All...)}
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/version", instance.version)

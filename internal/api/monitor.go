@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Uddoo/mihomo-smart-selector/internal/history"
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 	"github.com/Uddoo/mihomo-smart-selector/internal/monitor"
 )
@@ -20,16 +21,40 @@ func (s *Server) monitorRoute(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 503, "监控服务未启动")
 		return
 	}
+	if r.URL.Path == "/api/v1/monitor/scheduler" && r.Method == http.MethodGet {
+		writeJSON(w, 200, s.monitor.SchedulerStatus())
+		return
+	}
+	if r.URL.Path == "/api/v1/monitor/tasks" || strings.HasPrefix(r.URL.Path, "/api/v1/monitor/tasks/") {
+		s.monitorTaskRoute(w, r)
+		return
+	}
+	// These three resources are explicitly Controller-wide. Every other old
+	// route assumes one task, including reads, exports and mutation endpoints.
+	if r.URL.Path != "/api/v1/monitor/retention" && r.URL.Path != "/api/v1/monitor/storage" && r.URL.Path != "/api/v1/monitor/catalog" {
+		if err := s.monitor.CheckLegacyTask(r.Context()); err != nil {
+			if errors.Is(err, history.ErrMonitorTaskRequired) {
+				writeError(w, 409, err.Error())
+			} else {
+				writeError(w, 500, "无法读取监控任务")
+			}
+			return
+		}
+	}
+	s.serveMonitor(w, r, s.monitor.TaskRuntime, false)
+}
+
+func (s *Server) serveMonitor(w http.ResponseWriter, r *http.Request, m *monitor.TaskRuntime, scoped bool) {
 	switch {
 	case r.URL.Path == "/api/v1/monitor/retention" && r.Method == http.MethodGet:
-		out, err := s.monitor.Retention(r.Context())
+		out, err := m.Retention(r.Context())
 		if err != nil {
 			writeError(w, 500, "无法读取监控保留策略")
 			return
 		}
 		writeJSON(w, 200, out)
 	case r.URL.Path == "/api/v1/monitor/storage" && r.Method == http.MethodGet:
-		out, err := s.monitor.Storage(r.Context())
+		out, err := m.Storage(r.Context())
 		if err != nil {
 			writeError(w, 500, "无法读取监控存储状态")
 			return
@@ -40,14 +65,14 @@ func (s *Server) monitorRoute(w http.ResponseWriter, r *http.Request) {
 		if !decodeJSON(w, r, &body) {
 			return
 		}
-		out, err := s.monitor.SaveRetention(r.Context(), body)
+		out, err := m.SaveRetention(r.Context(), body)
 		if err != nil {
 			writeError(w, 409, err.Error())
 			return
 		}
 		writeJSON(w, 200, out)
 	case r.URL.Path == "/api/v1/monitor/correlations" && r.Method == http.MethodGet:
-		out, err := s.monitor.Correlations(r.Context())
+		out, err := m.Correlations(r.Context())
 		if err != nil {
 			writeError(w, 500, "无法读取关联事件")
 			return
@@ -67,7 +92,7 @@ func (s *Server) monitorRoute(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		out, err := s.monitor.Activities(r.Context(), from, to, r.URL.Query().Get("cursor"), limit)
+		out, err := m.Activities(r.Context(), from, to, r.URL.Query().Get("cursor"), limit)
 		if err != nil {
 			writeError(w, 400, err.Error())
 			return
@@ -78,9 +103,13 @@ func (s *Server) monitorRoute(w http.ResponseWriter, r *http.Request) {
 		if !decodeJSON(w, r, &body) {
 			return
 		}
+		if scoped && body.IncludeLegacy {
+			writeError(w, 400, "任务诊断不能包含无法归属的旧记录")
+			return
+		}
 		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 		defer cancel()
-		data, err := s.monitor.Diagnostics(ctx, body)
+		data, err := m.Diagnostics(ctx, body)
 		if err != nil {
 			if errors.Is(err, monitor.ErrHistoryBusy) {
 				writeError(w, 503, err.Error())
@@ -103,14 +132,14 @@ func (s *Server) monitorRoute(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		_, _ = w.Write(data)
 	case r.URL.Path == "/api/v1/monitor/series" && r.Method == http.MethodGet:
-		out, err := s.monitor.Series(r.Context())
+		out, err := m.Series(r.Context())
 		if err != nil {
 			writeError(w, 500, "无法读取历史序列")
 			return
 		}
 		writeJSON(w, 200, out)
 	case r.URL.Path == "/api/v1/monitor/revisions" && r.Method == http.MethodGet:
-		out, err := s.monitor.Revisions(r.Context())
+		out, err := m.Revisions(r.Context())
 		if err != nil {
 			writeError(w, 500, "无法读取方案修订")
 			return
@@ -123,7 +152,7 @@ func (s *Server) monitorRoute(w http.ResponseWriter, r *http.Request) {
 			writeError(w, 400, err.Error())
 			return
 		}
-		out, err := s.monitor.Timeline(r.Context(), id, from, to)
+		out, err := m.Timeline(r.Context(), id, from, to)
 		if err != nil {
 			if errors.Is(err, monitor.ErrHistoryBusy) {
 				writeError(w, 503, err.Error())
@@ -145,7 +174,7 @@ func (s *Server) monitorRoute(w http.ResponseWriter, r *http.Request) {
 			writeError(w, 400, "enabled is required")
 			return
 		}
-		p, err := s.monitor.SetAutoSwitch(r.Context(), body.Revision, *body.Enabled)
+		p, err := m.SetAutoSwitch(r.Context(), body.Revision, *body.Enabled)
 		if err != nil {
 			writeError(w, 409, err.Error())
 			return
@@ -156,7 +185,7 @@ func (s *Server) monitorRoute(w http.ResponseWriter, r *http.Request) {
 			writeError(w, 400, err.Error())
 			return
 		}
-		out, err := s.monitor.WindowOverview(r.Context(), r.URL.Query().Get("window"))
+		out, err := m.WindowOverview(r.Context(), r.URL.Query().Get("window"))
 		if err != nil {
 			if errors.Is(err, monitor.ErrHistoryBusy) {
 				writeError(w, 503, err.Error())
@@ -185,7 +214,7 @@ func (s *Server) monitorRoute(w http.ResponseWriter, r *http.Request) {
 		if !decodeJSON(w, r, &body) {
 			return
 		}
-		if err := s.monitor.Retest(body.NodeID, body.Revision); err != nil {
+		if err := m.Retest(body.NodeID, body.Revision); err != nil {
 			writeError(w, 409, err.Error())
 			return
 		}

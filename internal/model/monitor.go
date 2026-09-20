@@ -30,6 +30,7 @@ type MonitorRevision struct {
 }
 
 type MonitorPlan struct {
+	TaskID         string        `json:"task_id"`
 	ID             string        `json:"id"`
 	Revision       int           `json:"revision"`
 	Enabled        bool          `json:"enabled"`
@@ -41,6 +42,23 @@ type MonitorPlan struct {
 	Nodes          []MonitorNode `json:"nodes"`
 	CreatedAt      time.Time     `json:"created_at"`
 	UpdatedAt      time.Time     `json:"updated_at,omitempty"`
+}
+
+// A task has a stable identity across plan revisions and evidence epochs.
+// Scheduled describes runtime ownership, not whether sampling is enabled.
+type MonitorTask struct {
+	Plan      MonitorPlan         `json:"plan"`
+	Scheduled bool                `json:"scheduled"`
+	Runtime   *MonitorTaskSummary `json:"runtime,omitempty"`
+}
+
+type MonitorTaskSummary struct {
+	Current    string    `json:"current"`
+	Issue      string    `json:"issue"`
+	Suspended  bool      `json:"suspended"`
+	Unhealthy  int       `json:"unhealthy"`
+	Unknown    int       `json:"unknown"`
+	ObservedAt time.Time `json:"observed_at"`
 }
 
 type MonitorRequest struct {
@@ -125,9 +143,10 @@ type MonitorTimeline struct {
 
 type MonitorRow struct {
 	MonitorNode
-	State   MonitorState    `json:"state"`
-	Metrics MonitorMetrics  `json:"metrics"`
-	Series  []MonitorSample `json:"series"`
+	EvidenceVersion string          `json:"evidence_version"`
+	State           MonitorState    `json:"state"`
+	Metrics         MonitorMetrics  `json:"metrics"`
+	Series          []MonitorSample `json:"series"`
 }
 
 type MonitorOverview struct {

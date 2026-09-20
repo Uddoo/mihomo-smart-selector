@@ -16,7 +16,16 @@ type DiagnosticRecords struct {
 	Truncated bool
 }
 
-func (s *Store) DiagnosticSamples(ctx context.Context, scope string, from, to time.Time, limit int, legacy bool) (DiagnosticRecords, error) {
+func (s *Store) DiagnosticSamples(ctx context.Context, scope string, from, to time.Time, limit int, legacy bool, taskIDs ...string) (DiagnosticRecords, error) {
+	filter := ""
+	scopeArgs := []any{scope}
+	if len(taskIDs) > 0 {
+		if legacy {
+			return DiagnosticRecords{}, fmt.Errorf("任务导出不能包含无法归属的旧记录")
+		}
+		filter = ` AND t.id IN (SELECT b.series_id FROM monitor_bindings b JOIN monitor_revisions r ON r.plan_id=b.plan_id WHERE r.scope=? AND r.task_id=?)`
+		scopeArgs = append(scopeArgs, scope, taskIDs[0])
+	}
 	out := DiagnosticRecords{Samples: []model.MonitorSample{}, Series: map[string]model.MonitorSeries{}}
 	seen := map[string]bool{}
 	add := func(v model.MonitorSample, series model.MonitorSeries) bool {
@@ -33,7 +42,7 @@ func (s *Store) DiagnosticSamples(ctx context.Context, scope string, from, to ti
 		out.Series[series.ID] = series
 		return true
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT r.payload,t.payload FROM monitor_observations r JOIN monitor_series t ON t.id=r.series_id WHERE t.scope=? AND r.scheduled_at>=? AND r.scheduled_at<=? ORDER BY r.scheduled_at DESC,r.series_id,r.kind LIMIT ?`, scope, from.Unix(), to.Unix(), limit+1)
+	rows, err := s.db.QueryContext(ctx, `SELECT r.payload,t.payload FROM monitor_observations r JOIN monitor_series t ON t.id=r.series_id WHERE t.scope=?`+filter+` AND r.scheduled_at>=? AND r.scheduled_at<=? ORDER BY r.scheduled_at DESC,r.series_id,r.kind LIMIT ?`, append(append([]any{}, scopeArgs...), from.Unix(), to.Unix(), limit+1)...)
 	if err != nil {
 		return out, err
 	}
@@ -64,7 +73,7 @@ func (s *Store) DiagnosticSamples(ctx context.Context, scope string, from, to ti
 		return out, err
 	}
 	if !out.Truncated {
-		rows, err = s.db.QueryContext(ctx, `SELECT h.payload,t.payload FROM monitor_hourly h JOIN monitor_series t ON t.id=h.series_id WHERE t.scope=? AND h.hour>=? AND h.hour<=? ORDER BY h.hour DESC,h.series_id LIMIT ?`, scope, from.Unix()/3600*3600, to.Unix()/3600*3600, limit+1)
+		rows, err = s.db.QueryContext(ctx, `SELECT h.payload,t.payload FROM monitor_hourly h JOIN monitor_series t ON t.id=h.series_id WHERE t.scope=?`+filter+` AND h.hour>=? AND h.hour<=? ORDER BY h.hour DESC,h.series_id LIMIT ?`, append(append([]any{}, scopeArgs...), from.Unix()/3600*3600, to.Unix()/3600*3600, limit+1)...)
 		if err != nil {
 			return out, err
 		}
