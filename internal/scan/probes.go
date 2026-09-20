@@ -47,10 +47,18 @@ func (m *Manager) probeBatch(parent context.Context, scan model.Scan, profile co
 }
 
 func (m *Manager) filterCandidates(group mihomo.Proxy, proxies map[string]mihomo.Proxy, providerByNode map[string]string, request model.ScanRequest) []candidate {
+	set := func(values []string) map[string]bool {
+		out := make(map[string]bool, len(values))
+		for _, v := range values {
+			out[v] = true
+		}
+		return out
+	}
+	nodes, regions, providers := set(request.Nodes), set(request.Regions), set(request.Providers)
 	seen := map[string]bool{}
 	items := make([]candidate, 0, len(group.All))
 	for _, name := range group.All {
-		if len(request.Nodes) > 0 && !contains(request.Nodes, name) {
+		if len(nodes) > 0 && !nodes[name] {
 			continue
 		}
 		if seen[name] {
@@ -69,10 +77,10 @@ func (m *Manager) filterCandidates(group mihomo.Proxy, proxies map[string]mihomo
 			provider = providerByNode[name]
 		}
 		region := m.classifier.Classify(name)
-		if len(request.Regions) > 0 && !contains(request.Regions, region.Code) {
+		if len(regions) > 0 && !regions[region.Code] {
 			continue
 		}
-		if len(request.Providers) > 0 && !contains(request.Providers, provider) {
+		if len(providers) > 0 && !providers[provider] {
 			continue
 		}
 		items = append(items, candidate{Name: name, Provider: provider, Region: region})

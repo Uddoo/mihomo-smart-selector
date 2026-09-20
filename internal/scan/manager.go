@@ -56,6 +56,7 @@ type Manager struct {
 
 	mu             sync.Mutex
 	active         map[string]*model.Scan
+	resultIndex    map[string]map[string]int
 	cancels        map[string]context.CancelFunc
 	stopAfterBatch map[string]bool
 	subscribers    map[string]map[chan Event]struct{}
@@ -528,12 +529,14 @@ func (m *Manager) setActive(scan model.Scan) {
 	defer m.mu.Unlock()
 	snapshot := cloneScan(scan)
 	m.active[scan.ID] = &snapshot
+	m.indexResults(snapshot)
 }
 
 func (m *Manager) removeActive(scanID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.active, scanID)
+	delete(m.resultIndex, scanID)
 	delete(m.cancels, scanID)
 	delete(m.stopAfterBatch, scanID)
 }
@@ -543,6 +546,7 @@ func (m *Manager) setActiveWithCancel(scan model.Scan, cancel context.CancelFunc
 	defer m.mu.Unlock()
 	snapshot := cloneScan(scan)
 	m.active[scan.ID] = &snapshot
+	m.indexResults(snapshot)
 	m.cancels[scan.ID] = cancel
 }
 
@@ -572,18 +576,19 @@ func (m *Manager) recordCandidate(scanID string, result model.NodeResult, profil
 	defer m.mu.Unlock()
 	if active, exists := m.active[scanID]; exists {
 		replaced := false
-		for i := range active.Results {
-			if active.Results[i].Name == result.Name {
-				result.ScreeningSamples = active.Results[i].ScreeningSamples
-				result.Samples = append(append([]model.ProbeSample(nil), active.Results[i].Samples...), result.Samples...)
-				calculateMetrics(&result, m.currentConfig().Scanner)
-				assessResult(&result, profile, m.currentConfig().Scanner.StrictVerification.Enabled)
-				active.Results[i] = result
-				replaced = true
-				break
-			}
+		if m.resultIndex[scanID] == nil {
+			m.indexResults(*active)
+		}
+		if i, ok := m.resultIndex[scanID][result.Name]; ok {
+			result.ScreeningSamples = active.Results[i].ScreeningSamples
+			result.Samples = append(append([]model.ProbeSample(nil), active.Results[i].Samples...), result.Samples...)
+			calculateMetrics(&result, m.currentConfig().Scanner)
+			assessResult(&result, profile, m.currentConfig().Scanner.StrictVerification.Enabled)
+			active.Results[i] = result
+			replaced = true
 		}
 		if !replaced {
+			m.resultIndex[scanID][result.Name] = len(active.Results)
 			active.Results = append(active.Results, result)
 		}
 		active.Progress.Completed++
@@ -601,6 +606,20 @@ func (m *Manager) recordCandidate(scanID string, result model.NodeResult, profil
 		return result, active.Progress
 	}
 	return result, model.ScanProgress{}
+}
+
+// Caller holds m.mu. Rebuild only when replacing the complete scan snapshot.
+func (m *Manager) indexResults(scan model.Scan) {
+	if m.resultIndex == nil {
+		m.resultIndex = map[string]map[string]int{}
+	}
+	index := make(map[string]int, len(scan.Results))
+	for i, result := range scan.Results {
+		if _, exists := index[result.Name]; !exists {
+			index[result.Name] = i
+		}
+	}
+	m.resultIndex[scan.ID] = index
 }
 
 func (m *Manager) stopRequested(scanID string) bool {
