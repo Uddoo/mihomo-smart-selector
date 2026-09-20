@@ -3,7 +3,9 @@
 import {scanResultMessages} from './scanResults.ts'
 import {connectivityMessages} from './connectivity.ts'
 import {historyMessages} from './history.ts'
+import {monitorTaskMessages} from './monitorTasks.ts'
 export const en = {
+  ...monitorTaskMessages,
   "容量不足": "Insufficient capacity",
   "候选与保留容量": "Candidate and retention capacity",
   "按 {p0} 个已选候选估算保留容量": "Estimated retention for {p0} selected candidates",

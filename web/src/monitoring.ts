@@ -1,11 +1,17 @@
 import {t, translateMessage, locale, formatDate} from './i18n.ts'
 export interface MonitorNode { id: string; name: string; provider: string; protocol: string; series_id?: string; anchor?: number }
 export interface MonitorPlan {
-  id: string; revision: number; enabled: boolean; auto_switch: boolean; group: string; profile_id: string
+  task_id: string; id: string; revision: number; enabled: boolean; auto_switch: boolean; group: string; profile_id: string
   profile_hash: string; nodes: MonitorNode[]; created_at: string; candidate_limit?: number
 }
+export interface MonitorTask {
+  plan: MonitorPlan; scheduled: boolean
+  runtime?: {current: string; issue: string; suspended: boolean; unhealthy: number; unknown: number; observed_at: string}
+}
+export interface MonitorScheduler {workers: number; running_workers: number; max_requests_per_minute: number; requests_per_minute: number; requests_used: number; suspended: boolean}
 export interface MonitorSample { node_id: string; kind: string; slot: number; at: string; outcome: string; delay_ms: number; reason?: string }
 export interface MonitorRow extends MonitorNode {
+	 evidence_version?: string
   state: { status: string; last_at: string; last_success: string; failures: number; successes: number }
   metrics: { score: number | null; readiness: string; coverage: number; expected: number; samples: number; success_rate: number; p95_ms: number; incidents: number; failure_seconds: number; observed_seconds: number; window_seconds: number; availability_points: number; continuity_points: number; latency_points: number }
   series: MonitorSample[]

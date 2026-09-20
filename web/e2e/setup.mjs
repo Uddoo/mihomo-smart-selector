@@ -54,7 +54,7 @@ export default async function setup() {
       child.on('error', error => logs.push(error.message))
       children.push(child)
     }
-    launch('mihomo-mock', ['-listen', '127.0.0.1:' + mockPort, '-delay-ms', '80'])
+    launch('mihomo-mock', ['-listen', '127.0.0.1:' + mockPort, '-delay-ms', '80', '-extra-groups', '2'])
     launch('mihomo-smart-selector', ['-config', path.join(run, 'config.yaml')])
     const url = 'http://127.0.0.1:' + appPort
     for (let attempt = 0; attempt < 100; attempt++) {

@@ -2,11 +2,12 @@
 import {t, translateMessage, formatDate, formatList} from './i18n'
 import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {api} from './api'
+import {taskPath} from './monitor/taskState'
 import MonitorEvidence from './MonitorEvidence.vue'
 import {monitorPercent, monitorTime, activityKind, activityMessage, eventRange, eventBucket} from './monitoring'
 import type {MonitorOverview, MonitorRevision, MonitorSeries, MonitorTimeline, MonitorActivity, MonitorActivityPage} from './monitoring'
 
-const props = defineProps<{overview: MonitorOverview; window: string; seriesId: string; focusEvent: MonitorActivity | null}>()
+const props = defineProps<{taskId: string; overview: MonitorOverview; window: string; seriesId: string; focusEvent: MonitorActivity | null}>()
 const emit = defineEmits<{selectSeries: [id: string]; clearFocus: []}>()
 const series = ref<MonitorSeries[]>([]), revisions = ref<MonitorRevision[]>([]), selected = ref(props.seriesId)
 const markers = ref<MonitorActivity[]>([]), selectedMarker = ref<MonitorActivity | null>(null)
@@ -36,10 +37,10 @@ async function loadCatalog() {
   ++revision; controller?.abort(); timeline.value = null; markers.value = []; loading.value = true
   const read = ++catalogRevision; catalogController?.abort(); catalogController = new AbortController()
   try {
-    const [items, history] = await Promise.all([api<MonitorSeries[]>('/monitor/series', {signal: catalogController.signal}), api<MonitorRevision[]>('/monitor/revisions', {signal: catalogController.signal})])
+    const [items, history] = await Promise.all([api<MonitorSeries[]>(taskPath(props.taskId) + '/series', {signal: catalogController.signal}), api<MonitorRevision[]>(taskPath(props.taskId) + '/revisions', {signal: catalogController.signal})])
     if (disposed || read !== catalogRevision) return
     series.value = items; revisions.value = history
-    if (!selected.value) { selected.value = props.overview.rows.find(r => r.name === props.overview.current)?.series_id || items[0]?.id || ''; emit('selectSeries', selected.value) }
+    if (!selected.value) { selected.value = props.overview.rows.find(r => r.name === props.overview.current)?.series_id || props.overview.plan?.nodes[0]?.series_id || items[0]?.id || ''; emit('selectSeries', selected.value) }
     clearTimeout(timer); await load()
   } catch (e) { if (!disposed && read === catalogRevision) { error.value = e instanceof Error ? e.message : '历史读取失败'; loading.value = false } }
 }
@@ -51,9 +52,9 @@ async function load() {
   if (focus.value && !focusRange.value) { error.value = '事件时间无效，无法定位趋势。'; loading.value = false; return }
   const query = focusRange.value ? new URLSearchParams(focusRange.value).toString() : 'window=' + props.window
   try {
-    const result = await api<MonitorTimeline>('/monitor/nodes/' + encodeURIComponent(selected.value) + '/timeline?' + query, {signal: controller.signal})
+    const result = await api<MonitorTimeline>(taskPath(props.taskId) + '/nodes/' + encodeURIComponent(selected.value) + '/timeline?' + query, {signal: controller.signal})
     if (disposed || read !== revision) return
-    const activity = await api<MonitorActivityPage>('/monitor/incidents?from=' + encodeURIComponent(result.from) + '&to=' + encodeURIComponent(result.to) + '&limit=200', {signal: controller.signal})
+    const activity = await api<MonitorActivityPage>(taskPath(props.taskId) + '/incidents?from=' + encodeURIComponent(result.from) + '&to=' + encodeURIComponent(result.to) + '&limit=200', {signal: controller.signal})
     if (disposed || read !== revision) return
     const groups = new Set(revisions.value.filter(r => r.plan.nodes.some(n => n.series_id === result.series.id)).map(r => r.plan.group))
     // Publish one coherent snapshot without unmounting the chart during polling.
@@ -73,7 +74,11 @@ watch(() => props.seriesId, value => { if (value) selected.value = value })
 // Compare primitive identities: polling replaces the entire overview object.
 watch([() => props.overview.plan?.revision, () => props.overview.instance_id], () => void loadCatalog())
 watch(() => [props.window, selected.value, props.focusEvent?.key], () => schedule(), {flush: 'sync'})
-watch(() => props.overview.data_version, () => schedule(true), {flush: 'sync'})
+// Refresh the selected evidence, not every other candidate's health update.
+// A 30s fallback advances missing-slot coverage and archived-series timelines.
+watch([() => props.overview.rows.find(row => row.series_id === selected.value)?.evidence_version ?? props.overview.data_version, () => Math.floor(Date.parse(props.overview.now) / 30000)], () => schedule(true), {flush: 'sync'})
+// Confirmation checks may add an incident without changing baseline evidence.
+watch(() => props.overview.events.find(event => event.node_id === series.value.find(item => item.id === selected.value)?.node.id)?.id, () => schedule(true), {flush: 'sync'})
 onMounted(() => void loadCatalog())
 onBeforeUnmount(() => { disposed = true; clearTimeout(timer); controller?.abort(); catalogController?.abort() })
 </script>

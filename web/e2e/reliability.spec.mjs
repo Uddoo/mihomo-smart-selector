@@ -27,7 +27,7 @@ test('monitor snapshots retain the selected node, chart and focused incident', a
   await expect.poll(() => state.timelineRequests.some(url => new URL(url).searchParams.has('from'))).toBe(true)
   const focusedURL = state.timelineRequests.filter(url => new URL(url).searchParams.has('from')).at(-1)
   await expect(history.locator('.history-status')).not.toContainText('读取')
-  const overview = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/monitor')
+  const overview = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/monitor/tasks/demo-task/overview')
   state.version++
   await page.clock.runFor(5100)
   await overview

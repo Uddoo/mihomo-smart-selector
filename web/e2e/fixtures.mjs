@@ -26,7 +26,7 @@ export async function monitorFixture(page, options = {}) {
     const i = nodes.length + 1
     nodes.push({id: 'node-' + i, series_id: 'series-' + i, name: 'Candidate-' + String(i).padStart(2, '0'), provider: 'demo', protocol: 'VLESS', anchor: nodes[0].anchor})
   }
-  const plan = {id: 'demo-plan', revision: 1, enabled: true, auto_switch: false, group: '🤖 ChatGPT', profile_id: 'chatgpt', profile_hash: 'demo-profile', nodes: nodes.slice(0, options.selectedCount ?? nodes.length), created_at: at, ...(options.candidateLimit ? {candidate_limit: options.candidateLimit} : {})}
+  const plan = {task_id: 'demo-task', id: 'demo-plan', revision: 1, enabled: true, auto_switch: false, group: '🤖 ChatGPT', profile_id: 'chatgpt', profile_hash: 'demo-profile', nodes: nodes.slice(0, options.selectedCount ?? nodes.length), created_at: at, ...(options.candidateLimit ? {candidate_limit: options.candidateLimit} : {})}
   const metrics = {score: 91, readiness: 'ready', coverage: 1, expected: 720, samples: 720, success_rate: 1, p95_ms: 180, incidents: 1, failure_seconds: 120, observed_seconds: 86400, window_seconds: 86400, availability_points: 70, continuity_points: 18, latency_points: 3}
   function windowMetrics(window) {
     const seconds = window === '7d' ? 7 * 86400 : window === '1h' ? 3600 : 86400
@@ -34,21 +34,35 @@ export async function monitorFixture(page, options = {}) {
   }
   const series = nodes.map(node => ({id: node.series_id, node, profile_id: plan.profile_id, profile_hash: plan.profile_hash, anchor: node.anchor}))
   const event = {key: 'node:1', at: new Date(now - 15 * 60000).toISOString(), kind: 'node', status: 'unavailable', node: nodes[1].name, group: plan.group, series_id: nodes[1].series_id, message: options.eventMessage || '演示：连续探测失败'}
-  const state = {overviewReads: 0, version: 1, mode: 'ok', held: [], timelineRequests: [], delayedSeries: '', delayed: [], planWrites: [], saveError: '', missingCandidates: [], plan}
+  const state = {overviewReads: 0, taskReads: 0, policyReads: 0, evidenceVersions: null, version: 1, mode: 'ok', held: [], timelineRequests: [], delayedSeries: '', delayed: [], planWrites: [], saveError: '', missingCandidates: [], plan}
   await page.route('**/api/v1/monitor**', async route => {
     const url = new URL(route.request().url()), query = url.searchParams
     const respond = json => route.fulfill({json})
+    const policy = {revision: 1, raw_days: 7, aggregate_days: 90, event_days: 90, max_raw_samples: 100000, max_hourly: 20000}
+    if (url.pathname === '/api/v1/monitor/tasks') {
+      state.taskReads++
+      const tasks = [{plan, scheduled: true, runtime: {current: nodes[0].name, unhealthy: 0, unknown: 0, issue: '', suspended: false, observed_at: at}}]
+      const scheduler = {workers:2, running_workers:0, max_requests_per_minute:360, requests_per_minute:Math.max(12,plan.nodes.length*(options.probeCount||1)*2), requests_used:0, suspended:false}
+      return respond(query.get('include') === 'scheduler' ? {tasks, scheduler} : tasks)
+    }
+    if (url.pathname.endsWith('/scheduler')) return respond({workers:2, running_workers:0, max_requests_per_minute:360, requests_per_minute:Math.max(12,plan.nodes.length*(options.probeCount||1)*2), requests_used:0, suspended:false})
+    if (url.pathname.endsWith('/retention')) { state.policyReads++; return respond(policy) }
+    if (url.pathname === '/api/v1/monitor/tasks/demo-task') url.pathname = '/api/v1/monitor/plan'
+    else if (url.pathname.startsWith('/api/v1/monitor/tasks/demo-task/')) {
+      url.pathname = url.pathname.replace('/api/v1/monitor/tasks/demo-task/', '/api/v1/monitor/')
+      if (url.pathname.endsWith('/overview')) url.pathname = '/api/v1/monitor'
+    }
     if (url.pathname === '/api/v1/monitor') {
       state.overviewReads++
       if (state.mode === 'hang') { state.held.push(route); return }
       if (state.mode === 'error') return route.fulfill({status: 503, json: {error: options.errorMessage || '测试：服务暂不可用'}})
-      return respond({plan, current: nodes[0].name, issue: '', suspended: false, failover_message: '', observed_at: at, now: at, next_at: at, retention_days: 7, window: query.get('window') || '24h', data_version: state.version, instance_id: 'fixture-boot', events: [], rows: plan.nodes.map(node => ({...node, metrics, series: [], state: {status: 'healthy', last_at: at, last_success: at, failures: 0, successes: 720}}))})
+      return respond({plan, current: nodes[0].name, issue: '', suspended: false, failover_message: '', observed_at: at, now: at, next_at: at, retention_days: 7, window: query.get('window') || '24h', data_version: state.version, instance_id: 'fixture-boot', events: [], rows: plan.nodes.map(node => ({...node, evidence_version: state.evidenceVersions?.[node.series_id], metrics, series: [], state: {status: 'healthy', last_at: at, last_success: at, failures: 0, successes: 720}}))})
     }
     if (url.pathname.endsWith('/plan') && route.request().method() === 'PUT') {
       const body = route.request().postDataJSON()
       state.planWrites.push(body)
       if (state.saveError) return route.fulfill({status: 409, json: {error: state.saveError}})
-      Object.assign(plan, body, {revision: plan.revision + 1, nodes: body.nodes.map(name => nodes.find(n => n.name === name))})
+      Object.assign(plan, body, {revision: plan.revision + 1, nodes: body.nodes ? body.nodes.map(name => nodes.find(n => n.name === name)) : plan.nodes})
       state.version++
       return respond(plan)
     }

@@ -4,18 +4,21 @@ import {t, translateMessage, formatNumber} from './i18n'
 import {useMonitorPlanEditor} from './useMonitorPlanEditor'
 import MonitorCapacityNotice from './MonitorCapacityNotice.vue'
 import type {MonitorPlanEditorProps} from './useMonitorPlanEditor'
+import type {MonitorPlan} from './monitoring'
+import type {MonitorDraft} from './monitor/taskState'
 
 const props = defineProps<MonitorPlanEditorProps>()
-const emit = defineEmits<{saved: []; cancel: []; busy: [value: boolean]}>()
-const {group, profile, chosen, candidateLimit, query, catalog, catalogBusy, catalogError, retention, retentionError, loadRetention, saveError, saving, profiles, filtered, missing, maxLimit, validLimit, overLimit, validProfile, estimated, budget, canSave, loadCatalog, save} = useMonitorPlanEditor(props, {saved: () => emit('saved'), busy: value => emit('busy', value)})
+const emit = defineEmits<{saved: [plan: MonitorPlan]; cancel: []; busy: [value: boolean]; draft: [draft: MonitorDraft]}>()
+const {group, profile, chosen, candidateLimit, query, enabled, blockedGroups, workload, stale, catalog, catalogBusy, catalogError, retention, retentionError, loadRetention, saveError, saving, profiles, filtered, missing, maxLimit, validLimit, overLimit, validProfile, estimated, budget, canSave, loadCatalog, save} = useMonitorPlanEditor(props, {saved: plan => emit('saved', plan), busy: value => emit('busy', value), draft: draft => emit('draft', draft)})
 </script>
 
 <template>
   <form class="monitor-config" @submit.prevent="save">
-    <h3>{{ plan ? t('调整监控方案') : t('创建第一个监控方案') }}</h3>
+    <h3>{{ plan ? t('调整监控方案') : t('新增监控策略组') }}</h3>
+    <p v-if="stale" class="bad" role="alert">{{ t('此任务已在其他位置更新。草稿仍保留，请取消调整后重新读取最新方案。') }}</p>
     <p>{{ t('一次启用，后台持续运行。默认加入当前叶子节点及最近扫描候选。') }}</p>
     <div class="monitor-fields">
-      <label>{{ t('监控策略组') }}<select v-model="group" :disabled="disabled"><option value="" disabled>{{ t('选择策略组') }}</option><option v-for="g in groups" :key="g.name" :value="g.name">{{ g.name }}</option></select></label>
+      <label>{{ t('监控策略组') }}<select v-model="group" :disabled="disabled"><option value="" disabled>{{ t('选择策略组') }}</option><option v-if="group && !groups.some(g => g.name === group)" :value="group">{{ group }} · {{ t('已失效') }}</option><option v-for="g in groups" :key="g.name" :value="g.name" :disabled="blockedGroups.includes(g.name)">{{ g.name }}{{ blockedGroups.includes(g.name) ? ' · ' + t('已有监控任务') : '' }}</option></select></label>
       <label>{{ t('监控服务模板') }}<select v-model="profile" :disabled="disabled"><option value="" disabled>{{ t('选择服务') }}</option><option v-for="p in profiles" :key="p.id" :value="p.id">{{ translateMessage(p.label) }}</option></select></label>
     </div>
     <div class="monitor-limit">
@@ -32,13 +35,16 @@ const {group, profile, chosen, candidateLimit, query, catalog, catalogBusy, cata
     </fieldset>
     <div v-if="missing.length" class="bad" role="alert"><p>{{ t('部分已选节点不再可用，请刷新候选或移除后保存。') }}</p><button v-for="name in missing" :key="name" type="button" :disabled="disabled" @click="chosen = chosen.filter(n => n !== name)">{{ t('移除 {p0}', {p0: name}) }}</button></div>
     <p v-if="catalog && !filtered.length">{{ t('没有匹配的候选；请调整搜索或检查策略组。') }}</p>
-    <p v-if="catalog && validProfile" class="monitor-note">{{ t('每个节点探测 {p0} 个目标。基准采样每 2 分钟，当前节点附加检查每 30 秒；预计约 {p1} 次探测/天，确认请求另计。后台共享预算为每分钟 {p2} 次。', {p0: catalog.probe_count, p1: formatNumber(estimated), p2: budget}) }}</p>
+    <label class="monitor-enable"><input v-model="enabled" type="checkbox" :disabled="disabled">{{ t('保存后启用此任务') }}</label>
+    <p v-if="catalog && validProfile" class="monitor-note">{{ t('每个节点探测 {p0} 个目标；此任务名义预算为 {p1} 次/分钟，启用后预计约 {p2} 次探测/天，确认请求另计。', {p0: catalog.probe_count, p1: budget, p2: formatNumber(estimated)}) }}</p>
+    <p v-if="scheduler && workload.requests !== null" class="monitor-note">{{ t('包含当前草稿后，运行任务合计名义预算 {p0} / {p1} 次/分钟。', {p0: workload.requests, p1: scheduler.max_requests_per_minute}) }}</p>
+    <p v-if="scheduler && workload.requests !== null && workload.requests > scheduler.max_requests_per_minute" class="bad" role="status">{{ t('名义预算超过共享上限，将按任务比例分配，部分采样可能缺测。') }}</p>
     <p class="monitor-note">{{ t('节点越多，探测与存储开销越高。慢响应或扫描占用可能造成缺测；缺测不会计为节点失败。') }}</p>
-    <MonitorCapacityNotice v-if="retention" :candidate-count="chosen.length" :policy="retention"/>
+    <MonitorCapacityNotice v-if="retention" :candidate-count="workload.candidates" :task-count="workload.groups" :policy="retention"/>
     <p v-if="retentionError && !retention" class="monitor-note" role="status">{{ t('保留策略读取失败，暂不能估算容量。') }} <button type="button" @click="loadRetention">{{ t('重新读取') }}</button></p>
     <p v-if="plan" class="monitor-note">{{ t('暂停、继续同一方案保留评分。调整候选列表会保留未变化节点的历史；模板或节点身份改变时分开记录，可在历史序列中查看。') }}</p>
     <p v-if="saveError" class="bad" role="alert">{{ translateMessage(saveError) }}</p>
-    <div class="monitor-actions"><button class="primary" :disabled="!canSave">{{ saving ? t('正在保存') : plan ? t('保存并监控') : t('开始监控') }}</button><button v-if="plan" type="button" :disabled="disabled" @click="emit('cancel')">{{ t('取消调整') }}</button></div>
+    <div class="monitor-actions"><button class="primary" :disabled="!canSave">{{ saving ? t('正在保存') : !enabled ? t('保存方案') : plan ? t('保存并监控') : t('开始监控') }}</button><button v-if="plan || tasks.length" type="button" :disabled="disabled" @click="emit('cancel')">{{ t('取消调整') }}</button></div>
   </form>
 </template>
 
@@ -61,6 +67,7 @@ button {display:inline-flex;align-items:center;gap:var(--space-2);min-height:44p
 .monitor-picker label {display:flex;align-items:flex-start;gap:8px;overflow-wrap:anywhere;padding:6px;min-height:44px;}
 .monitor-picker input {margin-top:3px;flex-shrink:0;}.monitor-picker small {display:block;margin-top:5px;}
 .monitor-note {font-size:12px;}.bad {color:var(--red)!important;}.monitor-actions {margin-top:16px;}
+.monitor-enable{display:flex;align-items:center;gap:10px;min-height:44px;margin-top:12px}
 @media(max-width:760px){select,input:not([type=checkbox]){font-size:16px;}}
 @media(max-width:640px){.monitor-fields,.monitor-picker{grid-template-columns:1fr;}.monitor-picker-head label{flex-basis:100%}.monitor-picker-head>button{margin-left:auto}.monitor-limit{gap:4px;}.monitor-limit p{flex-basis:100%;}}
 </style>

@@ -8,7 +8,7 @@
   },
   "type": "module",
   "scripts": {
-    "test": "node --experimental-strip-types --test src/ranking.test.mjs src/scanResults.test.mjs src/selectionState.test.mjs src/monitoring.test.mjs src/monitorRetention.test.mjs src/scanTransport.test.mjs src/nodeCatalog.test.mjs src/api.test.mjs src/i18n.test.mjs src/connectivity/engine.test.mjs src/connectivity/bindings.test.mjs src/connectivity/catalog.test.mjs src/connectivity/validation.test.mjs src/connectivity/nodeEvidence.test.mjs src/useSwitchHistory.test.mjs src/appearance.test.mjs build/precompress.test.mjs",
+    "test": "node --experimental-strip-types --test src/ranking.test.mjs src/scanResults.test.mjs src/selectionState.test.mjs src/monitoring.test.mjs src/monitorRetention.test.mjs src/monitor/taskState.test.mjs src/scanTransport.test.mjs src/nodeCatalog.test.mjs src/api.test.mjs src/i18n.test.mjs src/connectivity/engine.test.mjs src/connectivity/bindings.test.mjs src/connectivity/catalog.test.mjs src/connectivity/validation.test.mjs src/connectivity/nodeEvidence.test.mjs src/useSwitchHistory.test.mjs src/appearance.test.mjs build/precompress.test.mjs",
     "test:e2e": "pnpm build && playwright test",
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",

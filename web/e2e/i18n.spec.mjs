@@ -72,7 +72,7 @@ test('monitoring retains selected evidence and translates an existing timeout no
   await expect(page.locator('.storage > summary')).toHaveText('存储与保留策略')
   await language(page).selectOption('en')
   await page.getByRole('tab', {name: 'Overview', exact: true}).click()
-  await page.route('**/api/v1/monitor?**', () => {})
+  await page.route('**/api/v1/monitor/tasks/demo-task/overview?**', () => {})
   await page.clock.runFor(15200)
   const alert = page.locator('.monitor-page > [role="alert"]')
   await expect(alert).toContainText('timed out')

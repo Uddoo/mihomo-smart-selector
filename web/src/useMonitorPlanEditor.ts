@@ -1,17 +1,26 @@
 import {computed, nextTick, onBeforeUnmount, ref, watch} from 'vue'
 import {api} from './api'
 import type {Group, ServiceCatalog} from './models'
-import type {MonitorCatalog, MonitorPlan, MonitorRetention} from './monitoring'
+import type {MonitorCatalog, MonitorPlan, MonitorRetention, MonitorTask, MonitorScheduler} from './monitoring'
+import {monitorWorkload, taskPath} from './monitor/taskState'
+import type {MonitorDraft} from './monitor/taskState'
 
-export interface MonitorPlanEditorProps {plan?: MonitorPlan | null; groups: Group[]; services: ServiceCatalog | null; disabled: boolean; retentionPolicy?: MonitorRetention | null}
+export interface MonitorPlanEditorProps {plan?: MonitorPlan | null; draft?: MonitorDraft | null; tasks: MonitorTask[]; scheduler: MonitorScheduler | null; groups: Group[]; services: ServiceCatalog | null; disabled: boolean; retentionPolicy?: MonitorRetention | null}
 
-export function useMonitorPlanEditor(props: MonitorPlanEditorProps, events: {saved: () => void; busy: (value: boolean) => void}) {
+export function useMonitorPlanEditor(props: MonitorPlanEditorProps, events: {saved: (plan: MonitorPlan) => void; busy: (value: boolean) => void; draft: (draft: MonitorDraft) => void}) {
   // Capture the revision when editing begins. Polling must not silently rebase a draft.
-  const revision = props.plan?.revision || 0
-  const group = ref(props.plan?.group || ''), profile = ref(props.plan?.profile_id || '')
-  const chosen = ref(props.plan?.nodes.map(n => n.name) || [])
-  const candidateLimit = ref<number | string>(props.plan?.candidate_limit || 6)
-  const query = ref(''), catalog = ref<MonitorCatalog | null>(null)
+  const preserveInitial = !!props.plan || !!props.draft
+  const revision = props.draft?.revision ?? props.plan?.revision ?? 0
+  const group = ref(props.draft?.group ?? props.plan?.group ?? ''), profile = ref(props.draft?.profile ?? props.plan?.profile_id ?? '')
+  const chosen = ref([...(props.draft?.chosen ?? props.plan?.nodes.map(n => n.name) ?? [])])
+  const candidateLimit = ref<number | string>(props.draft?.candidateLimit ?? props.plan?.candidate_limit ?? 6)
+  const enabled = ref(props.draft?.enabled ?? props.plan?.enabled ?? true)
+  const query = ref(props.draft?.query || ''), catalog = ref<MonitorCatalog | null>(null)
+  const draft = computed<MonitorDraft>(() => ({revision, group: group.value, profile: profile.value, chosen: [...chosen.value], candidateLimit: candidateLimit.value, enabled: enabled.value, query: query.value}))
+  watch(draft, value => events.draft(value), {deep: true, immediate: true, flush: 'sync'})
+  const blockedGroups = computed(() => props.tasks.filter(task => task.plan.task_id !== props.plan?.task_id).map(task => task.plan.group))
+  const workload = computed(() => monitorWorkload(props.tasks, props.services, {taskID: props.plan?.task_id || '', draft: draft.value}))
+  const stale = computed(() => !!props.plan && revision !== props.plan.revision)
   const catalogBusy = ref(false), catalogError = ref(''), saveError = ref(''), saving = ref(false)
   const storedRetention = ref<MonitorRetention | null>(null), retentionError = ref(false)
   const retention = computed(() => props.retentionPolicy || storedRetention.value)
@@ -27,7 +36,7 @@ export function useMonitorPlanEditor(props: MonitorPlanEditorProps, events: {sav
     const c = catalog.value
     return c ? Math.max(c.limits.min_requests_per_minute, chosen.value.length * c.probe_count * c.limits.requests_per_candidate_probe) : 0
   })
-  const canSave = computed(() => !props.disabled && !saving.value && !catalogBusy.value && validLimit.value && validProfile.value && chosen.value.length > 0 && !overLimit.value && !missing.value.length)
+  const canSave = computed(() => !props.disabled && !saving.value && !catalogBusy.value && !blockedGroups.value.includes(group.value) && validLimit.value && validProfile.value && chosen.value.length > 0 && !overLimit.value && !missing.value.length)
   let disposed = false, catalogRevision = 0, initializing = true
   let catalogAbort: AbortController | undefined
   let retentionAbort: AbortController | undefined
@@ -42,7 +51,8 @@ export function useMonitorPlanEditor(props: MonitorPlanEditorProps, events: {sav
   }
 
   function defaults() {
-    if (!group.value) group.value = props.groups.find(g => /ChatGPT/i.test(g.name))?.name || props.groups[0]?.name || ''
+    const available = props.groups.filter(g => !blockedGroups.value.includes(g.name))
+    if (!group.value) group.value = available.find(g => /ChatGPT/i.test(g.name))?.name || available[0]?.name || ''
     if (!profile.value && group.value) profile.value = props.services?.suggestions[group.value] || props.services?.default_profile_id || profiles.value[0]?.id || ''
   }
   watch(() => [props.groups, props.services], defaults)
@@ -65,7 +75,7 @@ export function useMonitorPlanEditor(props: MonitorPlanEditorProps, events: {sav
   }
   async function initialize() {
     defaults(); await nextTick(); initializing = false
-    if (!disposed) await loadCatalog(!!props.plan)
+    if (!disposed) await loadCatalog(preserveInitial)
   }
   void initialize()
   void loadRetention()
@@ -74,10 +84,10 @@ export function useMonitorPlanEditor(props: MonitorPlanEditorProps, events: {sav
     if (!canSave.value) return
     saving.value = true; events.busy(true); saveError.value = ''
     try {
-      await api<MonitorPlan>('/monitor/plan', {method: 'PUT', body: JSON.stringify({revision, enabled: true, group: group.value, profile_id: profile.value, candidate_limit: Number(candidateLimit.value), nodes: chosen.value})})
-      if (!disposed) events.saved()
+      const result = await api<MonitorPlan>(props.plan ? taskPath(props.plan.task_id) : '/monitor/tasks', {method: props.plan ? 'PUT' : 'POST', body: JSON.stringify({revision, enabled: enabled.value, group: group.value, profile_id: profile.value, candidate_limit: Number(candidateLimit.value), nodes: chosen.value})})
+      if (!disposed) events.saved(result)
     } catch (e) { if (!disposed) saveError.value = e instanceof Error ? e.message : '保存失败' }
     finally { saving.value = false; events.busy(false) }
   }
-  return {group, profile, chosen, candidateLimit, query, catalog, catalogBusy, catalogError, retention, retentionError, loadRetention, saveError, saving, profiles, filtered, missing, maxLimit, validLimit, overLimit, validProfile, estimated, budget, canSave, loadCatalog, save}
+  return {group, profile, chosen, candidateLimit, query, enabled, blockedGroups, workload, stale, catalog, catalogBusy, catalogError, retention, retentionError, loadRetention, saveError, saving, profiles, filtered, missing, maxLimit, validLimit, overLimit, validProfile, estimated, budget, canSave, loadCatalog, save}
 }

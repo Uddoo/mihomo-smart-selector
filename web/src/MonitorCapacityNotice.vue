@@ -4,16 +4,16 @@ import {t, formatNumber} from './i18n'
 import {retentionCapacity} from './monitorRetention'
 import type {MonitorRetention} from './monitoring'
 
-const props = defineProps<{candidateCount: number; policy: MonitorRetention; editable?: boolean; disabled?: boolean}>()
+const props = defineProps<{candidateCount: number; taskCount?: number; policy: MonitorRetention; editable?: boolean; disabled?: boolean}>()
 const emit = defineEmits<{adjust: [limits: Pick<MonitorRetention, 'max_raw_samples' | 'max_hourly'>]}>()
-const capacity = computed(() => retentionCapacity(props.candidateCount, props.policy))
+const capacity = computed(() => retentionCapacity(props.candidateCount, props.policy, props.taskCount ?? 1))
 // Round down: rounding 89.96 up to 90 would hide a real capacity shortfall.
 const days = (value: number) => formatNumber(Math.floor(value * 10) / 10, {maximumFractionDigits: 1})
 </script>
 
 <template>
   <section v-if="capacity" class="capacity-notice" :class="{'capacity-warning': capacity.insufficient}" :aria-label="t('候选与保留容量')">
-    <h4>{{ t('按 {p0} 个已选候选估算保留容量', {p0: candidateCount}) }}</h4>
+    <h4>{{ taskCount !== undefined ? t('按 {p0} 个运行任务、{p1} 个候选估算共享保留容量', {p0: taskCount, p1: candidateCount}) : t('按 {p0} 个已选候选估算保留容量', {p0: candidateCount}) }}</h4>
     <dl aria-live="polite">
       <div><dt>{{ t('原始记录') }}</dt><dd>{{ t('约 {p0} / {p1} 天', {p0: days(capacity.rawDays), p1: policy.raw_days}) }}</dd></div>
       <div><dt>{{ t('小时聚合') }}</dt><dd>{{ t('约 {p0} / {p1} 天', {p0: days(capacity.hourlyDays), p1: policy.aggregate_days}) }}</dd></div>

@@ -18,9 +18,9 @@ test('legacy default expands to 30 candidates and persists after reload', async 
   for (let i = 7; i <= 30; i++) await page.getByRole('checkbox', {name: 'Candidate-' + i.toString().padStart(2, '0'), exact: false}).check()
   await expect(page.getByRole('status').filter({hasText: '30 / 30 已选'})).toBeVisible()
   await expect(page.getByRole('checkbox', {name: /Candidate-31/})).toBeDisabled()
-  await expect(page.getByText(/后台共享预算为每分钟 60 次/)).toBeVisible()
+  await expect(page.getByText(/此任务名义预算为 60 次\/分钟/)).toBeVisible()
   await save(page).click()
-  await expect(page.getByText('监控已保存。关闭页面后，路由器仍会持续采样。')).toBeVisible()
+  await expect(page.getByText('监控已保存。关闭页面后，后端仍会按方案运行。')).toBeVisible()
   expect(state.planWrites).toHaveLength(1)
   expect(state.planWrites[0].candidate_limit).toBe(30)
   expect(state.planWrites[0].nodes).toHaveLength(30)
@@ -28,7 +28,7 @@ test('legacy default expands to 30 candidates and persists after reload', async 
   await page.reload()
   await edit(page)
   await expect(limit(page)).toHaveValue('30')
-  await expect(page.locator('input[type=checkbox]:checked')).toHaveCount(30)
+  await expect(page.locator('.monitor-picker input[type=checkbox]:checked')).toHaveCount(30)
 })
 
 test('lowering the limit and refreshing retain choices until explicitly removed', async ({page}) => {
@@ -39,11 +39,11 @@ test('lowering the limit and refreshing retain choices until explicitly removed'
   await expect(page.getByRole('alert').filter({hasText: '已选 7 个'})).toBeVisible()
   await expect(save(page)).toBeDisabled()
   await page.getByRole('button', {name: '刷新候选'}).click()
-  await expect(page.locator('input[type=checkbox]:checked')).toHaveCount(7)
+  await expect(page.locator('.monitor-picker input[type=checkbox]:checked')).toHaveCount(7)
   await page.getByRole('tab', {name: '概览', exact: true}).click()
   await page.getByRole('tab', {name: '监控设置', exact: true}).click()
   await expect(limit(page)).toHaveValue('6')
-  await expect(page.locator('input[type=checkbox]:checked')).toHaveCount(7)
+  await expect(page.locator('.monitor-picker input[type=checkbox]:checked')).toHaveCount(7)
   await page.getByRole('checkbox', {name: /Candidate-07/}).uncheck()
   await expect(save(page)).toBeEnabled()
   await save(page).click()
@@ -62,17 +62,17 @@ test('integer bounds, multi-target counts and failed saves protect the draft', a
   }
   await limit(page).fill('12')
   await page.getByRole('checkbox', {name: /Candidate-07/}).check()
-  await expect(page.getByText(/后台共享预算为每分钟 42 次/)).toBeVisible()
+  await expect(page.getByText(/此任务名义预算为 42 次\/分钟/)).toBeVisible()
   await expect(page.getByText(/每个节点探测 3 个目标/)).toBeVisible()
   state.saveError = '监控配置已变化，请刷新后重试'
   state.plan.revision = 2 // A newer snapshot must not rebase the draft's revision.
   state.version++
-  const reads = state.overviewReads
-  await expect.poll(() => state.overviewReads, {timeout: 10000}).toBeGreaterThan(reads)
+  const reads = state.taskReads
+  await expect.poll(() => state.taskReads, {timeout: 10000}).toBeGreaterThan(reads)
   await save(page).click()
   await expect(page.getByRole('alert').filter({hasText: state.saveError})).toBeVisible()
   await expect(limit(page)).toHaveValue('12')
-  await expect(page.locator('input[type=checkbox]:checked')).toHaveCount(7)
+  await expect(page.locator('.monitor-picker input[type=checkbox]:checked')).toHaveCount(7)
   expect(state.planWrites[0].revision).toBe(1)
   state.saveError = ''
   await page.getByRole('button', {name: '取消调整', exact: true}).click()
@@ -80,7 +80,7 @@ test('integer bounds, multi-target counts and failed saves protect the draft', a
   await limit(page).fill('12')
   await page.getByRole('checkbox', {name: /Candidate-07/}).check()
   await save(page).click()
-  await expect(page.getByText('监控已保存。关闭页面后，路由器仍会持续采样。')).toBeVisible()
+  await expect(page.getByText('监控已保存。关闭页面后，后端仍会按方案运行。')).toBeVisible()
   expect(state.planWrites[1].revision).toBe(2)
 })
 
