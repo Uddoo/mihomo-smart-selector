@@ -46,7 +46,7 @@
 ./mihomo-smart-selector -init
 ./mihomo-smart-selector -config "$HOME/我的配置/selector.yaml" -init
 ./mihomo-smart-selector -config "$HOME/我的配置/selector.yaml"
-shasum -a 256 mihomo-smart-selector-v0.1.0-darwin-arm64.tar.gz
+shasum -a 256 mihomo-smart-selector-v0.2.0-darwin-arm64.tar.gz
 ```
 
 `-init` 只创建缺失的配置后退出，不启动服务或覆盖已有文件。显式 `-config` 路径不存在时，
