@@ -1,4 +1,4 @@
-# 持续监控与长期分析（P2）
+# 持续监控与长期分析
 
 监控由本项目的 Go 后端服务调度，通过 Mihomo Controller 发起探测，结果保存到本项目配置的 SQLite 数据库。
 监控计划已启用、部署设备保持唤醒且后端进程持续运行时，关闭网页不会停止采样；这一点适用于路由器、Windows 和 macOS。
@@ -165,7 +165,28 @@ P50 为绿色，P95 为蓝色；没有成功样本的时段不画成零延迟，
 
 ## API
 
-沿用CIDR/Bearer鉴权；GET不改变配置，写操作使用revision。
+沿用 CIDR/Bearer 鉴权；GET 不改变配置，写操作使用任务内的 revision。
+
+从 v0.2.0 起，推荐使用明确的任务路径。`task_id` 在方案修订后保持稳定；同一策略组只能有一个任务。
+
+| 方法与路径（前缀 /api/v1） | 功能 |
+|---|---|
+| GET /monitor/tasks | 所有任务的配置与轻量运行摘要；`?include=scheduler` 返回任务和共享调度摘要 |
+| POST /monitor/tasks | 创建独立任务，显式指定 enabled，revision 为 0 |
+| GET /monitor/tasks/{task_id} | 读取任务 |
+| PUT /monitor/tasks/{task_id} | 更新任务配置或暂停/继续，显式指定 enabled 和当前 revision |
+| GET /monitor/tasks/{task_id}/overview?window=1h\|24h\|7d | 此任务的概览 |
+| PUT /monitor/tasks/{task_id}/failover | 此任务的自动切换开关 |
+| POST /monitor/tasks/{task_id}/retest | 此任务的额外复测 |
+| GET /monitor/tasks/{task_id}/series | 此任务当前与历史观测序列 |
+| GET /monitor/tasks/{task_id}/revisions | 此任务最近 200 条方案修订 |
+| GET /monitor/tasks/{task_id}/nodes/{series_id}/timeline | 此任务的节点趋势 |
+| GET /monitor/tasks/{task_id}/incidents | 此任务的统一事件与分页 |
+| GET /monitor/tasks/{task_id}/correlations | 此任务的 Provider 关联事件 |
+| POST /monitor/tasks/{task_id}/diagnostics | 此任务的诊断 ZIP |
+| GET /monitor/scheduler | 共享并发、请求预算与已用量 |
+
+下表中的旧监控接口在只有零个或一个任务时保持兼容；存在多个任务时，未指定任务的概览、方案、复测、自动切换、序列、修订、趋势、事件及诊断接口返回 HTTP 409。`catalog`、`retention`、`storage` 继续属于 Controller 范围，不受任务数量影响。
 
 | 方法与路径（前缀 /api/v1） | 功能 |
 |---|---|
@@ -184,11 +205,11 @@ P50 为绿色，P95 为蓝色；没有成功样本的时段不画成零延迟，
 | PUT /monitor/retention | 修改保留策略 |
 | POST /monitor/diagnostics | 导出ZIP；Accept: application/json返回Base64封装 |
 
-后续长连接与业务验证仍属于第三阶段。P2本地功能验证不替代路由器24小时/7天的真实负载和覆盖率观察。
+长连接与真实业务完成验证仍未实现。短期功能验证不替代路由器 24 小时/7 天的真实负载和覆盖率观察。
 
 ## 路由器资源保护
 
-- 历史概览按数据版本共享10秒短缓存，同窗口并发请求合并；新观测、暂停或配置变更会使缓存失效。只缓存最近60条展示样本，不保留整段历史切片。
+- 同窗口并发概览请求合并；完整响应只在同秒、运行及证据版本一致时复用。历史指标按任务中的观测序列和窗口独立缓存，时隙边界、新基准及保留清理触发失效，并设 120 秒兜底 TTL。只保留指标和最近 60 条展示样本，不保留整段历史切片；健康状态单独刷新。
 - 概览的最近 100 条事件先取得 ID 再读取 JSON 内容，并使用 `(plan_id,id)` 索引保持原有 ID 倒序；历史事件增加时无需读取、排序全部事件内容。索引在服务正常迁移时创建，旧数据库的窄 ID 子查询仍可使用现有覆盖索引。
 - 冷历史查询、趋势和诊断导出共用一个重型查询槽位，最多等待250ms；繁忙时暂缓历史页面，不阻塞自动切换决策。页面隐藏时停止界面轮询，服务端监控照常运行。
 - 当前节点健康或状态未知时，自动切换不读取历史统计。故障成立后仍使用新鲜24小时数据，不使用页面缓存决定切换。

@@ -1,7 +1,7 @@
 {
   "name": "mihomo-smart-selector-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "packageManager": "pnpm@11.19.0",
   "engines": {
     "node": ">=22.12.0"

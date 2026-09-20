@@ -8,6 +8,58 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.2.0] - 2026-09-20
+
+This release adds concurrent monitoring for independent policy groups and
+reduces historical-query and polling costs. Upgrading from v0.1.0 migrates the
+monitoring schema; back up the complete data directory before upgrading.
+
+### Added
+
+- Configure multiple monitoring tasks per Controller, one per policy group,
+  with independent candidates, probe profiles, enablement, failover preferences
+  and revisions. New tasks isolate observation series even for the same node.
+- Add task-scoped APIs, a shared scheduler and rolling request budget, task
+  navigation, per-task drafts, scoped histories and diagnostics, and combined
+  retention-capacity estimates across enabled tasks.
+- Preserve legacy task identity, historical revisions, series anchors, samples,
+  events and switch audits through a transactional, repeatable migration.
+
+### Changed
+
+- Require explicit task IDs for monitoring views and mutations when multiple
+  tasks exist. Ambiguous legacy endpoints return HTTP 409; single-task callers
+  retain compatibility. Retention, storage and catalog endpoints remain shared.
+- Merge compact archived slots before expanding samples, sort lightweight slot
+  keys, reuse decoding buffers and avoid redundant normalization in statistics.
+  Cache each series/window independently while refreshing live health and
+  invalidating on baseline changes, time boundaries and retention cleanup.
+- Combine task/scheduler polling, refresh retention policy independently, and
+  suspend repeated history ranking on settings/events tabs. Refresh selected
+  node details on relevant evidence changes while preserving cancellation,
+  backoff, offline recovery and unsaved drafts.
+- Read task revision headers before decoding changed plans, skip idle scheduler
+  turns, and index scan filters and result merges.
+
+### Fixed
+
+- Preserve absent and unknown fields in legacy revision payloads during
+  migration, and retain task ownership in history pagination and audit queries.
+- Keep initial overview retries working on settings tabs and prevent slow
+  retention reads or responses from another task from replacing the current view.
+
+### Upgrade notes
+
+- Stop the service and back up its executable, configuration, complete data
+  directory and external secrets. Restore the pre-upgrade database together
+  with the old executable when downgrading to v0.1.0.
+- Candidate limits remain 1–30 per task (default 6). All tasks share two
+  background workers, up to 360 probe requests/minute and the retention quotas;
+  adding groups does not multiply device capacity or increase retention limits.
+- Desktop synthetic benchmarks reduced a 30-candidate, seven-day uncached
+  overview from about 301–306 ms to 65.6–66.2 ms, and cumulative allocations
+  from 107.8 MiB to 51.3 MiB. These are not router latency or peak-memory claims.
+
 ## [v0.1.0] - 2026-09-17
 
 The first stable release brings the release-candidate series into a regular
@@ -424,7 +476,8 @@ The rc.6 build candidate was not published. This release includes its changes.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.2.0...HEAD
+[v0.2.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0...v0.2.0
 [v0.1.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.11...v0.1.0
 [v0.1.0-rc.11]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.9...v0.1.0-rc.11
 [v0.1.0-rc.9]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.8...v0.1.0-rc.9

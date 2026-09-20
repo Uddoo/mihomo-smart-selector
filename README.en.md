@@ -139,7 +139,10 @@ SQLite storage. Ordinary scans keep manual selection; monitoring has an opt-in f
 
 **Persistent monitoring:** after you enable a plan, this application's backend
 periodically requests probes through the Mihomo Controller and saves the results
-to its configured SQLite database. On a router, Windows or macOS, closing the
+to its configured SQLite database. Multiple policy groups can run concurrently,
+each with independent candidates, profiles, enablement, failover preferences and
+observation histories. Tasks share the probe budget and storage quotas.
+On a router, Windows or macOS, closing the
 browser leaves monitoring running as long as the host running this application
 stays awake and its backend process stays running. Exiting the desktop program or
 stopping this application's router service stops sampling. Connecting to Mihomo
@@ -158,7 +161,7 @@ ties), after a fresh check. Switches have durable audits and a two-minute cooldo
 <a id="compatibility"></a>
 ## Verified environments & project status
 
-**First stable release: `v0.1.0`.** This README follows `main`; downloadable builds follow their
+**Stable release `v0.2.0`: independent multi-group monitoring and faster history queries.** Upgrading from `v0.1.0` migrates the database; read the [upgrade notes](docs/releases/v0.2.0.md#english) first. This README follows `main`; downloadable builds follow their
 [release notes](https://github.com/Uddoo/mihomo-smart-selector/releases). Changes
 on `main` can arrive before a public package. Check your installed version before
 relying on a newly documented behavior.
