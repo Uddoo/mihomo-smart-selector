@@ -140,7 +140,7 @@ Clash Party 用户可以在客户端 **内核设置** 中找到 Controller 的�
 <a id="compatibility"></a>
 ## 已验证环境与项目状态
 
-**正式版 `v0.2.0`：多策略组独立监控与历史查询性能优化。** 从 `v0.1.0` 升级包含数据库迁移，请先查看[升级说明](docs/releases/v0.2.0.md#升级与兼容性)。本 README 跟随 `main`，下载版本以对应的
+**正式版 `v0.3.0`：更轻的监控刷新、按需明细与低分配历史计算。** 从 `v0.2.0` 升级不新增数据库结构迁移；从 `v0.1.0` 升级仍包含多任务迁移，请先查看[升级说明](docs/releases/v0.3.0.md#升级与兼容性)。本 README 跟随 `main`，下载版本以对应的
 [Release 说明](https://github.com/Uddoo/mihomo-smart-selector/releases) 为准。
 主分支的改进可能尚未包含在公开下载包中，使用新描述的行为前请核对安装版本。
 

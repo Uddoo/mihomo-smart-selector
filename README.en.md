@@ -161,7 +161,7 @@ ties), after a fresh check. Switches have durable audits and a two-minute cooldo
 <a id="compatibility"></a>
 ## Verified environments & project status
 
-**Stable release `v0.2.0`: independent multi-group monitoring and faster history queries.** Upgrading from `v0.1.0` migrates the database; read the [upgrade notes](docs/releases/v0.2.0.md#english) first. This README follows `main`; downloadable builds follow their
+**Stable release `v0.3.0`: lighter monitoring refreshes, on-demand details and lower-allocation history reads.** Upgrading from `v0.2.0` adds no schema migration; upgrades from `v0.1.0` still migrate monitoring tasks. Read the [upgrade notes](docs/releases/v0.3.0.md#english) first. This README follows `main`; downloadable builds follow their
 [release notes](https://github.com/Uddoo/mihomo-smart-selector/releases). Changes
 on `main` can arrive before a public package. Check your installed version before
 relying on a newly documented behavior.

@@ -1,6 +1,6 @@
 # Mihomo Smart Selector — Architecture & deployment design
 
-This is the current architecture of the v0.2 application, updated on 2026-09-24.
+This is the current architecture of the v0.3 application, updated on 2026-09-24.
 See [repository structure](project-structure.md) for file ownership and dependency
 rules. [Design records](design/README.md) retain the decisions and verification
 evidence from earlier milestones; their dated plans are not the current contract.

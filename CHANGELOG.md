@@ -8,6 +8,8 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.3.0] - 2026-09-24
+
 ### Changed
 
 - Add opt-in Provider and monitoring overview summaries while retaining the
@@ -16,6 +18,12 @@ the project uses [Semantic Versioning](https://semver.org/).
 - Stream compact baseline evidence into historical metrics, retaining only the
   recent display tail and exact successful delays needed for P95. Preserve raw
   sample precedence, gaps, failure boundaries and task-scoped cache invalidation.
+- Organize frontend code by feature and separate application lifetime, discovery,
+  navigation, scans and selection state. Split backend package responsibilities
+  and migration files without changing the schema or existing upgrade behavior.
+- Add pinned frontend formatting checks and automatic colocated unit-test discovery;
+  update architecture and contributor documentation to match current ownership.
+- Update the locked SQLite and Vue dependencies and their checked embedded assets.
 
 ## [v0.2.0] - 2026-09-20
 
@@ -487,7 +495,8 @@ The rc.6 build candidate was not published. This release includes its changes.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.3.0...HEAD
+[v0.3.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0...v0.2.0
 [v0.1.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.11...v0.1.0
 [v0.1.0-rc.11]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.9...v0.1.0-rc.11
