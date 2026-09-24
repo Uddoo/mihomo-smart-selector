@@ -5,30 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 	"sort"
 	"time"
-
-	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 )
-
-func (s *Store) migrateMonitor(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, `
-CREATE TABLE IF NOT EXISTS monitor_plans (scope TEXT PRIMARY KEY, revision INTEGER NOT NULL, payload TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS monitor_samples (
- plan_id TEXT NOT NULL, node_id TEXT NOT NULL, kind TEXT NOT NULL, slot INTEGER NOT NULL,
- at INTEGER NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(plan_id,node_id,kind,slot));
-CREATE INDEX IF NOT EXISTS monitor_samples_time ON monitor_samples(plan_id,at);
-CREATE INDEX IF NOT EXISTS monitor_samples_retention ON monitor_samples(at);
-CREATE TABLE IF NOT EXISTS monitor_states (plan_id TEXT NOT NULL,node_id TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(plan_id,node_id));
-CREATE TABLE IF NOT EXISTS monitor_events (id INTEGER PRIMARY KEY AUTOINCREMENT,plan_id TEXT NOT NULL,at INTEGER NOT NULL,payload TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS monitor_events_time ON monitor_events(plan_id,at);
-CREATE INDEX IF NOT EXISTS monitor_events_plan_id ON monitor_events(plan_id,id);
-`)
-	if err != nil {
-		return err
-	}
-	return s.migrateMonitorSeries(ctx)
-}
 
 func (s *Store) MonitorPlan(ctx context.Context, scope string) (*model.MonitorPlan, error) {
 	tasks, err := s.MonitorTasks(ctx, scope)

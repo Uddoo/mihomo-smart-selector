@@ -6,25 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
-
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
+	"time"
 )
 
 func defaultMonitorRetention() model.MonitorRetention {
 	return model.MonitorRetention{RawDays: 7, AggregateDays: 90, EventDays: 90, MaxRawSamples: 100000, MaxHourly: 20000}
-}
-
-func (s *Store) migrateMonitorDiagnostics(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, `
-CREATE TABLE IF NOT EXISTS monitor_retention (scope TEXT PRIMARY KEY,revision INTEGER NOT NULL,payload TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS monitor_system_events (id INTEGER PRIMARY KEY AUTOINCREMENT,scope TEXT NOT NULL,plan_id TEXT NOT NULL,at INTEGER NOT NULL,status TEXT NOT NULL,message TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS monitor_system_time ON monitor_system_events(scope,at);
-CREATE TABLE IF NOT EXISTS monitor_correlation_state (scope TEXT NOT NULL,key TEXT NOT NULL,plan_id TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(scope,key));
-CREATE TABLE IF NOT EXISTS monitor_correlations (id INTEGER PRIMARY KEY AUTOINCREMENT,scope TEXT NOT NULL,plan_id TEXT NOT NULL,provider TEXT NOT NULL,status TEXT NOT NULL,started_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,payload TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS monitor_correlation_time ON monitor_correlations(scope,updated_at);
-`)
-	return err
 }
 
 func (s *Store) MonitorRetention(ctx context.Context, scope string) (model.MonitorRetention, error) {
