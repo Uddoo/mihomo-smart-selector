@@ -181,6 +181,11 @@ func (s *Server) serveMonitor(w http.ResponseWriter, r *http.Request, m *monitor
 		}
 		writeJSON(w, 200, p)
 	case r.URL.Path == "/api/v1/monitor" && r.Method == http.MethodGet:
+		view := r.URL.Query().Get("view")
+		if view != "" && view != "full" && view != "summary" {
+			writeError(w, 400, "view must be full or summary")
+			return
+		}
 		if _, err := monitor.WindowDuration(r.URL.Query().Get("window")); err != nil {
 			writeError(w, 400, err.Error())
 			return
@@ -194,7 +199,11 @@ func (s *Server) serveMonitor(w http.ResponseWriter, r *http.Request, m *monitor
 			writeError(w, 500, "无法读取监控历史")
 			return
 		}
-		writeJSON(w, 200, out)
+		if view == "summary" {
+			writeJSON(w, 200, summarizeOverview(out, r.URL.Query().Get("series_id")))
+		} else {
+			writeJSON(w, 200, out)
+		}
 	case r.URL.Path == "/api/v1/monitor/plan" && r.Method == http.MethodPut:
 		var body model.MonitorRequest
 		if !decodeJSON(w, r, &body) {

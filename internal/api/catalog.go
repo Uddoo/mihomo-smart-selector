@@ -28,9 +28,25 @@ func (s *Server) groups(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (s *Server) providers(writer http.ResponseWriter, request *http.Request) {
+	view := request.URL.Query().Get("view")
+	if view != "" && view != "full" && view != "summary" {
+		writeError(writer, http.StatusBadRequest, "view must be full or summary")
+		return
+	}
 	providers, err := s.manager.Providers(request.Context())
 	if err != nil {
 		writeError(writer, http.StatusBadGateway, "could not list Mihomo providers")
+		return
+	}
+	if view == "summary" {
+		type providerSummary struct {
+			Name string `json:"name"`
+		}
+		out := make([]providerSummary, 0, len(providers))
+		for _, provider := range providers {
+			out = append(out, providerSummary{Name: provider.Name})
+		}
+		writeJSON(writer, http.StatusOK, out)
 		return
 	}
 	writeJSON(writer, http.StatusOK, providers)
