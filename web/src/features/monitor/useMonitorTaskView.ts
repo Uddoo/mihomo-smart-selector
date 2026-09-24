@@ -48,13 +48,23 @@ export function useMonitorTaskView(props: MonitorTaskViewProps, emit: Emit) {
   ] as const
   type MonitorTab = (typeof tabs)[number]['id']
   const tab = ref<MonitorTab>(props.viewState.tab)
+  const selectedSeries = ref(props.viewState.selectedSeries)
+  const focusedEvent = ref<MonitorActivity | null>(props.viewState.focusedEvent)
   const { data, failure, lastUpdated, refresh } = useMonitorOverview(
     windowRange,
     props.task.plan.task_id,
     computed(() => tab.value === 'overview' || tab.value === 'details'),
+    computed(() => (tab.value === 'details' && !focusedEvent.value ? selectedSeries.value : '')),
   )
-  const selectedSeries = ref(props.viewState.selectedSeries)
-  const focusedEvent = ref<MonitorActivity | null>(props.viewState.focusedEvent)
+  const samplesReady = computed(
+    () =>
+      data.value?.window === windowRange.value &&
+      (data.value.sample_series_id === selectedSeries.value ||
+        (data.value.sample_series_id === undefined &&
+          data.value.rows.some(
+            (row) => row.series_id === selectedSeries.value && Array.isArray(row.series),
+          ))),
+  )
   const abnormal = computed(
     () =>
       data.value?.rows.filter((row) =>
@@ -264,5 +274,6 @@ export function useMonitorTaskView(props: MonitorTaskViewProps, emit: Emit) {
     retest,
     cancelEdit,
     selectedRows,
+    samplesReady,
   }
 }

@@ -74,9 +74,10 @@ export interface MonitorRow extends MonitorNode {
     continuity_points: number
     latency_points: number
   }
-  series: MonitorSample[]
+  series?: MonitorSample[]
 }
 export interface MonitorOverview {
+  sample_series_id?: string
   plan: MonitorPlan | null
   current: string
   issue: string

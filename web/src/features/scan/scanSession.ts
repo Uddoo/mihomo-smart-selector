@@ -76,11 +76,16 @@ export function useScanSession(onSettled: (scan: Scan) => void) {
     monitor(value)
     return true
   }
-  async function restore() {
+  async function refreshRecent() {
     const revision = openRevision
     const items = await api<Scan[]>('/scans')
     if (disposed || revision !== openRevision) return
     recent.value = items
+  }
+  async function restore() {
+    const revision = openRevision
+    await refreshRecent()
+    if (disposed || revision !== openRevision) return
     if (restored) return
     const saved = sessionStorage.getItem('mss-scan-id')
     if (saved) {
@@ -116,6 +121,7 @@ export function useScanSession(onSettled: (scan: Scan) => void) {
     refresh: transport.refresh,
     open,
     restore,
+    refreshRecent,
     close,
     clearView,
   }

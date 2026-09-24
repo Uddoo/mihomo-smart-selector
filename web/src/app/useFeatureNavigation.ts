@@ -7,6 +7,7 @@ export function useFeatureNavigation(
   page: Ref<Page>,
   scanView: ScanWorkbenchState,
   catalog: NodeCatalog,
+  metadataValid: Readonly<Ref<boolean>>,
 ) {
   const {
     group,
@@ -16,7 +17,6 @@ export function useFeatureNavigation(
     mode,
     configLocked,
     loading,
-    discoveryValid,
     groups,
     services,
     recent,
@@ -50,7 +50,7 @@ export function useFeatureNavigation(
     if (
       configLocked.value ||
       loading.value ||
-      !discoveryValid.value ||
+      !metadataValid.value ||
       !groups.value.some((item) => item.name === target)
     )
       return
@@ -67,7 +67,7 @@ export function useFeatureNavigation(
       configLocked.value ||
       loading.value ||
       openingServiceScan.value ||
-      !discoveryValid.value ||
+      !metadataValid.value ||
       !groups.value.some((item) => item.name === target && item.type === 'Selector') ||
       !services.value?.bindings.some(
         (item) => item.group === target && item.profile_id === profileID && item.status === 'valid',

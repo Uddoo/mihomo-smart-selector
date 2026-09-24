@@ -44,6 +44,7 @@ const {
   retest,
   cancelEdit,
   selectedRows,
+  samplesReady,
 } = useMonitorTaskView(props, emit)
 </script>
 
@@ -329,10 +330,10 @@ const {
                   t('最近采样：{p0}', { p0: monitorTime(row.state.last_at) })
                 }}</small></summary
               ><div
-                v-if="row.series.length"
+                v-if="samplesReady && row.series?.length"
                 class="monitor-series"
                 ><span
-                  v-for="s in row.series"
+                  v-for="s in row.series || []"
                   :key="s.slot"
                   tabindex="0"
                   :class="s.outcome"
@@ -347,6 +348,10 @@ const {
                     )
                   "
                 ></span></div
+              ><p
+                v-else-if="!samplesReady"
+                role="status"
+                >{{ t('正在读取最近采样…') }}</p
               ><p v-else>{{ t('尚无基准采样。') }}</p
               ><p class="monitor-note">{{
                 t('最近成功：{p0} · 绿色成功 / 红色失败 / 灰色未知', {

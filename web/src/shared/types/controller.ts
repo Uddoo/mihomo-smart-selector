@@ -11,6 +11,7 @@ export interface ControllerState {
   availableRegions: Readonly<Ref<Region[]>>
   loading: Ref<boolean>
   discoveryValid: Ref<boolean>
+  metadataValid: Ref<boolean>
   discoveryUpdatedAt: Ref<number | null>
   minimumSuccessRate: Ref<number>
 }

@@ -8,6 +8,7 @@ export function useMonitorOverview(
   window: Ref<string>,
   taskID: string,
   active: Ref<boolean> = shallowRef(true),
+  sampleSeries: Readonly<Ref<string>> = shallowRef(''),
 ) {
   const data = shallowRef<MonitorOverview | null>(null)
   const failure = shallowRef(''),
@@ -34,7 +35,11 @@ export function useMonitorOverview(
     controller = new AbortController()
     try {
       const result = await api<MonitorOverview>(
-        taskPath(taskID) + '/overview?window=' + window.value,
+        taskPath(taskID) +
+          '/overview?window=' +
+          window.value +
+          '&view=summary' +
+          (sampleSeries.value ? '&series_id=' + encodeURIComponent(sampleSeries.value) : ''),
         { signal: controller.signal },
       )
       if (disposed || read !== generation) return
@@ -60,7 +65,7 @@ export function useMonitorOverview(
     cancel()
     if (active.value || !data.value) void refresh()
   }
-  watch(window, resume)
+  watch([window, sampleSeries], resume)
   watch(active, resume)
   onMounted(() => {
     document.addEventListener('visibilitychange', resume)

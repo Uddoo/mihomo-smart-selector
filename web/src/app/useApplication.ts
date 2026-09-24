@@ -13,7 +13,9 @@ export function useApplication(canLeave?: () => boolean) {
   const accessSession = useAccessSession()
   const feedback = useOperationFeedback()
   const historyState = useSwitchHistory()
+  let restoredSession = false
   const discovery = useControllerDiscovery({
+    page,
     access: accessSession.access,
     failure: feedback.failure,
     isLocked: () => scanView.configLocked.value,
@@ -21,14 +23,21 @@ export function useApplication(canLeave?: () => boolean) {
     onGroups: (groups) => {
       if (!scanView.group.value && groups[0]) scanView.group.value = groups[0].name
     },
-    onReady: () => scanView.restore(),
+    onReady: async (scope) => {
+      if (!restoredSession || scope === 'scan') {
+        await scanView.restore()
+        restoredSession = true
+      } else if (scope === 'connectivity') {
+        await scanView.session.refreshRecent()
+      }
+    },
     onSettled: () => scanView.preflight(),
     readHistory: historyState.readHistory,
     cancelHistoryRead: historyState.cancelHistoryRead,
   })
   const scanView = useScanWorkbench({ discovery, historyState, feedback })
   const catalog = useNodeCatalog(discovery.nodes, scanView.regionLabel, discovery.groups)
-  const navigation = useFeatureNavigation(page, scanView, catalog)
+  const navigation = useFeatureNavigation(page, scanView, catalog, discovery.metadataValid)
   const catalogView: NodeCatalogPageState = {
     nodes: discovery.nodes,
     regionLabel: scanView.regionLabel,

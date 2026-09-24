@@ -1,4 +1,5 @@
 export const monitorTaskMessages = {
+  '正在读取最近采样…': 'Loading recent samples…',
   策略组监控: 'Group monitoring',
   '每组独立候选与自动切换，关闭页面后继续运行。':
     'Independent candidates and failover for each group. Monitoring continues after you close this page.',

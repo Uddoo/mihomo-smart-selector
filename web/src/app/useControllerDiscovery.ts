@@ -1,6 +1,6 @@
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, type Ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch, type Ref } from 'vue'
 import { APIError } from '../shared/api/api'
-import { discover } from './discovery'
+import { discover, discoveryScope, type DiscoveryScope } from './discovery'
 import type {
   Group,
   Health,
@@ -13,12 +13,13 @@ import type {
 import type { ControllerState } from '../shared/types/controller'
 
 interface DiscoveryOptions {
+  page: Readonly<Ref<string>>
   access: Ref<boolean>
   failure: Ref<string>
   isLocked: () => boolean
   invalidatePreview: (clear?: boolean) => void
   onGroups: (groups: Group[]) => void
-  onReady: () => Promise<void>
+  onReady: (scope: DiscoveryScope) => Promise<void>
   onSettled: () => Promise<void>
   readHistory: (signal?: AbortSignal) => Promise<SwitchEvent[]>
   cancelHistoryRead: () => void
@@ -35,6 +36,7 @@ export function useControllerDiscovery(options: DiscoveryOptions) {
   const services = ref<ServiceCatalog | null>(null)
   const loading = shallowRef(false)
   const discoveryValid = shallowRef(false)
+  const metadataValid = shallowRef(false)
   const discoveryUpdatedAt = shallowRef<number | null>(null)
   const minimumSuccessRate = shallowRef(0.95)
   const availableRegions = computed<Region[]>(() => {
@@ -50,13 +52,17 @@ export function useControllerDiscovery(options: DiscoveryOptions) {
   let revision = 0
   let controller: AbortController | undefined
   let poll: number | undefined
+  let pending = false
+  let discoveryError = ''
 
   function resume() {
     controller?.abort()
     ++revision
     options.invalidatePreview()
     loading.value = false
+    pending = false
     discoveryValid.value = false
+    metadataValid.value = false
     if (!navigator.onLine) {
       health.value = { status: 'degraded', mihomo_connected: false }
       failure.value = '网络已断开，连接恢复后自动重新读取'
@@ -66,14 +72,23 @@ export function useControllerDiscovery(options: DiscoveryOptions) {
   }
 
   async function load() {
-    if (loading.value || options.isLocked()) return
+    return read(discoveryScope(options.page.value))
+  }
+
+  async function read(scope: DiscoveryScope) {
+    if (pending || (scope !== 'health' && options.isLocked())) return
     const requestRevision = ++revision
     controller?.abort()
     controller = new AbortController()
-    loading.value = true
-    discoveryValid.value = false
-    options.invalidatePreview(true)
-    failure.value = ''
+    pending = true
+    loading.value = scope !== 'health'
+    if (scope !== 'health') {
+      discoveryValid.value = false
+      options.invalidatePreview(true)
+      failure.value = ''
+    }
+    const metadata = ['scan', 'nodes', 'connectivity', 'metadata'].includes(scope)
+    if (metadata) metadataValid.value = false
     const response = await discover(
       (snapshot) => {
         if (requestRevision !== revision) return
@@ -90,6 +105,7 @@ export function useControllerDiscovery(options: DiscoveryOptions) {
       },
       controller.signal,
       options.readHistory,
+      scope,
     )
     if (requestRevision !== revision) return
     if (
@@ -99,6 +115,7 @@ export function useControllerDiscovery(options: DiscoveryOptions) {
     ) {
       access.value = true
       loading.value = false
+      pending = false
       return
     }
     access.value = false
@@ -106,20 +123,33 @@ export function useControllerDiscovery(options: DiscoveryOptions) {
       health.value = { status: 'degraded', mihomo_connected: false }
     const bad = response.find((item) => item.status === 'rejected') as
       PromiseRejectedResult | undefined
-    if (bad)
-      failure.value = bad.reason instanceof Error ? bad.reason.message : '无法加载 Mihomo 数据'
-    discoveryValid.value = !bad
-    if (!bad) discoveryUpdatedAt.value = Date.now()
+    if (bad) {
+      discoveryError = bad.reason instanceof Error ? bad.reason.message : '无法加载 Mihomo 数据'
+      failure.value = discoveryError
+    } else if (failure.value === discoveryError) {
+      failure.value = ''
+      discoveryError = ''
+    }
+    if (scope === 'scan') discoveryValid.value = !bad
+    if (metadata) metadataValid.value = !bad
+    if (!bad && metadata) discoveryUpdatedAt.value = Date.now()
     loading.value = false
-    if (!bad) {
+    pending = false
+    if (!bad && scope !== 'health') {
       try {
-        await options.onReady()
+        await options.onReady(scope)
       } catch (error) {
-        failure.value = error instanceof Error ? error.message : '无法恢复扫描'
+        if (requestRevision === revision)
+          failure.value = error instanceof Error ? error.message : '无法恢复扫描'
       }
     }
-    await options.onSettled()
+    if (requestRevision === revision && scope === 'scan' && options.page.value === 'scan')
+      await options.onSettled()
   }
+
+  // Navigation invalidates scan admission synchronously, before the new view
+  // can expose actions. Each page then obtains its own fresh discovery scope.
+  watch(options.page, resume, { flush: 'sync' })
 
   onMounted(() => {
     document.addEventListener('visibilitychange', resume)
@@ -127,7 +157,8 @@ export function useControllerDiscovery(options: DiscoveryOptions) {
     window.addEventListener('offline', resume)
     resume()
     poll = window.setInterval(() => {
-      if (!options.isLocked() && !access.value && !document.hidden && navigator.onLine) void load()
+      if (!access.value && !document.hidden && navigator.onLine)
+        void read(discoveryScope(options.page.value, true))
     }, 30000)
   })
   onBeforeUnmount(() => {
@@ -149,6 +180,7 @@ export function useControllerDiscovery(options: DiscoveryOptions) {
     availableRegions,
     loading,
     discoveryValid,
+    metadataValid,
     discoveryUpdatedAt,
     minimumSuccessRate,
     load,
