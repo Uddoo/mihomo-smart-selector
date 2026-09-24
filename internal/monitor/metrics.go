@@ -99,6 +99,22 @@ func windowMetrics(samples []model.MonitorSample, anchor int64, now time.Time, w
 }
 
 func orderedWindowMetrics(samples []model.MonitorSample, anchor int64, now time.Time, window time.Duration) model.MonitorMetrics {
+	accumulator := newWindowAccumulator(anchor, now, window, len(samples))
+	for _, sample := range samples {
+		accumulator.add(sample.Slot, sample.Outcome, sample.DelayMS)
+	}
+	return accumulator.finish()
+}
+
+type windowAccumulator struct {
+	out                                    model.MonitorMetrics
+	anchor, now, first, last, previousSlot int64
+	delays                                 []int
+	successes                              int
+	failed                                 bool
+}
+
+func newWindowAccumulator(anchor int64, now time.Time, window time.Duration, capacity int) windowAccumulator {
 	out := model.MonitorMetrics{Readiness: "collecting", WindowSeconds: int64(window / time.Second), ObservedSeconds: min(int64(window/time.Second), max(int64(0), now.Unix()-anchor))}
 	start := max(anchor, now.Add(-window).Unix())
 	first := max(int64(0), (start-anchor+Interval-1)/Interval)
@@ -106,33 +122,35 @@ func orderedWindowMetrics(samples []model.MonitorSample, anchor int64, now time.
 	if now.Unix() >= anchor && last >= first {
 		out.Expected = int(last - first + 1)
 	}
-	delays := make([]int, 0, len(samples))
-	successes := 0
-	previousSlot := int64(-2)
-	failed := false
-	for _, s := range samples {
-		if s.Slot < first || s.Slot > last {
-			continue
-		}
-		if s.Outcome == "unknown" {
-			failed = false
-			previousSlot = s.Slot
-			continue
-		}
-		out.Samples++
-		if s.Outcome == "success" {
-			successes++
-			delays = append(delays, s.DelayMS)
-			failed = false
-		} else {
-			out.FailureSeconds += int(min(int64(Interval), max(int64(0), now.Unix()-(anchor+s.Slot*Interval))))
-			if !failed || s.Slot != previousSlot+1 {
-				out.Incidents++
-			}
-			failed = true
-		}
-		previousSlot = s.Slot
+	return windowAccumulator{out: out, anchor: anchor, now: now.Unix(), first: first, last: last, previousSlot: -2, delays: make([]int, 0, capacity)}
+}
+
+func (a *windowAccumulator) add(slot int64, outcome string, delay int) {
+	if slot < a.first || slot > a.last {
+		return
 	}
+	if outcome == "unknown" {
+		a.failed = false
+		a.previousSlot = slot
+		return
+	}
+	a.out.Samples++
+	if outcome == "success" {
+		a.successes++
+		a.delays = append(a.delays, delay)
+		a.failed = false
+	} else {
+		a.out.FailureSeconds += int(min(int64(Interval), max(int64(0), a.now-(a.anchor+slot*Interval))))
+		if !a.failed || slot != a.previousSlot+1 {
+			a.out.Incidents++
+		}
+		a.failed = true
+	}
+	a.previousSlot = slot
+}
+
+func (a *windowAccumulator) finish() model.MonitorMetrics {
+	out, delays, successes := a.out, a.delays, a.successes
 	if out.Expected > 0 {
 		out.Coverage = float64(out.Samples) / float64(out.Expected)
 	}
@@ -143,7 +161,7 @@ func orderedWindowMetrics(samples []model.MonitorSample, anchor int64, now time.
 		sort.Ints(delays)
 		out.P95MS = delays[int(math.Ceil(.95*float64(len(delays))))-1]
 	}
-	if window <= time.Hour {
+	if out.WindowSeconds <= int64(time.Hour/time.Second) {
 		out.Readiness = "observational"
 		return out
 	}
@@ -169,7 +187,7 @@ func orderedWindowMetrics(samples []model.MonitorSample, anchor int64, now time.
 	}
 	out.Score = &score
 	out.Readiness = "provisional"
-	if now.Unix()-anchor >= int64(window/time.Second) && out.Coverage >= .8 {
+	if a.now-a.anchor >= out.WindowSeconds && out.Coverage >= .8 {
 		out.Readiness = "ready"
 	}
 	return out

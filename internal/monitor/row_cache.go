@@ -60,14 +60,15 @@ func (m *TaskRuntime) historyRow(ctx context.Context, series model.MonitorSeries
 	entry, ok := q.rows[key]
 	q.mu.Unlock()
 	if !cached || !ok || entry.version != version || entry.anchor != series.Anchor || entry.started != (now.Unix() >= series.Anchor) || entry.first != first || entry.last != last || now.Before(entry.at) || !now.Before(entry.until) {
-		samples, err := m.store.SeriesSamples(ctx, series, now.Add(-window), now, false)
+		accumulator := newWindowAccumulator(series.Anchor, now, window, min(6000, max(0, int(window/time.Second)/Interval+2)))
+		tail, err := m.store.VisitSeriesBaseline(ctx, series, now.Add(-window), now, accumulator.add)
 		if err != nil {
 			return model.MonitorRow{}, err
 		}
-		entry = rowEntry{version: version, anchor: series.Anchor, first: first, last: last, at: now, until: now.Add(120 * time.Second), metrics: windowMetrics(samples, series.Anchor, now, window), tail: append([]model.MonitorSample{}, samples[max(0, len(samples)-60):]...)}
+		entry = rowEntry{version: version, anchor: series.Anchor, first: first, last: last, at: now, until: now.Add(120 * time.Second), metrics: accumulator.finish(), tail: tail}
 		entry.started = now.Unix() >= series.Anchor
-		if len(samples) > 0 {
-			s := samples[len(samples)-1]
+		if len(tail) > 0 {
+			s := tail[len(tail)-1]
 			entry.lastFailure = s.Slot == last && s.Outcome != "success" && s.Outcome != "unknown"
 		}
 		if cached && version == m.store.MonitorEvidenceVersion(series.ID) {
