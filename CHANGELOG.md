@@ -8,6 +8,15 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Add opt-in Provider and monitoring overview summaries while retaining the
+  default full API responses. The UI loads recent samples only for the selected
+  node detail and refreshes discovery data according to the active page.
+- Stream compact baseline evidence into historical metrics, retaining only the
+  recent display tail and exact successful delays needed for P95. Preserve raw
+  sample precedence, gaps, failure boundaries and task-scoped cache invalidation.
+
 ## [v0.2.0] - 2026-09-20
 
 This release adds concurrent monitoring for independent policy groups and

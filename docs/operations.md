@@ -94,6 +94,20 @@ and preflight validation finish. Workbench discovery also cancels obsolete
 reads on visibility/connectivity changes and refreshes immediately on return,
 so a recovered monitor does not retain an old shell-level network error.
 
+Overview polling uses `view=summary` and omits recent sample arrays. Opening node
+details requests only the selected series; window/series changes cancel obsolete
+reads, and missing detail is shown as loading rather than zero observations.
+The default API representation remains full for existing clients.
+
+Application discovery now follows page ownership. The scan page obtains the full
+scan prerequisites, using Provider name summaries. The node directory reads its
+catalog, and connectivity reads current groups/service bindings. Monitoring,
+settings and history keep only the 30-second health poll after initial loading;
+their feature-specific readers remain independent. Returning to scan immediately
+invalidates admission until a fresh complete discovery and preflight succeed.
+An application-owned scan session is restored once and survives route changes;
+periodic health refresh does not repeatedly download scans or restart that session.
+
 The node catalog and scan ranking render 50 items per page. Scan search and
 current/candidate location controls operate over the full result set; pagination
 does not change scoring, scan scope or selection validation. Desktop and mobile

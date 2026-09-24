@@ -335,6 +335,7 @@ restart and storage contracts are expanded in their respective operational guide
 | `PUT /api/v1/connection` | save connection settings or restore YAML defaults, with revision conflict protection | writes a private file; applies at next service restart |
 | `POST /api/v1/connection/test` | test the submitted connection via `GET /version`, bounded to 10 seconds | read-only Controller request; no save or switch |
 | `GET /api/v1/providers` | available proxy providers | none |
+| `GET /api/v1/providers?view=summary` | provider names only, without proxy lists; default/`view=full` retains the full response | none |
 | `GET /api/v1/regions` | built-in and custom classifier rules after additive merging, no secrets | none |
 | `GET /api/v1/nodes` | non-group catalogue with entry types, inferred regions and ambiguity evidence | none |
 | `GET /api/v1/history` | past scan/switch evidence | none |

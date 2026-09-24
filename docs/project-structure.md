@@ -52,7 +52,7 @@ web/src/
 | --- | --- |
 | `useApplication` | 应用生命周期；只装配状态所有者和各页面所需的接口 |
 | `useAccessSession` | 页面内存中的访问 token；清除旧浏览器凭据，不读取旧值 |
-| `useControllerDiscovery` | 单一渐进式读取、轮询、离线恢复和请求版本；供各功能共享 |
+| `useControllerDiscovery` | 按页面选取发现范围，独立轻量健康轮询；进入扫描页重做完整准入校验，旧响应按请求代次隔离 |
 | `useScanWorkbench` | 扫描表单、预检、运行/停止和结果；由应用创建，切换页面不销毁 |
 | `useScanSession` | SSE、轮询回退、恢复扫描和过期响应隔离 |
 | `useNodeSelection` | 选择确认、幂等 request_id、未知结果与审计核对；同样由应用持有 |
@@ -60,6 +60,7 @@ web/src/
 | `NodeCatalogPageState` / `HistoryPageState` | 页面只接收必要数据和操作，不取得其他功能的整份状态 |
 
 监控任务的草稿、选择和缓存继续按任务隔离。目录整理不改变它们的键或生命周期。
+监控概览使用汇总视图；只有节点详情请求所选序列的最近样本，旧完整 API 保持兼容。
 格式化使用固定版本 Prettier；模板采用严格空白敏感模式，避免格式化随意改变行内文本间距。
 
 ## 后端
@@ -71,6 +72,9 @@ web/src/
   `state.go`、`request.go` 中。锁、预算、回读和失败关闭规则不因文件拆分改变。
 - `monitor/scheduler.go` 负责 Controller 级 Manager；`task_runtime.go` 定义单任务运行时，
   `task_plan.go` 管理方案，`task_sampling.go` 管理采样状态，原有故障切换和历史查询各自保留。
+- 历史概览通过 `history/monitor_baseline.go` 的紧凑读取器消费时隙、结果和精确延迟，
+  只重建最近 60 条完整样本；`monitor/metrics.go` 的累加器复用原评分语义。完整历史和诊断
+  仍使用原有读取接口，紧凑路径与完整路径有对照回归和基准。
 - `config/config.go` 保留数据结构、默认值与加载；验证及服务模板解析分别放在
   `validation.go`、`profile_resolution.go`。
 - `history/store.go` 管理连接；扫描、切换、监控读取分别归属相应文件。
