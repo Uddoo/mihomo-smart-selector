@@ -30,7 +30,7 @@
 | 当前页面只展示最近 60 条基准记录与 100 条事件 | 提供有时间范围和游标的趋势、事件与历史方案 API |
 | 自动切换调用完整 Overview | 提供轻量、固定 24h 的决策快照，避免图表查询拖慢故障处理 |
 
-参考：[监控存储](../../internal/history/monitor.go)、[评分](../../internal/monitor/metrics.go)、[方案保存](../../internal/monitor/manager.go)、[自动切换](../../internal/monitor/failover.go)、[现行使用说明](../monitoring.md)。
+参考：[监控存储](../../internal/history/monitor.go)、[评分](../../internal/monitor/metrics.go)、[方案保存](../../internal/monitor/task_plan.go)、[自动切换](../../internal/monitor/failover.go)、[现行使用说明](../monitoring.md)。
 
 ## 3. 页面设计
 

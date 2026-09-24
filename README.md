@@ -194,6 +194,7 @@ HTTP 可达不等于登录、播放或地区解锁成功；严格验证和出口
 | 看懂监控状态、趋势、事件与自动切换 | [持续监控说明与实机截图](docs/monitoring.md) |
 | 理解推断地区、待确认或隐藏条目 | [地区推断与条目分类](docs/region-classification.md) |
 | 了解评分、隔离方式或 API | [架构与验证边界](docs/architecture.md) |
+| 定位源码、状态职责与历史设计 | [项目结构](docs/project-structure.md) · [设计记录](docs/design/README.md) |
 | 了解重启恢复、审计状态或清理规则 | [长期运行与异常恢复](docs/operations.md) |
 | 排查问题或反馈 Bug | [排障与反馈指南](docs/troubleshooting.md) |
 | 查看最近变化 | [更新记录](CHANGELOG.md) |

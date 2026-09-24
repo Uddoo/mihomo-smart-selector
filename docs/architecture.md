@@ -1,5 +1,10 @@
 # Mihomo Smart Selector — Architecture & deployment design
 
+This is the current architecture of the v0.2 application, updated on 2026-09-24.
+See [repository structure](project-structure.md) for file ownership and dependency
+rules. [Design records](design/README.md) retain the decisions and verification
+evidence from earlier milestones; their dated plans are not the current contract.
+
 Node-directory classification uses a built-in dictionary extended by startup
 configuration. Its additive API fields, ambiguity handling and scope boundaries
 are documented in [region classification](region-classification.md).
@@ -9,9 +14,10 @@ are documented in [region classification](region-classification.md).
 This project is an **independent service**, not a fork or a plugin of
 Zashboard, MetaCubeXD, OpenClash, or Mihomo. Its job is narrowly defined:
 
-> For one user-selected Mihomo `Selector` group, rank the group's eligible
-> members for a service probe and only change that selector after an explicit
-> policy decision.
+> Compare eligible members of a user-selected Mihomo `Selector`, and monitor
+> multiple explicitly configured groups independently. A manual scan switches
+> only after confirmation; monitoring failover requires an enabled policy and
+> fresh evidence that the current node is unavailable.
 
 This preserves upstream dashboard upgrades, keeps the Mihomo secret out of the
 browser, and makes every switch auditable. Mihomo already supplies the
@@ -20,22 +26,27 @@ select a selector member. The project does **not** modify subscriptions,
 decrypt provider files, train OpenClash Smart/LightGBM data, or make claims
 about a provider's real location solely from a name.
 
-The current pre-1.0 milestone is `v0.1`:
+The current architecture includes:
 
 | Included now | Explicitly deferred |
 | --- | --- |
-| Vue dashboard, Controller integration, region/provider filtering, bounded scans, scoring, SQLite history, manual best-node selection | background scheduler, autonomous switching, long-connection/SSE quality probes, OpenClash LuCI integration |
+| Vue dashboard, Controller integration, region/provider filtering, bounded scans, scoring, SQLite history, manual best-node selection | scheduled full scans, long-connection/SSE quality probes, OpenClash LuCI integration |
+| Multiple monitoring tasks, fair shared scheduling, task-scoped history/diagnostics, optional confirmed-fault failover | unattended switching without explicit opt-in; application/login/playback quality claims |
+| Browser-local service connectivity checks, shown separately from Controller evidence | treating browser-local results as node measurements or monitoring samples |
 | optional serialized egress verification through a dedicated hidden selector | automatic mutation/injection of the live OpenClash configuration |
 
-This boundary is deliberate: a first router deployment must prove that discovery,
-probe semantics, storage, and selector switching are correct before it is
-permitted to change traffic unattended.
+Monitoring uses its own periodic probes and policy gates; it does not turn a
+manual scan into an automatic selection. See [monitoring](monitoring.md) and
+[connectivity](connectivity.md) for their distinct evidence contracts.
 
 ## 2. Security invariants
 
 1. **Browser never calls Mihomo.** Only the Go process sends the controller
    `Authorization: Bearer` header.
-2. **Controller remains local.** `external-controller` stays bound to loopback.
+2. **Controller exposure is explicit.** Colocated deployments keep
+   `external-controller` on loopback. Cross-device connections use an explicitly
+   configured private endpoint and Controller authentication; the browser still
+   talks only to this application's API for Controller operations.
 3. **Web server is loopback-only by default.** A non-loopback deployment uses
    both an API token and a narrow trusted-CIDR allow-list by default. The
    separately configured unauthenticated-LAN mode removes the token boundary
@@ -78,9 +89,11 @@ LAN browser / SSH tunnel
 ┌─────────────────────────────────────────────────────────────┐
 │ Mihomo Smart Selector (Go, default 127.0.0.1:8788)          │
 │                                                             │
-│ HTTP API ── Scan manager ── Score engine ── SQLite history  │
-│                  │                 │                        │
-│ Region classifier│                 └── switch audit         │
+│ HTTP API ── Scan manager ── Score engine ── SQLite history    │
+│     │            │                             ▲            │
+│     └── Monitor manager / shared scheduler ─────┤            │
+│          └── per-group TaskRuntime ─────────────┘            │
+│ Region classifier│                 switch audit             │
 │                  ▼                                          │
 │             Mihomo client                                   │
 └──────────────────┬──────────────────────────────────────────┘
@@ -99,6 +112,45 @@ Optional actual-egress path (disabled by default):
 Selector → PUT /proxies/__SMART_PROBE__ → 127.0.0.1:17890 mixed listener
         → HTTP request through listener → chatgpt.com/cdn-cgi/trace → loc=XX
 ```
+
+The browser also runs opt-in connectivity requests directly to the fixed public
+service catalog. This path carries no Controller credentials and does not write
+scan scores or monitoring history.
+
+### 3.1 Runtime ownership and module boundaries
+
+- `cmd/mihomo-smart-selector/runtime.go` loads configuration and connection
+  overrides, opens one SQLite store, and wires the API, scanner and monitor.
+- `internal/api` owns HTTP routing, access checks, response encoding and embedded
+  static assets. Scan and monitoring packages own the operational decisions.
+- `internal/scan` owns membership, bounded probes, scoring, verification and
+  audited selection. Its monitoring adapter shares Controller access and probe
+  capacity with the monitor through the `monitor.Source` contract.
+- `internal/monitor/scheduler.go` owns a Controller-level `Manager` and shared
+  scheduling. `task_runtime.go`, `task_plan.go` and `task_sampling.go` own the
+  state, plan edits and observations for one task. Tasks do not create their
+  own background worker pools.
+- `internal/history` owns persistence, migrations, immutable revisions, queries,
+  rollups and retention. API handlers do not issue SQL directly.
+- `web/src/app/useApplication.ts` creates the frontend state owners once.
+  Authentication, progressive discovery and cross-feature navigation are
+  application concerns. Feature views receive scoped state contracts; navigating
+  away from the scan page does not dispose the scan session or selection audit.
+
+### 3.2 Multi-group monitoring and compatibility
+
+Each task has a stable `task_id`, separate from its plan revision and evidence
+series identity, with one task per Controller scope and group. Histories, drafts,
+retests, failover and diagnostics are isolated by task. All tasks share two
+background workers, a 360-request/minute budget and storage quotas. Group-local
+metadata failures remain local; a storage fault suspends shared background work.
+
+New clients use `/api/v1/monitor/tasks/{task_id}/...`. Legacy unscoped monitoring
+routes remain available for zero or one task and return HTTP 409 when multiple
+tasks make the target ambiguous. Controller-wide catalog, retention and storage
+routes remain shared. The [monitoring API table](monitoring.md#api) is the detailed
+route reference. Read caches never authorize an automatic switch; failover uses
+fresh evidence and retains cooldown, readback and audit requirements.
 
 The Controller API supports `GET /proxies`, `GET /providers/proxies`,
 `GET /proxies/{name}/delay`, and `PUT /proxies/{name}` for selector choice.
@@ -131,7 +183,7 @@ metrics: success %, p50, p95, mean adjacent jitter
   ▼
 score / rank / persist immutable scan record
   │
-  └── operator explicitly selects a result, or future scheduler passes policy
+  └── operator explicitly selects a result
 ```
 
 Only leaf proxies are candidates: nested `Selector`, `URLTest`, `Fallback`,
@@ -267,6 +319,10 @@ purchases, playback requests or other state-changing traffic.
 
 ## 5. API contract
 
+This table covers discovery and manual scans. Task-scoped and legacy monitoring
+routes are documented in the [monitoring API](monitoring.md#api); connection,
+restart and storage contracts are expanded in their respective operational guides.
+
 | Method and route | Purpose | Side effect |
 | --- | --- | --- |
 | `GET /api/v1/health` | service and Controller reachability | none |
@@ -314,7 +370,15 @@ SQLite at the configured path stores operational evidence and user settings:
 - selection audit: old member, new member, requested group, reason, timestamp;
 - service bindings scoped by Controller address; and
 - editable runtime settings, including dedicated probe addresses, with a revision
-  used to reject stale edits. Saved runtime values override YAML defaults after restart.
+  used to reject stale edits. Saved runtime values override YAML defaults after restart;
+- monitoring tasks, immutable plan revisions, series identities, raw observations,
+  hourly rollups, node/environment events and task-scoped failover evidence.
+
+Schema initialization enters through `history.Store.migrate` in `migrations.go`.
+The migration files preserve the existing sequence: base scan schema, legacy
+monitor schema, series schema, diagnostics schema, transactional task-key rebuild,
+then series preparation and resumable legacy observation import. Moving migration
+code does not change SQL, transaction boundaries, evidence IDs or upgrade behavior.
 
 Settings cannot change during a scan. Each scan freezes its selected service;
 verification-enabled scans cannot run concurrently against shared probe selectors.
@@ -339,7 +403,9 @@ It deliberately does not store the Mihomo `secret`, subscription URLs, or
 complete provider/node configuration. Scan and audit retention limits now bound
 ended history; unresolved operations remain protected. See [long-running operation
 and recovery](operations.md) for recovery, admission limits, switch operation
-states, idempotent retries and storage cleanup APIs. Background scans remain deferred.
+states, idempotent retries and storage cleanup APIs. Scheduled full scans remain
+deferred; enabled monitoring tasks already probe in the background while the Go
+service runs, independently of whether a browser is open.
 
 ## 7. Router integration (after local acceptance)
 

@@ -77,14 +77,32 @@ cmd/mihomo-smart-selector  application entry point
 cmd/mihomo-mock            development-only Controller fixture
 internal/api               HTTP API and embedded Vue application
 internal/config            configuration, validation, and Probe Profiles
-internal/history           SQLite scan and switch evidence
+internal/connection        private Controller connection overrides
+internal/history           SQLite migrations, scan/monitor evidence and retention
 internal/mihomo            Mihomo Controller client
+internal/model             shared backend data contracts
+internal/monitor           task runtimes, shared scheduler and fault failover
 internal/regions           name-based region classifier
 internal/scan              candidate, probe, score, and selection pipeline
 web                        Vue 3 source and pnpm lockfile
+web/src/app                application lifetime, discovery and navigation
+web/src/features           scan, monitor, connectivity, catalog, history, settings
+web/src/shared             shared components, request helpers and data contracts
 deploy/openwrt             reviewed OpenWrt/iStoreOS template
 tools                      build, verification, and process smoke scripts
 ```
+
+See [project structure](docs/project-structure.md) for module ownership, frontend
+state lifetime and the rules for adding or moving a file. Current behavior is in
+[architecture](docs/architecture.md); dated plans and acceptance records are in
+[design records](docs/design/README.md).
+
+Frontend source uses the pinned Prettier configuration in `web/.prettierrc.json`.
+Run `pnpm --dir web format` after editing; `pnpm --dir web format:check` is part of
+the verification contract. Unit tests stay beside the code and are discovered
+recursively from `web/src` and `web/build` by `pnpm --dir web test`. Browser tests
+remain in `web/e2e` and are run separately. Keep formatting and behavior changes
+separately reviewable when preparing commits.
 
 ## Make a focused change
 

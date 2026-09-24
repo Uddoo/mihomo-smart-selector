@@ -29,7 +29,7 @@ Impeccable 的安装器生成了 [项目 Hook 配置](../.codex/hooks.json)，�
 也可以从仓库根目录手动运行：
 
 ```powershell
-.agents/skills/impeccable/scripts/impeccable.cmd context --target web/src/ScanWorkbench.vue
+.agents/skills/impeccable/scripts/impeccable.cmd context --target web/src/features/scan/ScanWorkbench.vue
 .agents/skills/impeccable/scripts/impeccable.cmd detect --json web/src
 ```
 

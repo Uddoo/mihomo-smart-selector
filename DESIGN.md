@@ -169,7 +169,7 @@ components:
 
 ## Colors
 
-经典 Geist 保留黑白灰层级；雾蓝、鸢尾、Nord 和 Catppuccin 使用协调的背景、表面、边框、文字及强调色。前置令牌的 `light-*` / `dark-*` 记录经典 Geist；五套完整配色以 `web/src/themes.css` 为准。`style.css` 继续承载字体、布局与控件规则。
+经典 Geist 保留黑白灰层级；雾蓝、鸢尾、Nord 和 Catppuccin 使用协调的背景、表面、边框、文字及强调色。前置令牌的 `light-*` / `dark-*` 记录经典 Geist；五套完整配色以 `web/src/styles/themes.css` 为准。`style.css` 继续承载字体、布局与控件规则。
 
 配色方案与明暗模式独立：`data-palette` 为 `geist / ocean / iris / nord / catppuccin`，`data-theme` 为实际解析的 `light / dark`。偏好设置首屏提供五张配色缩略图和浅色、深色、跟随系统三个原生单选项；改变明暗时，缩略图展示对应色阶。选择立即生效，不添加整页淡入、缩放或循环动效。
 
@@ -285,9 +285,9 @@ Geist 与 Geist Mono 的可变 WOFF2 由应用自托管（字重 100–900，`fo
 
 页头与 LAN 连接页提供语言选择。语言优先采用当前浏览器保存的 `mss-locale`，否则匹配首个支持的浏览器语言，没有匹配时使用简体中文；更改即时同步根元素 `lang`，同源标签页同步。禁用本地存储时当前页仍可切换。语言与主题切换保留已有业务状态。
 
-外观由 `useAppearance` 独立管理，`AppearanceSettings` 只接收配色、明暗及解析后的主题并发出模型更新，`useWorkbench` 不再持有外观状态。`mss-palette` 保存配色，原有 `mss-theme` 保留浅色 / 深色并新增 `system`；缺省与无效模式跟随系统，无效配色回退 Geist。系统明暗变化不改写模式偏好，页头快捷切换会显式选择浅色或深色。跨标签页同步不重新挂载页面；存储不可用时保持当前页交互。独立同源 `appearance-init.js` 在首屏绘制前设置外观，遵循现有禁止内联脚本的 CSP；外观变化同步浏览器 `theme-color`。
+外观由 `useAppearance` 独立管理，`AppearanceSettings` 只接收配色、明暗及解析后的主题并发出模型更新，`useApplication` 只装配功能状态，外观状态由独立组合式函数持有。`mss-palette` 保存配色，原有 `mss-theme` 保留浅色 / 深色并新增 `system`；缺省与无效模式跟随系统，无效配色回退 Geist。系统明暗变化不改写模式偏好，页头快捷切换会显式选择浅色或深色。跨标签页同步不重新挂载页面；存储不可用时保持当前页交互。独立同源 `appearance-init.js` 在首屏绘制前设置外观，遵循现有禁止内联脚本的 CSP；外观变化同步浏览器 `theme-color`。
 
-新增文案沿用 `web/src/i18n.ts` 与 `web/src/i18n/messages.ts`，使用源文案、占位符和现有格式化函数；通知显示时翻译，未知诊断保留原文。时间保持浏览器本地时区。
+新增文案沿用 `web/src/i18n/index.ts` 与 `web/src/i18n/messages.ts`，使用源文案、占位符和现有格式化函数；通知显示时翻译，未知诊断保留原文。时间保持浏览器本地时区。
 
 ### Tables & Evidence
 

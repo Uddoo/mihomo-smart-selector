@@ -2,7 +2,7 @@
 version: 1
 slug: "web-src-app-vue"
 primary_target: "web/src/App.vue"
-related_targets: ["web/src/ScanWorkbench.vue","web/src/NodeCatalog.vue","web/src/MonitoringPage.vue","web/src/style.css"]
+related_targets: ["web/src/features/scan/ScanWorkbench.vue","web/src/features/node-catalog/NodeCatalog.vue","web/src/features/monitor/MonitoringPage.vue","web/src/styles/style.css"]
 ---
 
 # Mihomo Smart Selector workbench

@@ -2,6 +2,9 @@
 
 Date: 2026-09-07
 
+Historical acceptance record. The current design system is [DESIGN.md](../../DESIGN.md);
+current behavior and module ownership are documented in [architecture](../architecture.md).
+
 ## Target and scope
 
 - Reference: `docs/design/scan-workbench-v2-concept.png`, the approved Image Gen direction revised to include live ranking and per-node selection.

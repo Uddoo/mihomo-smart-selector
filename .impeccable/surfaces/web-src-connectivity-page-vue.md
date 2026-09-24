@@ -1,8 +1,8 @@
 ---
 version: 1
 slug: "web-src-connectivity-page-vue"
-primary_target: "web/src/ConnectivityPage.vue"
-related_targets: ["web/src/components/connectivity/ConnectivityGroup.vue", "web/src/components/connectivity/ServiceCard.vue", "web/src/components/connectivity/ServiceViewControls.vue", "web/src/components/connectivity/ServiceBindings.vue", "web/src/connectivity/useConnectivity.ts", "web/src/connectivity/bindings.ts", "web/src/connectivity/useConnectivityBindings.ts", "web/src/App.vue", "web/src/useWorkbench.ts", "web/src/NodeCatalog.vue", "web/src/useNodeCatalog.ts"]
+primary_target: "web/src/features/connectivity/ConnectivityPage.vue"
+related_targets: ["web/src/features/connectivity/ConnectivityGroup.vue", "web/src/features/connectivity/ServiceCard.vue", "web/src/features/connectivity/ServiceViewControls.vue", "web/src/features/connectivity/ServiceBindings.vue", "web/src/features/connectivity/useConnectivity.ts", "web/src/features/connectivity/bindings.ts", "web/src/features/connectivity/useConnectivityBindings.ts", "web/src/App.vue", "web/src/app/useApplication.ts", "web/src/app/useFeatureNavigation.ts", "web/src/features/node-catalog/NodeCatalog.vue", "web/src/features/node-catalog/useNodeCatalog.ts"]
 ---
 
 # Service connectivity
@@ -46,7 +46,7 @@ ConnectivityToolbar accepts run/status/filter props and emits actions; Connectiv
 
 `ServiceViewControls` presents the view, configuration read time, refresh action and manual-retest prompt. `ServiceBindings` extends the existing sample details with each bound group's configured selection, invalid/unknown states and latest matching group/profile scan from the available recent records. Its candidate action opens the existing catalog scoped to direct group members; its scan action opens an existing record. These actions do not start scans or switch nodes. The details state that configuration does not establish the browser request's actual path. The shared buttons, neutral selected surface, thin separators, warning text, wrapping labels and (44px) detail actions reuse the incumbent system without adding global tokens or an identity change.
 
-`bindings.ts` resolves exact identities and selection changes; `useConnectivityBindings` accepts completed configuration reads and holds per-service test snapshots in document memory. `useConnectivity` keeps view scope and explicit test starts. App/useWorkbench supply read-only configuration and guarded navigation; NodeCatalog/useNodeCatalog apply and clear the group scope. A failed configuration read makes associations unavailable; the regional browser test remains available. Changing a configured selection after a test prompts manual retesting, and testing one service updates only its snapshot.
+`bindings.ts` resolves exact identities and selection changes; `useConnectivityBindings` accepts completed configuration reads and holds per-service test snapshots in document memory. `useConnectivity` keeps view scope and explicit test starts. App/useApplication and useFeatureNavigation supply read-only configuration and guarded navigation; NodeCatalog/useNodeCatalog apply and clear the group scope. A failed configuration read makes associations unavailable; the regional browser test remains available. Changing a configured selection after a test prompts manual retesting, and testing one service updates only its snapshot.
 
 Binding documentation is in `docs/connectivity.md`. Captures under `.impeccable/review/connectivity-bindings/` cover Chinese light and English dark desktop/mobile layouts with controlled fixtures, not live service or router results. This record documents the extension and its existing design-system use; final validation and finish-review disposition remain separate.
 

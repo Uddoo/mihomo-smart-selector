@@ -228,6 +228,7 @@ Sharing a reproducible problem or a small improvement helps the project grow too
 | Read monitoring health, trends, events and failover settings | [English screenshot tour](docs/screenshots.md#monitoring-overview) · [Detailed guide (Chinese)](docs/monitoring.md) |
 | Understand inferred, ambiguous or hidden catalog entries | [Region inference and entry types](docs/region-classification.md) |
 | Understand scores, isolation or the API | [Architecture & verification boundaries](docs/architecture.md) |
+| Find source ownership, state lifetimes and historical designs | [Project structure](docs/project-structure.md) · [Design records](docs/design/README.md) |
 | Understand restart recovery, audit states or cleanup | [Long-running operation](docs/operations.md) |
 | Diagnose a problem | [Troubleshooting & reporting](docs/troubleshooting.md) |
 | See what changed | [Changelog](CHANGELOG.md) |
