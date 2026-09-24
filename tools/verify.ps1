@@ -44,7 +44,9 @@ function Get-ContentHash {
 Push-Location $projectRoot
 try {
     Write-Host 'Checking Go formatting...'
-    $goFiles = @(git ls-files -- '*.go')
+    $goFiles = @(git ls-files --cached --others --exclude-standard -- '*.go' |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+        Sort-Object -Unique)
     $unformatted = @(& $gofmt -l -- $goFiles)
     if ($unformatted.Count -ne 0) {
         throw "gofmt is required for: $($unformatted -join ', ')"
@@ -76,6 +78,7 @@ try {
 
     Write-Host 'Installing and checking the Vue application...'
     pnpm --dir web install --frozen-lockfile
+    pnpm --dir web format:check
     pnpm --dir web exec vue-tsc --noEmit
     pnpm --dir web test
     & (Join-Path $PSScriptRoot 'check-web-assets.ps1')

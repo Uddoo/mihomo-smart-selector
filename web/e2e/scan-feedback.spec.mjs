@@ -110,6 +110,32 @@ test('stop feedback survives snapshots, retries failures and allows escalation b
   await capture(page, 'scan-cancelled')
 })
 
+test('application-owned scan survives catalog and history navigation without restarting or switching', async ({page, request}) => {
+  const errors = []
+  page.on('pageerror', error => errors.push(error.message))
+  const state = await controlledScan(page, await seedScan(request))
+  const mutations = []
+  page.on('request', request => {
+    if (request.method() === 'POST' && /\/api\/v1\/scans(?:\/|$)/.test(request.url())) {
+      mutations.push(request.url())
+    }
+  })
+  const id = await page.evaluate(() => sessionStorage.getItem('mss-scan-id'))
+  await page.getByRole('button', {name: '节点目录', exact: true}).click()
+  await expect(page.getByRole('heading', {name: '节点目录', exact: true})).toBeVisible()
+  await page.getByRole('button', {name: '选择历史', exact: true}).click()
+  await expect(page.locator('.history-page')).toBeVisible()
+  state.scan = {...state.scan, status: 'complete', completed_at: new Date().toISOString(),
+    progress: {...state.scan.progress, completed: 10, total: 10}}
+  await state.refresh()
+  await page.getByRole('button', {name: '扫描工作台', exact: true}).click()
+  await expect(feedback(page).getByText('扫描完成', {exact: true})).toBeVisible()
+  await expect(feedback(page).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
+  expect(await page.evaluate(() => sessionStorage.getItem('mss-scan-id'))).toBe(id)
+  expect(mutations).toEqual([])
+  expect(errors).toEqual([])
+})
+
 test('scan feedback handles empty snapshots, refinement, start failure and bilingual reduced motion', async ({page, request}) => {
   const state = await controlledScan(page, await seedScan(request))
   state.scan = {...state.scan, results: undefined, progress: {...state.scan.progress, completed: 0, total: 0}}
