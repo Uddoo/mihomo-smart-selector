@@ -152,9 +152,12 @@ Monitoring includes
 Provider correlation hints and redacted diagnostic bundles.
 Scores require 100 valid baseline samples and stay provisional until a full scoring window
 with at least 80% coverage is available for the selected scoring window. WebSocket continuity is not verified.
-Optional failover replaces a confirmed-unavailable current node with the healthy
-monitored candidate having the highest baseline success rate (lower P95 breaks
-ties), after a fresh check. Switches have durable audits and a two-minute cooldown.
+Optional failover replaces a confirmed-unavailable current node after a fresh check.
+Healthy candidates within a configurable margin of the highest 24-hour baseline
+success rate are tried by lowest P95; other candidates remain as fallbacks in
+success-rate order. The per-task tolerance defaults to 8 percentage points;
+set it to 0 to restore success-rate-first selection. Switches have durable audits
+and a two-minute cooldown.
 [Monitoring usage and limits →](docs/monitoring.md)
 [Operation and recovery details →](docs/operations.md)
 
