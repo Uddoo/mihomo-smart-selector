@@ -8,6 +8,7 @@ import (
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 	"github.com/Uddoo/mihomo-smart-selector/internal/scan"
+	"math"
 	"time"
 )
 
@@ -70,6 +71,16 @@ func (m *TaskRuntime) savePlan(ctx context.Context, r model.MonitorRequest, impl
 	if limit < 1 || limit > Limits().MaxCandidateLimit {
 		return nil, fmt.Errorf("监控候选上限必须为 1–30 的整数")
 	}
+	tolerance := model.DefaultFailoverTolerancePP
+	if old != nil {
+		tolerance = old.FailoverTolerancePP
+	}
+	if r.FailoverTolerancePP != nil {
+		tolerance = *r.FailoverTolerancePP
+	}
+	if math.IsNaN(tolerance) || math.IsInf(tolerance, 0) || tolerance < 0 || tolerance > 100 {
+		return nil, fmt.Errorf("成功率容差必须为 0–100 个百分点")
+	}
 	// Pausing must also work while the Controller or profile is unavailable.
 	if !r.Enabled && (implicit || r.Group == "") {
 		if old == nil {
@@ -79,6 +90,7 @@ func (m *TaskRuntime) savePlan(ctx context.Context, r model.MonitorRequest, impl
 			return nil, fmt.Errorf("已选节点超过候选上限，请减少节点或提高上限")
 		}
 		old.CandidateLimit = limit
+		old.FailoverTolerancePP = tolerance
 		old.Enabled = false
 		if r.AutoSwitch != nil {
 			old.AutoSwitch = *r.AutoSwitch
@@ -124,7 +136,7 @@ func (m *TaskRuntime) savePlan(ctx context.Context, r model.MonitorRequest, impl
 	}
 	hash := scan.MonitorProfileHash(p)
 	configuredProfile = &p
-	plan := &model.MonitorPlan{Enabled: r.Enabled, CandidateLimit: limit, Group: r.Group, ProfileID: p.ID, ProfileHash: hash, Nodes: selected, Revision: previous + 1, CreatedAt: m.now()}
+	plan := &model.MonitorPlan{Enabled: r.Enabled, CandidateLimit: limit, FailoverTolerancePP: tolerance, Group: r.Group, ProfileID: p.ID, ProfileHash: hash, Nodes: selected, Revision: previous + 1, CreatedAt: m.now()}
 	if old != nil {
 		plan.TaskID = old.TaskID
 	}

@@ -1,6 +1,12 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
+
+// A percentage-point difference, not a relative percentage of the best rate.
+const DefaultFailoverTolerancePP = 8.0
 
 // Monitoring evidence is separate from a scan; failover requires an explicit opt-in.
 type MonitorNode struct {
@@ -30,18 +36,31 @@ type MonitorRevision struct {
 }
 
 type MonitorPlan struct {
-	TaskID         string        `json:"task_id"`
-	ID             string        `json:"id"`
-	Revision       int           `json:"revision"`
-	Enabled        bool          `json:"enabled"`
-	AutoSwitch     bool          `json:"auto_switch"`
-	CandidateLimit int           `json:"candidate_limit"`
-	Group          string        `json:"group"`
-	ProfileID      string        `json:"profile_id"`
-	ProfileHash    string        `json:"profile_hash"`
-	Nodes          []MonitorNode `json:"nodes"`
-	CreatedAt      time.Time     `json:"created_at"`
-	UpdatedAt      time.Time     `json:"updated_at,omitempty"`
+	TaskID              string        `json:"task_id"`
+	ID                  string        `json:"id"`
+	Revision            int           `json:"revision"`
+	Enabled             bool          `json:"enabled"`
+	AutoSwitch          bool          `json:"auto_switch"`
+	FailoverTolerancePP float64       `json:"failover_tolerance_pp"`
+	CandidateLimit      int           `json:"candidate_limit"`
+	Group               string        `json:"group"`
+	ProfileID           string        `json:"profile_id"`
+	ProfileHash         string        `json:"profile_hash"`
+	Nodes               []MonitorNode `json:"nodes"`
+	CreatedAt           time.Time     `json:"created_at"`
+	UpdatedAt           time.Time     `json:"updated_at,omitempty"`
+}
+
+// Missing fields in persisted pre-tolerance plans adopt the default; an
+// explicitly saved zero keeps the original success-rate-first policy.
+func (p *MonitorPlan) UnmarshalJSON(data []byte) error {
+	type plain MonitorPlan
+	value := plain{FailoverTolerancePP: DefaultFailoverTolerancePP}
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*p = MonitorPlan(value)
+	return nil
 }
 
 // A task has a stable identity across plan revisions and evidence epochs.
@@ -62,13 +81,14 @@ type MonitorTaskSummary struct {
 }
 
 type MonitorRequest struct {
-	Revision       int      `json:"revision"`
-	Enabled        bool     `json:"enabled"`
-	AutoSwitch     *bool    `json:"auto_switch,omitempty"`
-	CandidateLimit *int     `json:"candidate_limit,omitempty"`
-	Group          string   `json:"group"`
-	ProfileID      string   `json:"profile_id"`
-	Nodes          []string `json:"nodes"`
+	Revision            int      `json:"revision"`
+	Enabled             bool     `json:"enabled"`
+	AutoSwitch          *bool    `json:"auto_switch,omitempty"`
+	FailoverTolerancePP *float64 `json:"failover_tolerance_pp,omitempty"`
+	CandidateLimit      *int     `json:"candidate_limit,omitempty"`
+	Group               string   `json:"group"`
+	ProfileID           string   `json:"profile_id"`
+	Nodes               []string `json:"nodes"`
 }
 
 type MonitorSample struct {

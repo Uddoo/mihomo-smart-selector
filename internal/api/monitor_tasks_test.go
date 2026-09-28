@@ -71,10 +71,15 @@ func TestMonitorTasksHTTPContractAndLegacyAmbiguity(t *testing.T) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	first := decodePlan(call("PUT", "/api/v1/monitor/plan", `{"enabled":true,"group":"ChatGPT","profile_id":"chatgpt","nodes":["node"]}`, true), 200)
+	if first.FailoverTolerancePP != model.DefaultFailoverTolerancePP {
+		t.Fatal("missing tolerance did not get default", first)
+	}
 	if w := call("GET", "/api/v1/monitor", "", true); w.Code != 200 {
 		t.Fatal("single-task compatibility", w.Code)
 	}
 	for _, body := range []string{
+		`{"group":"Video","profile_id":"chatgpt","nodes":["node"],"enabled":false,"failover_tolerance_pp":-1}`,
+		`{"group":"Video","profile_id":"chatgpt","nodes":["node"],"enabled":false,"failover_tolerance_pp":101}`,
 		`{"group":"Video","profile_id":"chatgpt","nodes":["missing"],"enabled":false}`,
 		`{"group":"Video","profile_id":"chatgpt","nodes":["node"],"revision":1,"enabled":false}`,
 		`{"group":"ChatGPT","profile_id":"chatgpt","nodes":["node"],"enabled":false}`,
@@ -83,7 +88,10 @@ func TestMonitorTasksHTTPContractAndLegacyAmbiguity(t *testing.T) {
 			t.Fatal("invalid task accepted", w.Code, w.Body.String())
 		}
 	}
-	second := decodePlan(call("POST", "/api/v1/monitor/tasks", `{"enabled":false,"group":"Video","profile_id":"chatgpt","candidate_limit":12,"nodes":["node"],"auto_switch":true}`, true), 201)
+	second := decodePlan(call("POST", "/api/v1/monitor/tasks", `{"enabled":false,"group":"Video","profile_id":"chatgpt","candidate_limit":12,"nodes":["node"],"auto_switch":true,"failover_tolerance_pp":2.5}`, true), 201)
+	if second.FailoverTolerancePP != 2.5 {
+		t.Fatal("custom tolerance not returned", second)
+	}
 	var snapshot struct {
 		Tasks     []model.MonitorTask     `json:"tasks"`
 		Scheduler monitor.SchedulerStatus `json:"scheduler"`

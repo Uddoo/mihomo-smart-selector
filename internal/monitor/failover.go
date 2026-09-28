@@ -30,8 +30,9 @@ func fresh(at, now time.Time, age time.Duration) bool {
 	return !at.IsZero() && !at.After(now) && now.Sub(at) <= age
 }
 
-// The election uses exactly the baseline success rate shown in the monitoring
-// table. Long-term score and screening/refinement stages do not override it.
+// Use one best-rate anchor for the whole election. Pairwise tolerances would
+// make ordering non-transitive. Within the preferred band, prioritize P95;
+// keep every other eligible node as a success-rate-ordered fallback.
 func failoverCandidates(o model.MonitorOverview) []model.MonitorRow {
 	if o.Plan == nil || !o.Plan.Enabled || !o.Plan.AutoSwitch || o.Suspended || o.Issue != "" || !fresh(o.ObservedAt, o.Now, 45*time.Second) {
 		return nil
@@ -46,13 +47,29 @@ func failoverCandidates(o model.MonitorOverview) []model.MonitorRow {
 		return nil
 	}
 	out := []model.MonitorRow{}
+	bestRate := 0.0
 	for _, r := range o.Rows {
 		if r.Name != o.Current && r.State.Status == "healthy" && fresh(r.State.LastSuccess, o.Now, 240*time.Second) && fresh(r.State.LastAt, o.Now, 240*time.Second) && r.Metrics.Samples > 0 && r.Metrics.SuccessRate > 0 {
 			out = append(out, r)
+			bestRate = max(bestRate, r.Metrics.SuccessRate)
 		}
+	}
+	preferred := func(r model.MonitorRow) bool {
+		if o.Plan.FailoverTolerancePP == 0 {
+			return r.Metrics.SuccessRate == bestRate
+		}
+		// Epsilon only absorbs floating-point error at an inclusive boundary.
+		return bestRate-r.Metrics.SuccessRate <= o.Plan.FailoverTolerancePP/100+1e-12
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		a, b := out[i], out[j]
+		aPreferred, bPreferred := preferred(a), preferred(b)
+		if aPreferred != bPreferred {
+			return aPreferred
+		}
+		if aPreferred && a.Metrics.P95MS != b.Metrics.P95MS {
+			return a.Metrics.P95MS < b.Metrics.P95MS
+		}
 		if a.Metrics.SuccessRate != b.Metrics.SuccessRate {
 			return a.Metrics.SuccessRate > b.Metrics.SuccessRate
 		}

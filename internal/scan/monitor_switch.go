@@ -89,7 +89,8 @@ func (m *Manager) MonitorSwitch(ctx context.Context, p model.MonitorPlan, expect
 	if !exists || !strings.EqualFold(g.Type, "Selector") || g.Now != expected || !contains(g.All, node.Name) {
 		return empty, fmt.Errorf("策略组选择或成员已变化，未自动覆盖")
 	}
-	event := model.SwitchEvent{ControllerScope: m.bindingScope(), ScanID: "monitor:" + p.ID, Group: p.Group, Previous: expected, Selected: node.Name, Reason: "监控故障自动切换：候选按近24小时基准成功率优先，切换前复测通过", CreatedAt: time.Now().UTC(), Status: "pending", RequestID: key}
+	reason := fmt.Sprintf("监控故障自动切换：近24小时成功率容差 %g 个百分点，容差内优先低 P95，其余候选兜底；切换前复测通过", p.FailoverTolerancePP)
+	event := model.SwitchEvent{ControllerScope: m.bindingScope(), ScanID: "monitor:" + p.ID, Group: p.Group, Previous: expected, Selected: node.Name, Reason: reason, CreatedAt: time.Now().UTC(), Status: "pending", RequestID: key}
 	event, err = m.store.RecordSwitch(ctx, event)
 	if err != nil {
 		return empty, fmt.Errorf("无法保存自动切换审计，未执行切换")
