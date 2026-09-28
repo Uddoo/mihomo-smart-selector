@@ -8,6 +8,37 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.4.0] - 2026-09-28
+
+### Added
+
+- Configure a success-rate tolerance independently for each monitoring task.
+  The UI and task API accept 0–100 percentage points, including decimals, and
+  retain task-local drafts, saved values and explicit zero across restarts.
+- Record the configured tolerance and latency preference in automatic-switch
+  audit reasons, with matching Chinese and English interface copy.
+
+### Changed
+
+- During confirmed-failure failover, prefer lower 24-hour P95 among healthy,
+  fresh alternatives within the configured margin of the highest 24-hour
+  baseline success rate. Keep other candidates as success-rate-ordered
+  fallbacks. Use one fixed best-rate reference rather than pairwise comparisons.
+- Default the tolerance to 8 percentage points for new tasks and older plans
+  missing the field. Setting it to 0 restores success-rate-first selection.
+  Editing it preserves plan/series identities, samples and failover enablement.
+
+### Upgrade notes
+
+- Existing enabled failover tasks adopt the new default when their saved plan
+  lacks `failover_tolerance_pp`; review the setting after upgrading. Omitted
+  fields in task updates preserve an existing value. No database schema
+  migration is added over v0.3.x.
+- Failover remains opt-in and requires confirmed current-node failure, fresh
+  healthy candidates, a pre-switch retest, cooldown and durable audit/readback.
+  Healthy current nodes are not proactively replaced. The tolerance is a
+  configurable preference, not a statistical confidence interval.
+
 ## [v0.3.1] - 2026-09-28
 
 ### Changed
@@ -509,7 +540,9 @@ The rc.6 build candidate was not published. This release includes its changes.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.0...HEAD
+[v0.4.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.3.1...v0.4.0
+[v0.3.1]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0...v0.2.0
 [v0.1.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.1.0-rc.11...v0.1.0
