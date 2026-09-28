@@ -8,6 +8,20 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.3.1] - 2026-09-28
+
+### Changed
+
+- Update Lucide Vue to 1.48.0, Vite to 8.3.1 and Prettier to 3.9.9,
+  including the locked Rolldown dependency updates.
+- Update paired CodeQL actions to 4.38.2 and pnpm/setup to 3.0.0 while
+  retaining the pinned Node.js runtime and frozen-lockfile installation.
+
+### Fixed
+
+- Regenerate the Go-embedded frontend, its gzip assets and entry references
+  so the shipped dashboard matches the updated dependency lockfile.
+
 ## [v0.3.0] - 2026-09-24
 
 ### Changed
