@@ -19,6 +19,8 @@ const {
   profile,
   chosen,
   candidateLimit,
+  failoverTolerancePP,
+  validTolerance,
   query,
   enabled,
   blockedGroups,
@@ -139,6 +141,36 @@ const {
         })
       }}</template></p
     >
+    <div class="monitor-limit monitor-tolerance">
+      <label for="monitor-failover-tolerance"
+        >{{ t('成功率容差（百分点）')
+        }}<input
+          id="monitor-failover-tolerance"
+          v-model.number="failoverTolerancePP"
+          type="number"
+          name="monitor-failover-tolerance"
+          inputmode="decimal"
+          min="0"
+          max="100"
+          step="any"
+          required
+          :disabled="disabled"
+          :aria-invalid="!validTolerance"
+          aria-describedby="monitor-tolerance-hint monitor-tolerance-error"
+      /></label>
+      <p id="monitor-tolerance-hint">{{
+        t(
+          '仅在故障切换时生效。与最高成功率相差不超过此值的健康候选，优先选择低 P95；其余候选保留兜底。设为 0 恢复成功率优先。',
+        )
+      }}</p>
+    </div>
+    <p
+      id="monitor-tolerance-error"
+      class="bad"
+      :role="!validTolerance ? 'alert' : undefined"
+    >
+      <template v-if="!validTolerance">{{ t('成功率容差必须为 0–100 个百分点') }}</template>
+    </p>
     <p
       v-if="catalogError"
       class="bad"
@@ -358,6 +390,9 @@ input:not([type='checkbox']) {
 }
 .monitor-limit label {
   width: 140px;
+}
+.monitor-tolerance label {
+  width: 190px;
 }
 .monitor-limit p {
   flex: 1;

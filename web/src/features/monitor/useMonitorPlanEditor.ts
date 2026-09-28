@@ -1,4 +1,4 @@
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { api } from '../../shared/api/api'
 import type { Group, ServiceCatalog } from '../../shared/types/models'
 import type {
@@ -9,6 +9,7 @@ import type {
   MonitorScheduler,
 } from './monitoring'
 import { monitorWorkload, taskPath } from './taskState'
+import { DEFAULT_FAILOVER_TOLERANCE_PP, validFailoverTolerance } from './monitoring'
 import type { MonitorDraft } from './taskState'
 
 export interface MonitorPlanEditorProps {
@@ -40,6 +41,12 @@ export function useMonitorPlanEditor(
     props.draft?.candidateLimit ?? props.plan?.candidate_limit ?? 6,
   )
   const enabled = ref(props.draft?.enabled ?? props.plan?.enabled ?? true)
+  const failoverTolerancePP = shallowRef<number | string>(
+    props.draft?.failoverTolerancePP ??
+      props.plan?.failover_tolerance_pp ??
+      DEFAULT_FAILOVER_TOLERANCE_PP,
+  )
+  const validTolerance = computed(() => validFailoverTolerance(failoverTolerancePP.value))
   const query = ref(props.draft?.query || ''),
     catalog = ref<MonitorCatalog | null>(null)
   const draft = computed<MonitorDraft>(() => ({
@@ -48,6 +55,7 @@ export function useMonitorPlanEditor(
     profile: profile.value,
     chosen: [...chosen.value],
     candidateLimit: candidateLimit.value,
+    failoverTolerancePP: failoverTolerancePP.value,
     enabled: enabled.value,
     query: query.value,
   }))
@@ -121,6 +129,7 @@ export function useMonitorPlanEditor(
       !catalogBusy.value &&
       !blockedGroups.value.includes(group.value) &&
       validLimit.value &&
+      validTolerance.value &&
       validProfile.value &&
       chosen.value.length > 0 &&
       !overLimit.value &&
@@ -219,6 +228,7 @@ export function useMonitorPlanEditor(
             group: group.value,
             profile_id: profile.value,
             candidate_limit: Number(candidateLimit.value),
+            failover_tolerance_pp: Number(failoverTolerancePP.value),
             nodes: chosen.value,
           }),
         },
@@ -236,6 +246,8 @@ export function useMonitorPlanEditor(
     profile,
     chosen,
     candidateLimit,
+    failoverTolerancePP,
+    validTolerance,
     query,
     enabled,
     blockedGroups,

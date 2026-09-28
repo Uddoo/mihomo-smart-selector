@@ -71,6 +71,16 @@ test('all English catalog entries retain each source placeholder exactly once', 
   }
 })
 
+test('failover audit translates its configured percentage-point tolerance', () => {
+  setLocale('en')
+  assert.equal(
+    translateMessage(
+      '监控故障自动切换：近24小时成功率容差 2.5 个百分点，容差内优先低 P95，其余候选兜底；切换前复测通过',
+    ),
+    'Automatic monitoring failover: 24-hour success-rate tolerance 2.5 percentage points, lowest P95 within tolerance, other candidates as fallbacks; pre-switch retest passed.',
+  )
+})
+
 test('parameters are inserted verbatim, never recursively interpreted or translated', () => {
   setLocale('en')
   const name = '健康 <img src=x> {node} 日本'

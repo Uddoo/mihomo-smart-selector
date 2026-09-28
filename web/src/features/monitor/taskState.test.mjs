@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { monitorWorkload, draftChanged, emptyView, taskPath } from './taskState.ts'
 import { retentionCapacity } from './monitorRetention.ts'
+import { validFailoverTolerance } from './monitoring.ts'
 
 const services = {
   profiles: [
@@ -60,10 +61,25 @@ test('unknown profile does not invent request estimates and stale drafts remain 
     query: '',
   }
   assert.equal(draftChanged(draft, plan), false)
+  assert.equal(draftChanged({ ...draft, failoverTolerancePP: 0 }, plan), true)
+  assert.equal(
+    draftChanged({ ...draft, failoverTolerancePP: 0 }, { ...plan, failover_tolerance_pp: 0 }),
+    false,
+  )
+  assert.equal(
+    draftChanged({ ...draft, failoverTolerancePP: 2.5 }, { ...plan, failover_tolerance_pp: 2.5 }),
+    false,
+  )
   assert.equal(draftChanged(draft, { ...plan, revision: 2 }), true)
   const a = emptyView(),
     b = emptyView()
   a.editing = true
   assert.equal(b.editing, false)
   assert.equal(taskPath('a/b'), '/monitor/tasks/a%2Fb')
+})
+
+test('tolerance allows explicit zero and decimals but never treats a blank as zero', () => {
+  for (const value of [0, 0.1, 2.5, 8, 100]) assert.equal(validFailoverTolerance(value), true)
+  for (const value of ['', '8', -0.1, 100.1, NaN, Infinity])
+    assert.equal(validFailoverTolerance(value), false)
 })

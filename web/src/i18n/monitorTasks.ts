@@ -1,4 +1,17 @@
 export const monitorTaskMessages = {
+  '成功率容差（百分点）': 'Success-rate tolerance (percentage points)',
+  '成功率容差必须为 0–100 个百分点':
+    'Success-rate tolerance must be between 0 and 100 percentage points.',
+  '仅在故障切换时生效。与最高成功率相差不超过此值的健康候选，优先选择低 P95；其余候选保留兜底。设为 0 恢复成功率优先。':
+    'Applies only during failover. Healthy candidates within this margin of the highest success rate are tried by lowest P95; other candidates remain as fallbacks. Set 0 to restore success-rate-first selection.',
+  '当前健康节点优先。额外复测不覆盖历史失败；自动切换按成功率容差与 P95 选择，与长期分排序独立。':
+    'Currently healthy nodes take priority. Retests do not overwrite historical failures. Failover uses success-rate tolerance and P95 independently of the long-term score.',
+  '当前节点确认不可用后，健康候选中近 24 小时成功率距最高值不超过 {p0} 个百分点的节点优先按 P95 选择，其余候选按成功率兜底。可在“编辑监控方案”中调整容差。':
+    'After the current node is confirmed unavailable, healthy candidates within {p0} percentage points of the highest 24-hour success rate are tried by lowest P95. Other candidates fall back to success-rate order. Change the tolerance in Edit monitoring plan.',
+  '已开启故障自动切换：当前节点确认不可用时，按成功率容差优先选择低延迟健康候选。':
+    'Failover enabled: when the current node is confirmed unavailable, prefer low-latency healthy candidates within the success-rate tolerance.',
+  '监控故障自动切换：近24小时成功率容差 {p0} 个百分点，容差内优先低 P95，其余候选兜底；切换前复测通过':
+    'Automatic monitoring failover: 24-hour success-rate tolerance {p0} percentage points, lowest P95 within tolerance, other candidates as fallbacks; pre-switch retest passed.',
   '正在读取最近采样…': 'Loading recent samples…',
   策略组监控: 'Group monitoring',
   '每组独立候选与自动切换，关闭页面后继续运行。':

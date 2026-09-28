@@ -127,6 +127,11 @@ export function t(source: string | null | undefined, params: MessageParams = {})
 // switching locale also updates an already visible notice. Captured identities
 // are inserted verbatim; only explicitly identified message fields recurse.
 const runtimeMessages = [
+  {
+    source:
+      '监控故障自动切换：近24小时成功率容差 {p0} 个百分点，容差内优先低 P95，其余候选兜底；切换前复测通过',
+    translated: [],
+  },
   { source: '已清理 {p0} 次扫描、{p1} 条审计记录。', translated: [] },
   { source: '{p0}已复制', translated: ['p0'] },
   { source: '已回读确认切换到 {p0}', translated: [] },

@@ -1,4 +1,9 @@
 import { t, translateMessage, locale, formatDate } from '../../i18n/index.ts'
+export const DEFAULT_FAILOVER_TOLERANCE_PP = 8
+
+export function validFailoverTolerance(value: number | string): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100
+}
 export interface MonitorNode {
   id: string
   name: string
@@ -13,6 +18,7 @@ export interface MonitorPlan {
   revision: number
   enabled: boolean
   auto_switch: boolean
+  failover_tolerance_pp?: number
   group: string
   profile_id: string
   profile_hash: string

@@ -5,7 +5,7 @@ import MonitorNodeList from './MonitorNodeList.vue'
 import MonitorPlanEditor from './MonitorPlanEditor.vue'
 import MonitorHistoryPanel from './MonitorHistoryPanel.vue'
 import MonitorDiagnosticsPanel from './MonitorDiagnosticsPanel.vue'
-import { monitorStatus, monitorTime } from './monitoring'
+import { DEFAULT_FAILOVER_TOLERANCE_PP, monitorStatus, monitorTime } from './monitoring'
 import { useMonitorTaskView } from './useMonitorTaskView'
 import type { MonitorTaskViewProps, MonitorTaskViewEmits } from './useMonitorTaskView'
 const props = defineProps<MonitorTaskViewProps>()
@@ -266,7 +266,7 @@ const {
                 ><h3>{{ t('长期排名 · {p0}', { p0: translateMessage(windowLabel) }) }}</h3
                 ><p>{{
                   t(
-                    '当前健康节点优先。额外复测不覆盖历史失败；自动切换使用成功率排序，与长期分排序独立。',
+                    '当前健康节点优先。额外复测不覆盖历史失败；自动切换按成功率容差与 P95 选择，与长期分排序独立。',
                   )
                 }}</p></div
               ><button
@@ -371,7 +371,8 @@ const {
                 ><h3>{{ t('故障自动切换') }}</h3
                 ><p>{{
                   t(
-                    '当前节点连续失败并确认不可用时，从当前健康且近期有成功样本的监控节点中选择近 24 小时成功率最高者；并列时选 P95 更低者。',
+                    '当前节点确认不可用后，健康候选中近 24 小时成功率距最高值不超过 {p0} 个百分点的节点优先按 P95 选择，其余候选按成功率兜底。可在“编辑监控方案”中调整容差。',
+                    { p0: plan.failover_tolerance_pp ?? DEFAULT_FAILOVER_TOLERANCE_PP },
                   )
                 }}</p></div
               ><button

@@ -194,7 +194,7 @@ export function useMonitorTaskView(props: MonitorTaskViewProps, emit: Emit) {
         body: JSON.stringify({ revision: plan.value.revision, enabled }),
       })
       message.value = enabled
-        ? '已开启故障自动切换：当前节点确认不可用时，选择健康候选中基准成功率最高者。'
+        ? '已开启故障自动切换：当前节点确认不可用时，按成功率容差优先选择低延迟健康候选。'
         : '已关闭故障自动切换，继续监控并保留手动选择。'
       emit('saved', result)
       await refresh()

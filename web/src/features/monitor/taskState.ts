@@ -1,4 +1,5 @@
 import type { MonitorActivity, MonitorPlan, MonitorTask } from './monitoring.ts'
+import { DEFAULT_FAILOVER_TOLERANCE_PP } from './monitoring.ts'
 import type { ServiceCatalog } from '../../shared/types/models.ts'
 
 export interface MonitorDraft {
@@ -7,6 +8,7 @@ export interface MonitorDraft {
   profile: string
   chosen: string[]
   candidateLimit: number | string
+  failoverTolerancePP: number | string
   enabled: boolean
   query: string
 }
@@ -40,6 +42,8 @@ export function draftChanged(draft: MonitorDraft | null | undefined, plan?: Moni
     draft.profile !== plan.profile_id ||
     draft.enabled !== plan.enabled ||
     draft.candidateLimit !== (plan.candidate_limit || 6) ||
+    (draft.failoverTolerancePP ?? DEFAULT_FAILOVER_TOLERANCE_PP) !==
+      (plan.failover_tolerance_pp ?? DEFAULT_FAILOVER_TOLERANCE_PP) ||
     draft.chosen.length !== plan.nodes.length ||
     draft.chosen.some((name, index) => name !== plan.nodes[index]?.name)
   )
