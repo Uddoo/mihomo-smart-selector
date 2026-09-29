@@ -180,6 +180,22 @@ func TestRouterExampleFailsClosedWithoutAPIToken(t *testing.T) {
 
 func TestResolveProbeProfileNormalizesOpenClashSelectorDecorations(t *testing.T) {
 	cfg := Defaults()
+	for group, want := range map[string]string{
+		"🤖 CLAUDE": "claude", "Anthropic": "claude", "Claude AI": "claude",
+		"✨ Google-Gemini": "gemini", "Gemini": "gemini",
+		"🧪 AI Studio": "aistudio", "Google AI Studio": "aistudio", "Gemini API": "aistudio",
+		"DeepSeek": "deepseek", "深度求索": "deepseek",
+		"Mistral AI": "mistral", "Mistral": "mistral", "Le Chat": "mistral",
+		"AI服务": "chatgpt", "谷歌服务": "google", "任意工作组": "internet-baseline",
+	} {
+		resolved, err := cfg.ResolveProbeProfile(group)
+		if err != nil || resolved.ID != want {
+			t.Errorf("resolve %q: profile=%s error=%v, want %s", group, resolved.ID, err, want)
+		}
+		if want != "internet-baseline" && cfg.SuggestedProfile(group) != want {
+			t.Errorf("suggestion for %q: want %s", group, want)
+		}
+	}
 	profile, err := cfg.ResolveProbeProfile("🤖 ChatGPT")
 	if err != nil {
 		t.Fatal(err)

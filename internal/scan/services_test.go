@@ -13,8 +13,17 @@ import (
 )
 
 func TestServicesAdaptDifferentGroupNamesAndPreserveBindings(t *testing.T) {
-	for _, name := range []string{"🤖 ChatGPT", "海外工作 / Office"} {
-		t.Run(name, func(t *testing.T) {
+	for _, tc := range []struct{ name, profileID string }{
+		{"🤖 ChatGPT", "youtube"},
+		{"海外工作 / Office", "youtube"},
+		{"🤖 Claude", "claude"},
+		{"✨ Google Gemini", "gemini"},
+		{"🧪 AI Studio", "aistudio"},
+		{"深度求索", "deepseek"},
+		{"Mistral AI", "mistral"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			name := tc.name
 			ctx := context.Background()
 			cfg := config.Defaults()
 			path := filepath.Join(t.TempDir(), "bindings.db")
@@ -27,7 +36,7 @@ func TestServicesAdaptDifferentGroupNamesAndPreserveBindings(t *testing.T) {
 				"old": {Name: "old", Type: "VLESS"}, "new": {Name: "new", Type: "VLESS"},
 			}, delays: map[string]int{"old": 250, "new": 100}}
 			manager := NewManager(cfg, fake, store)
-			if err := manager.SetBinding(ctx, model.ServiceBinding{Group: name, ProfileID: "youtube"}); err != nil {
+			if err := manager.SetBinding(ctx, model.ServiceBinding{Group: name, ProfileID: tc.profileID}); err != nil {
 				t.Fatal(err)
 			}
 			if err := store.Close(); err != nil {
@@ -41,7 +50,7 @@ func TestServicesAdaptDifferentGroupNamesAndPreserveBindings(t *testing.T) {
 			manager = NewManager(cfg, fake, store)
 			request := model.ScanRequest{TargetGroup: name, Mode: "quick"}
 			preview, err := manager.Preflight(ctx, request)
-			if err != nil || !preview.Ready || preview.Profile.ID != "youtube" {
+			if err != nil || !preview.Ready || preview.Profile.ID != tc.profileID {
 				t.Fatalf("persisted binding: %+v, %v", preview, err)
 			}
 			request.ProfileID = "github"
@@ -58,7 +67,7 @@ func TestServicesAdaptDifferentGroupNamesAndPreserveBindings(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if started.Request.ProfileID != "youtube" {
+			if started.Request.ProfileID != tc.profileID {
 				t.Fatal("scan did not freeze resolved profile")
 			}
 			if err := manager.SetBinding(ctx, model.ServiceBinding{Group: name, ProfileID: "github"}); err != nil {
@@ -79,7 +88,7 @@ func TestServicesAdaptDifferentGroupNamesAndPreserveBindings(t *testing.T) {
 				}
 				time.Sleep(10 * time.Millisecond)
 			}
-			if completed.Status != model.ScanComplete || completed.Profile.ID != "youtube" || len(completed.Results) != 2 {
+			if completed.Status != model.ScanComplete || completed.Profile.ID != tc.profileID || len(completed.Results) != 2 {
 				t.Fatalf("scan: %+v", completed)
 			}
 			if fake.selected != "" {

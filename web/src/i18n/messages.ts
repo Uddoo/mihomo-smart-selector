@@ -1081,6 +1081,21 @@ export const en = {
   '测量 ChatGPT Web 可达性与时延。严格 API 401 验证仅在专用探测选择器已配置时执行。':
     'Measure ChatGPT Web reachability and latency. Strict API 401 checks run only when a dedicated probe selector is configured.',
   'Google 服务可达性': 'Google reachability',
+  'Claude 静态资源可达性': 'Claude static resource reachability',
+  '测量 Claude 站点静态资源的可达性与时延；不代表登录、对话、Claude Code 或 API 调用可用。':
+    'Measure Claude static resource reachability and latency; does not verify login, conversations, Claude Code or API calls.',
+  'Gemini Web 可达性': 'Gemini Web reachability',
+  '测量 Gemini Web 入口可达性与时延；不代表 Google 帐号、地区资格或模型对话可用。':
+    'Measure Gemini Web entry-point reachability and latency; does not verify Google accounts, regional eligibility or model conversations.',
+  'Google AI Studio API 元数据可达性': 'Google AI Studio API metadata reachability',
+  '读取 Gemini API 的公开 Discovery 文档；不需要 API 密钥，不代表 AI Studio 登录或模型生成请求可用。':
+    'Read the public Gemini API Discovery document without an API key; does not verify AI Studio login or model generation requests.',
+  'DeepSeek 静态资源可达性': 'DeepSeek static resource reachability',
+  '测量 DeepSeek 官网静态资源的可达性与时延；不代表聊天、登录或 API 调用可用。':
+    'Measure DeepSeek website static resource reachability and latency; does not verify chat, login or API calls.',
+  'Mistral AI 静态资源可达性': 'Mistral AI static resource reachability',
+  '测量 Mistral AI 官网静态资源的可达性与时延；不代表 Le Chat、登录或 API 调用可用。':
+    'Measure Mistral AI website static resource reachability and latency; does not verify Le Chat, login or API calls.',
   '测量 Google 静态连通性；不代表 Gmail、Gemini 或帐号功能可用。':
     'Measure Google static connectivity; does not prove access to Gmail, Gemini or account features.',
   'YouTube Web 可达性': 'YouTube Web reachability',

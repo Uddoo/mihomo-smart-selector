@@ -12,6 +12,21 @@ func defaultProbeProfiles() []ProbeProfile {
 		profile("chatgpt", "ChatGPT 服务可达性", "测量 ChatGPT Web 可达性与时延。严格 API 401 验证仅在专用探测选择器已配置时执行。", []string{"ChatGPT", "AI服务"}, []Probe{
 			probe("chatgpt-trace", "https://chatgpt.com/cdn-cgi/trace", "200"),
 		}, StrictProbe{Name: "openai-api-auth-boundary", URL: "https://api.openai.com/v1/models", ExpectedStatus: "401"}),
+		profile("claude", "Claude 静态资源可达性", "测量 Claude 站点静态资源的可达性与时延；不代表登录、对话、Claude Code 或 API 调用可用。", []string{"Claude", "Anthropic", "Claude AI"}, []Probe{
+			probe("claude-favicon", "https://claude.ai/favicon.ico", "200"),
+		}),
+		profile("gemini", "Gemini Web 可达性", "测量 Gemini Web 入口可达性与时延；不代表 Google 帐号、地区资格或模型对话可用。", []string{"Gemini", "Google Gemini"}, []Probe{
+			probe("gemini-web", "https://gemini.google.com/", "200"),
+		}),
+		profile("aistudio", "Google AI Studio API 元数据可达性", "读取 Gemini API 的公开 Discovery 文档；不需要 API 密钥，不代表 AI Studio 登录或模型生成请求可用。", []string{"AI Studio", "Google AI Studio", "Gemini API"}, []Probe{
+			probe("gemini-api-discovery", "https://generativelanguage.googleapis.com/$discovery/rest?version=v1beta", "200"),
+		}),
+		profile("deepseek", "DeepSeek 静态资源可达性", "测量 DeepSeek 官网静态资源的可达性与时延；不代表聊天、登录或 API 调用可用。", []string{"DeepSeek", "深度求索"}, []Probe{
+			probe("deepseek-favicon", "https://www.deepseek.com/favicon.ico", "200"),
+		}),
+		profile("mistral", "Mistral AI 静态资源可达性", "测量 Mistral AI 官网静态资源的可达性与时延；不代表 Le Chat、登录或 API 调用可用。", []string{"Mistral", "Mistral AI", "Le Chat"}, []Probe{
+			probe("mistral-favicon", "https://mistral.ai/favicon.ico", "200"),
+		}),
 		profile("google", "Google 服务可达性", "测量 Google 静态连通性；不代表 Gmail、Gemini 或帐号功能可用。", []string{"谷歌服务"}, []Probe{
 			probe("google-connectivity", "https://www.gstatic.com/generate_204", "204"),
 		}),

@@ -30,6 +30,33 @@ Controller 地址、密钥与超时也可在「偏好设置 → Mihomo 连接」
 刷新失败时禁止开始新扫描，恢复连接后重新预检。
 正在运行的扫描固定使用启动时的模板，切换前仍检查当前目标组和成员。
 
+## 内置 AI 服务模板
+
+扫描与持续监控均可选择以下模板，无需填写 AI 服务密钥，也不会发送模型生成请求：
+
+| 服务（模板 ID） | 探测入口 | 预期状态 | 组名推荐示例 |
+| --- | --- | --- | --- |
+| ChatGPT（`chatgpt`） | `https://chatgpt.com/cdn-cgi/trace` | 200 | ChatGPT、AI服务 |
+| Claude（`claude`） | `https://claude.ai/favicon.ico` | 200 | Claude、Anthropic、Claude AI |
+| Gemini（`gemini`） | `https://gemini.google.com/` | 200 | Gemini、Google Gemini |
+| Google AI Studio（`aistudio`） | `https://generativelanguage.googleapis.com/$discovery/rest?version=v1beta` | 200 | AI Studio、Google AI Studio、Gemini API |
+| DeepSeek（`deepseek`） | `https://www.deepseek.com/favicon.ico` | 200 | DeepSeek、深度求索 |
+| Mistral AI（`mistral`） | `https://mistral.ai/favicon.ico` | 200 | Mistral、Mistral AI、Le Chat |
+
+组名匹配忽略大小写、空格、emoji 和标点；任意名称的 Selector 也可手动选择并保存绑定。
+“AI服务”继续推荐 ChatGPT，“谷歌服务”继续推荐通用 Google 模板，不覆盖已有绑定。
+Gemini Web 与 AI Studio 分开测试；Google 通用静态连通性不能代替它们。
+
+Claude、DeepSeek、Mistral AI 仅检查各自站点的静态资源。Gemini 仅检查 Web 入口，
+登录页或地区提示页可能同样返回 200。AI Studio 使用公开 API 元数据入口；
+[Google Discovery 文档](https://developers.google.com/discovery/v1/using)描述的是 API 结构，
+不能证明模型生成可用。以上结果均不代表账号、付费订阅、地区资格或完整业务可用。
+这五个新增模板不附带严格验证规则；ChatGPT 原有的可选严格 API 401 验证保持不变。
+
+使用默认内置目录的配置会自动获得新增模板；若显式配置了 `scanner.probe_profiles`，
+它仍会完整替换内置目录，需要自行加入所需模板。`custom_probe_profiles` 中若已有同名 ID，
+需先改名或迁移到 `probe_profile_overrides`，避免与新增内置 ID 冲突。
+
 ## 添加自定义模板
 
 在现有配置的 `scanner` 下添加 `custom_probe_profiles`，然后重启应用：
