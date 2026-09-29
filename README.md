@@ -140,7 +140,7 @@ Clash Party 用户可以在客户端 **内核设置** 中找到 Controller 的�
 <a id="compatibility"></a>
 ## 已验证环境与项目状态
 
-**正式版 `v0.4.0`：故障切换支持按任务配置成功率容差，优先选择可靠性接近的低延迟候选。** 默认容差 8 个百分点，设为 0 恢复成功率优先；已有自动切换任务升级后会采用新默认值。从 `v0.3.x` 升级不新增数据库结构迁移，请先查看[升级说明](docs/releases/v0.4.0.md#升级与兼容性)。本 README 跟随 `main`，下载版本以对应的
+**正式版 `v0.4.1`：新增 Claude、Gemini、Google AI Studio、DeepSeek 和 Mistral AI 专属测试服务模板。** 支持扫描、持续监控与组名推荐，无需 AI 服务密钥；探测结果仅表示对应入口可达。升级前请查看[兼容性说明](docs/releases/v0.4.1.md#升级与兼容性)。本 README 跟随 `main`，下载版本以对应的
 [Release 说明](https://github.com/Uddoo/mihomo-smart-selector/releases) 为准。
 主分支的改进可能尚未包含在公开下载包中，使用新描述的行为前请核对安装版本。
 

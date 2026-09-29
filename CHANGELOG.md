@@ -8,6 +8,17 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.4.1] - 2026-09-29
+
+### Added
+
+- Dedicated built-in reachability profiles for Claude, Gemini Web, Google AI Studio, DeepSeek and Mistral AI, with selector-name suggestions and Chinese/English descriptions.
+- Document probe evidence boundaries and custom-profile ID compatibility. Preserve existing ChatGPT and Google recommendations, saved bindings and monitoring behavior.
+
+### Changed
+
+- Refresh embedded frontend assets and extend binding persistence, scan and profile resolution regressions for the new services.
+
 ## [v0.4.0] - 2026-09-28
 
 ### Added
@@ -540,7 +551,8 @@ The rc.6 build candidate was not published. This release includes its changes.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.1...HEAD
+[v0.4.1]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.0...v0.4.1
 [v0.4.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.3.1...v0.4.0
 [v0.3.1]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.2.0...v0.3.0
