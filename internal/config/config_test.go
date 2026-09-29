@@ -182,6 +182,7 @@ func TestResolveProbeProfileNormalizesOpenClashSelectorDecorations(t *testing.T)
 	cfg := Defaults()
 	for group, want := range map[string]string{
 		"🤖 CLAUDE": "claude", "Anthropic": "claude", "Claude AI": "claude",
+		"🤖 Claude API": "claude-api", "Anthropic API": "claude-api", "Claude Code": "claude-api",
 		"✨ Google-Gemini": "gemini", "Gemini": "gemini",
 		"🧪 AI Studio": "aistudio", "Google AI Studio": "aistudio", "Gemini API": "aistudio",
 		"DeepSeek": "deepseek", "深度求索": "deepseek",

@@ -8,6 +8,10 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Add a separate `claude-api` profile for the unauthenticated Anthropic models endpoint, with optional strict HTTP 401 and authentication-error body checks. Preserve the existing Claude static-resource profile and bindings; neither probe proves model calls or Claude Code login work.
+
 ## [v0.4.1] - 2026-09-29
 
 ### Added

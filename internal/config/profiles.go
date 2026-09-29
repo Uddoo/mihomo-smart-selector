@@ -15,6 +15,9 @@ func defaultProbeProfiles() []ProbeProfile {
 		profile("claude", "Claude 静态资源可达性", "测量 Claude 站点静态资源的可达性与时延；不代表登录、对话、Claude Code 或 API 调用可用。", []string{"Claude", "Anthropic", "Claude AI"}, []Probe{
 			probe("claude-favicon", "https://claude.ai/favicon.ico", "200"),
 		}),
+		profile("claude-api", "Claude API 鉴权入口可达性", "无密钥访问 Anthropic 模型列表接口，预期 HTTP 401；严格验证还检查 authentication_error。仅表示到达预期鉴权入口，不代表模型调用、Claude Code 登录或地区资格可用。", []string{"Claude API", "Anthropic API", "Claude Code"}, []Probe{
+			probe("anthropic-api-auth-boundary", "https://api.anthropic.com/v1/models", "401"),
+		}, StrictProbe{Name: "anthropic-api-auth-response", URL: "https://api.anthropic.com/v1/models", ExpectedStatus: "401", BodyContains: `"authentication_error"`, RestrictedStatusCodes: []int{403}}),
 		profile("gemini", "Gemini Web 可达性", "测量 Gemini Web 入口可达性与时延；不代表 Google 帐号、地区资格或模型对话可用。", []string{"Gemini", "Google Gemini"}, []Probe{
 			probe("gemini-web", "https://gemini.google.com/", "200"),
 		}),

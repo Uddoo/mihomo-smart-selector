@@ -1082,6 +1082,9 @@ export const en = {
     'Measure ChatGPT Web reachability and latency. Strict API 401 checks run only when a dedicated probe selector is configured.',
   'Google 服务可达性': 'Google reachability',
   'Claude 静态资源可达性': 'Claude static resource reachability',
+  'Claude API 鉴权入口可达性': 'Claude API authentication endpoint reachability',
+  '无密钥访问 Anthropic 模型列表接口，预期 HTTP 401；严格验证还检查 authentication_error。仅表示到达预期鉴权入口，不代表模型调用、Claude Code 登录或地区资格可用。':
+    'Access the Anthropic models endpoint without a key, expecting HTTP 401; strict validation also checks authentication_error. This only indicates the expected authentication endpoint was reached, not successful model calls, Claude Code login or regional eligibility.',
   '测量 Claude 站点静态资源的可达性与时延；不代表登录、对话、Claude Code 或 API 调用可用。':
     'Measure Claude static resource reachability and latency; does not verify login, conversations, Claude Code or API calls.',
   'Gemini Web 可达性': 'Gemini Web reachability',

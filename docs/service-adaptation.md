@@ -38,6 +38,7 @@ Controller 地址、密钥与超时也可在「偏好设置 → Mihomo 连接」
 | --- | --- | --- | --- |
 | ChatGPT（`chatgpt`） | `https://chatgpt.com/cdn-cgi/trace` | 200 | ChatGPT、AI服务 |
 | Claude（`claude`） | `https://claude.ai/favicon.ico` | 200 | Claude、Anthropic、Claude AI |
+| Claude API（`claude-api`） | `https://api.anthropic.com/v1/models` | 401 | Claude API、Anthropic API、Claude Code |
 | Gemini（`gemini`） | `https://gemini.google.com/` | 200 | Gemini、Google Gemini |
 | Google AI Studio（`aistudio`） | `https://generativelanguage.googleapis.com/$discovery/rest?version=v1beta` | 200 | AI Studio、Google AI Studio、Gemini API |
 | DeepSeek（`deepseek`） | `https://www.deepseek.com/favicon.ico` | 200 | DeepSeek、深度求索 |
@@ -56,6 +57,26 @@ Claude、DeepSeek、Mistral AI 仅检查各自站点的静态资源。Gemini 仅
 使用默认内置目录的配置会自动获得新增模板；若显式配置了 `scanner.probe_profiles`，
 它仍会完整替换内置目录，需要自行加入所需模板。`custom_probe_profiles` 中若已有同名 ID，
 需先改名或迁移到 `probe_profile_overrides`，避免与新增内置 ID 冲突。
+
+### Claude API 的可选严格验证
+
+`claude` 保留原有静态资源探测；`claude-api` 独立测试 Anthropic 官方 API 鉴权入口。
+现有 Claude / Anthropic 组名推荐和保存的绑定不会自动切到新模板。使用第三方中转、
+Bedrock 或 Vertex AI 时，官方 API 模板不能代表这些路径。
+
+基础扫描与持续监控预期模型列表接口返回 HTTP 401，不发送密钥或模型生成请求。
+在偏好设置中配置并启用现有严格验证专用 Selector 和代理入口后，扫描中的严格检查
+还要求正文包含带双引号的 `"authentication_error"` 标识。HTTP 403 记为受限；429、
+其他非 401 状态或缺少该正文标识都不通过。正文检查沿用子串规则，不是完整 JSON 结构验证。
+[模型列表 API](https://platform.claude.com/docs/en/api/models/list)和
+[错误类型说明](https://platform.claude.com/docs/en/api/errors)可用于核对接口与响应含义。
+
+严格验证默认可选，不会自动启用、创建探测路径或将其设为节点选择的强制门槛。
+需要强制要求扫描选择前验证通过时，可在 `scanner.probe_profile_overrides.claude-api`
+设置 `require_strict: true`，同时配置严格验证路径。持续监控的基础探测不提供这项正文证据；
+设置此强制条件后，监控自动切换会因缺少严格验证证据而拒绝执行，需手动扫描验证。
+无论 401 检查是否通过，都不能证明有效密钥、模型权限、生成调用、Claude Code 登录或地区资格可用。
+已有自定义模板若使用 `claude-api` ID，升级前需改名或迁移到 `probe_profile_overrides`。
 
 ## 添加自定义模板
 

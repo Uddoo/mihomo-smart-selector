@@ -17,6 +17,7 @@ func TestServicesAdaptDifferentGroupNamesAndPreserveBindings(t *testing.T) {
 		{"🤖 ChatGPT", "youtube"},
 		{"海外工作 / Office", "youtube"},
 		{"🤖 Claude", "claude"},
+		{"Claude Code", "claude-api"},
 		{"✨ Google Gemini", "gemini"},
 		{"🧪 AI Studio", "aistudio"},
 		{"深度求索", "deepseek"},
