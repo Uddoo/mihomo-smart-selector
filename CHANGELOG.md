@@ -8,6 +8,8 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.4.2] - 2026-09-29
+
 ### Added
 
 - Add a separate `claude-api` profile for the unauthenticated Anthropic models endpoint, with optional strict HTTP 401 and authentication-error body checks. Preserve the existing Claude static-resource profile and bindings; neither probe proves model calls or Claude Code login work.
@@ -555,7 +557,8 @@ The rc.6 build candidate was not published. This release includes its changes.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.2...HEAD
+[v0.4.2]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.1...v0.4.2
 [v0.4.1]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.0...v0.4.1
 [v0.4.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.3.1...v0.4.0
 [v0.3.1]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.3.0...v0.3.1

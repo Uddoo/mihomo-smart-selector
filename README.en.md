@@ -164,7 +164,7 @@ and a two-minute cooldown.
 <a id="compatibility"></a>
 ## Verified environments & project status
 
-**Stable release `v0.4.1`: dedicated test profiles for Claude, Gemini, Google AI Studio, DeepSeek and Mistral AI.** Use them for scans and monitoring without AI service credentials. Results describe endpoint reachability only. Read the [upgrade notes](docs/releases/v0.4.1.md#english) for custom-profile compatibility. This README follows `main`; downloadable builds follow their
+**Stable release `v0.4.2`: a separate Claude API profile with optional strict response checks.** Keep lightweight Claude resource probes and check the API authentication endpoint without credentials. Passing does not prove model calls or Claude Code login work. Read the [upgrade notes](docs/releases/v0.4.2.md#english). This README follows `main`; downloadable builds follow their
 [release notes](https://github.com/Uddoo/mihomo-smart-selector/releases). Changes
 on `main` can arrive before a public package. Check your installed version before
 relying on a newly documented behavior.
