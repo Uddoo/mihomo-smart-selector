@@ -1,6 +1,6 @@
 module github.com/Uddoo/mihomo-smart-selector
 
-go 1.27.0
+go 1.27.2
 
 require (
 	gopkg.in/yaml.v3 v3.0.1
