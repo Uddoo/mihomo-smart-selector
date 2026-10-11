@@ -140,7 +140,7 @@ Clash Party 用户可以在客户端 **内核设置** 中找到 Controller 的�
 <a id="compatibility"></a>
 ## 已验证环境与项目状态
 
-**正式版 `v0.4.2`：新增独立 Claude API 测试模板与可选严格响应验证。** 保留 Claude 静态资源模板，无密钥检查 API 鉴权入口；探测通过不代表模型调用或 Claude Code 登录可用。升级前请查看[兼容性说明](docs/releases/v0.4.2.md#升级与兼容性)。本 README 跟随 `main`，下载版本以对应的
+**正式版 `v0.4.3`：更新依赖与安全基线，同步内嵌前端资源。** 升级 SQLite、Lucide 与 Vite，统一修复传递依赖版本，并使用 Go 1.27.2 构建。升级前请查看[兼容性说明](docs/releases/v0.4.3.md#升级与兼容性)。本 README 跟随 `main`，下载版本以对应的
 [Release 说明](https://github.com/Uddoo/mihomo-smart-selector/releases) 为准。
 主分支的改进可能尚未包含在公开下载包中，使用新描述的行为前请核对安装版本。
 

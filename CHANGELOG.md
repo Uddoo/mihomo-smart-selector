@@ -8,6 +8,22 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.4.3] - 2026-10-11
+
+### Changed
+
+- Update SQLite to 1.60.1 with its matching libc 1.77.1 dependency and x/sys 0.48.0.
+- Update Lucide Vue to 1.49.0 and Vite to 8.3.2, including the locked Rolldown dependency updates.
+
+### Fixed
+
+- Regenerate the Go-embedded frontend, gzip assets and entry references so the shipped dashboard matches the updated dependency lockfile.
+
+### Security
+
+- Require Go 1.27.2 for the standard-library security fixes and release builds.
+- Resolve every source-map-js dependency path to 1.2.2, including Vue compiler, vue-tsc and PostCSS paths.
+
 ## [v0.4.2] - 2026-09-29
 
 ### Added
@@ -557,7 +573,8 @@ The rc.6 build candidate was not published. This release includes its changes.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.3...HEAD
+[v0.4.3]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.2...v0.4.3
 [v0.4.2]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.1...v0.4.2
 [v0.4.1]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.0...v0.4.1
 [v0.4.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.3.1...v0.4.0
