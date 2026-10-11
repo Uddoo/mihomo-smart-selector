@@ -17,16 +17,16 @@
     "format:check": "prettier --check \"src/**/*.{vue,ts,css,mjs}\" \"build/*.mjs\" vite.config.ts"
   },
   "dependencies": {
-    "@lucide/vue": "^1.49.0",
+    "@lucide/vue": "^1.53.0",
     "vue": "^3.5.43"
   },
   "devDependencies": {
-    "@playwright/test": "1.63.0",
+    "@playwright/test": "1.64.0",
     "@vitejs/plugin-vue": "^6.0.9",
     "fflate": "0.8.3",
     "prettier": "3.9.9",
     "typescript": "^5.9.3",
-    "vite": "^8.3.2",
-    "vue-tsc": "^3.2.3"
+    "vite": "^8.3.4",
+    "vue-tsc": "^3.3.12"
   }
 }
