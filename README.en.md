@@ -164,7 +164,7 @@ and a two-minute cooldown.
 <a id="compatibility"></a>
 ## Verified environments & project status
 
-**Stable release `v0.4.3`: dependency and security updates with refreshed embedded assets.** Update SQLite, Lucide and Vite, resolve the affected transitive dependency versions, and build with Go 1.27.2. Read the [upgrade notes](docs/releases/v0.4.3.md#english). This README follows `main`; downloadable builds follow their
+**Stable release `v0.4.4`: frontend and automation dependency updates with refreshed embedded assets.** Update Lucide, Vite, Playwright and vue-tsc, regenerate the embedded frontend, and adapt page-load recovery tests to browser retry behavior. Read the [upgrade notes](docs/releases/v0.4.4.md#english). This README follows `main`; downloadable builds follow their
 [release notes](https://github.com/Uddoo/mihomo-smart-selector/releases). Changes
 on `main` can arrive before a public package. Check your installed version before
 relying on a newly documented behavior.

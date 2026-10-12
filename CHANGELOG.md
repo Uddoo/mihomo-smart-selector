@@ -8,6 +8,18 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.4.4] - 2026-10-12
+
+### Changed
+
+- Update Lucide Vue to 1.53.0, Vite to 8.3.4 with Rolldown 1.2.13 and PostCSS 8.5.29, Playwright to 1.64.0, and the locked vue-tsc to 3.3.12.
+- Update upload-artifact to 7.0.2, download-artifact to 8.0.2, and CodeQL Action to 4.38.3 while retaining full commit SHA pins.
+
+### Fixed
+
+- Regenerate the Go-embedded frontend, gzip assets and entry references so shipped pages match the dependency lockfile.
+- Make the page-load recovery regression explicitly fail retried module downloads, preserving its error and reload checks across browser retry behavior.
+
 ## [v0.4.3] - 2026-10-11
 
 ### Changed
@@ -573,7 +585,8 @@ The rc.6 build candidate was not published. This release includes its changes.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.4...HEAD
+[v0.4.4]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.3...v0.4.4
 [v0.4.3]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.2...v0.4.3
 [v0.4.2]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.1...v0.4.2
 [v0.4.1]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.0...v0.4.1
