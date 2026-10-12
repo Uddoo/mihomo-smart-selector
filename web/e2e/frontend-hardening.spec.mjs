@@ -2,7 +2,10 @@ import {test, expect} from './fixtures.mjs'
 
 test('delayed and failed page downloads expose recovery and reload the current route', async ({page}, info) => {
   let held
-  await page.route('**/assets/NodeCatalog-*.js', route => { held = route })
+  await page.route('**/assets/NodeCatalog-*.js', route => {
+    if (held) return route.abort('failed')
+    held = route
+  })
   await page.goto('/')
   await page.getByRole('button', {name:'节点目录', exact:true}).click()
   await expect(page.getByRole('status').filter({hasText:'正在加载页面…'})).toBeVisible()
@@ -13,7 +16,7 @@ test('delayed and failed page downloads expose recovery and reload the current r
   await expect(page).toHaveURL(/#\/nodes$/)
   await page.screenshot({path:info.outputPath('page-load-error.png'), fullPage:false})
   await error.getByRole('button', {name:'重试加载', exact:true}).click()
-  // Browsers can remember a failed module URL. A document reload is the explicit fallback.
+  // Keep retry downloads failing whether the browser caches the failure or requests the module again.
   await expect(error).toBeVisible()
   await page.unroute('**/assets/NodeCatalog-*.js')
   await error.getByRole('button', {name:'重新加载页面', exact:true}).click()
