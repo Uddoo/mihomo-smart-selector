@@ -141,6 +141,7 @@ test('scan feedback handles empty snapshots, refinement, start failure and bilin
   state.scan = {...state.scan, results: undefined, progress: {...state.scan.progress, completed: 0, total: 0}}
   await state.refresh()
   await expect(feedback(page).locator('.feedback-count')).toHaveText('0 个节点')
+  await expect(page.locator('.ranking, .compare, .ranking-tools, .result-view-controls')).toHaveCount(0)
   await expect(feedback(page).getByRole('progressbar')).not.toHaveAttribute('aria-valuenow')
   state.scan = {...state.scan, results: [], progress: {...state.scan.progress, stage: 'refining', completed: 4, total: 8, stop_after_current_batch: true}}
   await state.refresh()
@@ -161,6 +162,8 @@ test('scan feedback handles empty snapshots, refinement, start failure and bilin
   state.scan = {...state.scan, status: 'failed', error: '测试：上游探测失败'}
   await state.refresh()
   await expect(feedback(page).getByText('扫描失败', {exact: true})).toBeVisible()
+  await expect(page.getByRole('heading', {name: '本次扫描未完成', exact: true})).toBeVisible()
+  await expect(page.locator('.compare, .ranking-tools, .result-view-controls')).toHaveCount(0)
   await expect(feedback(page).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '50')
   await capture(page, 'scan-mobile-failed')
   await page.route('**/api/v1/scans', route => route.request().method() === 'POST' ? route.fulfill({status: 503, json: {error: '测试：无法启动新扫描'}}) : route.fulfill({json: [state.scan]}))

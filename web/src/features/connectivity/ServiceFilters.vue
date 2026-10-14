@@ -165,8 +165,11 @@ defineEmits<{ category: [value: CategoryFilter]; query: [value: string]; clear: 
   }
   .service-filter-label {
     grid-column: 1 / -1;
-    min-height: 44px;
+    min-height: 20px;
     gap: 8px;
+  }
+  .service-filter-label strong {
+    display: none;
   }
   .clear-service-filters {
     margin-inline-start: auto;

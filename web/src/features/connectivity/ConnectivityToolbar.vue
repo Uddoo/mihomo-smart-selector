@@ -60,7 +60,7 @@ const testLabel = computed(() =>
         />{{ t('停止') }}</button
       >
       <button
-        v-else
+        v-else-if="progress.total || summary.issues"
         class="retest-issues"
         :disabled="!summary.issues"
         @click="$emit('retestIssues')"
@@ -85,6 +85,7 @@ const testLabel = computed(() =>
       >
     </div>
     <div
+      v-if="progress.total"
       class="connectivity-legend"
       :aria-label="t('延迟图例')"
     >
@@ -223,7 +224,11 @@ const testLabel = computed(() =>
 }
 @media (max-width: 760px) {
   .connectivity-toolbar {
-    padding: 12px;
+    padding: 8px 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    gap: 8px;
   }
   .connectivity-actions button {
     min-height: 44px;

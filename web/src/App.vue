@@ -18,14 +18,11 @@ import {
 import { useApplication } from './app/useApplication'
 import ScanWorkbench from './features/scan/ScanWorkbench.vue'
 import LanguageSelect from './shared/components/LanguageSelect.vue'
-import AppearanceSettings from './features/settings/AppearanceSettings.vue'
+import SettingsWorkspace from './features/settings/SettingsWorkspace.vue'
 import { useAppearance } from './features/settings/useAppearance'
 import AsyncPanel from './shared/components/AsyncPanel.vue'
 import { provideUnsavedChanges } from './app/unsavedChanges'
 const panels = {
-  settings: () => import('./features/settings/SettingsPanel.vue'),
-  connection: () => import('./features/settings/ConnectionSettings.vue'),
-  storage: () => import('./features/settings/StoragePanel.vue'),
   nodes: () => import('./features/node-catalog/NodeCatalog.vue'),
   history: () => import('./features/history/SwitchHistory.vue'),
   monitor: () => import('./features/monitor/MonitoringPage.vue'),
@@ -293,40 +290,17 @@ const currentPage = computed(
         :state="historyView"
       />
 
-      <section v-else>
-        <AppearanceSettings
-          v-model:palette="palette"
-          v-model:mode="appearanceMode"
-          :theme="theme"
-        />
-        <AsyncPanel
-          :loader="panels.connection"
-          :connected="!!health?.mihomo_connected"
-          :locked="configLocked"
-          @restarted="load()"
-        />
-        <AsyncPanel
-          :loader="panels.settings"
-          :locked="configLocked"
-          :groups="groups"
-          :profiles="services?.profiles || []"
-          @saved="load()"
-        />
-        <AsyncPanel
-          :loader="panels.storage"
-          :locked="configLocked"
-        />
-        <div class="runtime-settings">
-          <div class="panel"
-            ><h2>{{ t('扫描安全') }}</h2
-            ><p>{{
-              t(
-                '可达性与时延扫描不切换业务选择器。严格状态/正文验证默认关闭，只有配置独立的探测选择器和本地代理后才会运行。',
-              )
-            }}</p></div
-          >
-        </div>
-      </section>
+      <SettingsWorkspace
+        v-else
+        v-model:palette="palette"
+        v-model:mode="appearanceMode"
+        :theme="theme"
+        :connected="!!health?.mihomo_connected"
+        :locked="configLocked"
+        :groups="groups"
+        :profiles="services?.profiles || []"
+        @refresh="load()"
+      />
     </main>
     <dialog
       ref="choiceDialog"

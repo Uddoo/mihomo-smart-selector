@@ -56,6 +56,7 @@ export interface MonitorSample {
   reason?: string
 }
 export interface MonitorRow extends MonitorNode {
+  egress?: MonitorEgress
   evidence_version?: string
   state: {
     status: string
@@ -81,6 +82,45 @@ export interface MonitorRow extends MonitorNode {
     latency_points: number
   }
   series?: MonitorSample[]
+}
+export interface MonitorEgress {
+  status: string
+  ip: string
+  country_code: string
+  observed_at: string
+  attempted_at: string
+  error?: string
+  intelligence?: IPIntelligence
+  intelligence_sources?: IPIntelligence[]
+}
+export interface IPIntelligence {
+  provider?: string
+  score_kind?: 'fraud_risk' | 'abuse_confidence' | 'network_abuse'
+  status: string
+  source: string
+  trust_score: number | null
+  fraud_score: number | null
+  connection_type: string
+  country_code: string
+  region: string
+  city: string
+  asn: number
+  isp: string
+  organization: string
+  vpn: boolean | null
+  proxy: boolean | null
+  tor: boolean | null
+  recent_abuse: boolean | null
+  datacenter?: boolean | null
+  abuser?: boolean | null
+  abuse_confidence_score?: number | null
+  total_reports?: number | null
+  reports_window_days?: number
+  company_abuse_score?: string
+  asn_abuse_score?: string
+  fetched_at: string
+  expires_at: string
+  error?: string
 }
 export interface MonitorOverview {
   sample_series_id?: string

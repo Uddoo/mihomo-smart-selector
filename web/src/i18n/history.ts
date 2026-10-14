@@ -14,7 +14,6 @@ export const historyMessages = {
   '显示最近记录及所有待核对项，搜索筛选仅作用于已加载记录。':
     'Recent records and all unresolved switches. Search and filters apply to loaded records only.',
   刷新记录: 'Refresh records',
-  正在刷新: 'Refreshing',
   搜索选择历史: 'Search selection history',
   '搜索节点或策略组…': 'Search nodes or groups…',
   全部策略组: 'All groups',

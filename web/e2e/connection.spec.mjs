@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {test, expect} from './fixtures.mjs'
+import {selectSettingsCategory} from './settings-navigation.mjs'
 
 const route = '/api/v1/connection'
 const panel = page => page.getByRole('region', {name: 'Mihomo 连接', exact: true})
@@ -16,6 +17,7 @@ test('connection test, secret replacement, keep, clear and YAML restore use real
   try {
     const original = await (await request.get(route)).json()
     await page.goto('/#/settings')
+    await selectSettingsCategory(page, 'connection')
     const form = panel(page)
     await expect(form.getByRole('button', {name: '保存连接配置', exact: true})).toBeDisabled()
     await form.getByLabel('密钥操作').selectOption('replace')
@@ -40,6 +42,7 @@ test('connection test, secret replacement, keep, clear and YAML restore use real
     expect(saved.saved.request_timeout_seconds).toBe(12)
     expect(await page.evaluate(() => JSON.stringify({...localStorage}) + JSON.stringify({...sessionStorage}))).not.toContain('browser-fixture-secret')
     await page.reload()
+    await selectSettingsCategory(page, 'connection')
     await expect(form).toContainText('已保存更改 · 待重启')
     await expect(form.getByLabel('连接超时（秒）')).toHaveValue('12')
     await form.getByLabel('连接超时（秒）').fill('13')
@@ -60,6 +63,7 @@ test('stale connection save retains edits and offers a reload', async ({page, re
   await reset(request)
   try {
     await page.goto('/#/settings')
+    await selectSettingsCategory(page, 'connection')
     const form = panel(page)
     await form.getByLabel('连接超时（秒）').fill('15')
     const state = await (await request.get(route)).json()
@@ -76,6 +80,7 @@ test('stale connection save retains edits and offers a reload', async ({page, re
 test('offline Controller still allows connection editing and failed tests keep the draft', async ({page}) => {
   await page.route('**/api/v1/health', route => route.fulfill({status: 503, json: {status: 'degraded', mihomo_connected: false}}))
   await page.goto('/#/settings')
+    await selectSettingsCategory(page, 'connection')
   const form = panel(page)
   await expect(form.getByText('Controller 不可用', {exact: true})).toBeVisible()
   await form.getByLabel(/^Controller 地址/).fill('http://127.0.0.1:1')
@@ -90,6 +95,7 @@ test('offline Controller still allows connection editing and failed tests keep t
 test('connection load failure exposes a working retry', async ({page}) => {
   await page.route('**/api/v1/connection', route => route.fulfill({status: 503, json: {error: '连接配置暂不可用，请重启服务后重试'}}))
   await page.goto('/#/settings')
+    await selectSettingsCategory(page, 'connection')
   const form = panel(page)
   await expect(form.getByRole('alert')).toContainText('连接配置暂不可用')
   await page.unroute('**/api/v1/connection')
@@ -101,6 +107,7 @@ test('connection form fits desktop and mobile in both languages and themes', asy
   const captures = process.env.MSS_CONNECTION_SCREENSHOTS || path.join(os.tmpdir(), 'mss-connection-screenshots')
   await fs.mkdir(captures, {recursive: true})
   await page.goto('/#/settings')
+    await selectSettingsCategory(page, 'connection')
   await expect(page.locator('.connection-settings input[name="controller"]')).toBeVisible()
   for (const variant of [
     {name: 'desktop-zh-light', width: 1440, height: 1000, locale: 'zh-CN', theme: 'light'},

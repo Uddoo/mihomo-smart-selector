@@ -9,14 +9,16 @@ import (
 )
 
 type Config struct {
-	HTTP               HTTPConfig        `yaml:"http"`
-	Mihomo             MihomoConfig      `yaml:"mihomo"`
-	Storage            StorageConfig     `yaml:"storage"`
-	Scanner            ScannerConfig     `yaml:"scanner"`
-	Regions            []Region          `yaml:"regions"`
-	RegionOverrides    map[string]string `yaml:"region_overrides"`
-	EgressVerification EgressConfig      `yaml:"egress_verification"`
-	AutoSwitch         AutoSwitchConfig  `yaml:"auto_switch"`
+	HTTP               HTTPConfig           `yaml:"http"`
+	Mihomo             MihomoConfig         `yaml:"mihomo"`
+	EgressController   *MihomoConfig        `yaml:"egress_controller,omitempty"`
+	Storage            StorageConfig        `yaml:"storage"`
+	Scanner            ScannerConfig        `yaml:"scanner"`
+	Regions            []Region             `yaml:"regions"`
+	RegionOverrides    map[string]string    `yaml:"region_overrides"`
+	EgressVerification EgressConfig         `yaml:"egress_verification"`
+	IPIntelligence     IPIntelligenceConfig `yaml:"ip_intelligence"`
+	AutoSwitch         AutoSwitchConfig     `yaml:"auto_switch"`
 }
 
 type HTTPConfig struct {
@@ -167,6 +169,12 @@ func Defaults() Config {
 			StrictVerification:  StrictVerificationConfig{MaxCandidates: 60},
 		},
 		RegionOverrides: map[string]string{},
+		IPIntelligence: IPIntelligenceConfig{
+			APIKeyEnv:   "IPQUALITYSCORE_API_KEY",
+			Scamalytics: ScamalyticsConfig{IPCredentialConfig: IPCredentialConfig{APIKeyEnv: "SCAMALYTICS_API_KEY"}, UsernameEnv: "SCAMALYTICS_USERNAME", Server: "eu"},
+			IPAPIIS:     IPCredentialConfig{APIKeyEnv: "IPAPI_IS_API_KEY"},
+			AbuseIPDB:   IPCredentialConfig{APIKeyEnv: "ABUSEIPDB_API_KEY"},
+		},
 	}
 }
 
@@ -188,8 +196,17 @@ func Load(path string) (Config, error) {
 		config.HTTP.APIToken = os.Getenv(config.HTTP.APITokenEnv)
 	}
 	base := filepath.Dir(path)
+	config.IPIntelligence.ResolvePaths(base)
 	if config.Mihomo.SecretFile != "" && !filepath.IsAbs(config.Mihomo.SecretFile) {
 		config.Mihomo.SecretFile = filepath.Join(base, config.Mihomo.SecretFile)
+	}
+	if probe := config.EgressController; probe != nil {
+		if probe.RequestTimeoutSeconds == 0 {
+			probe.RequestTimeoutSeconds = config.Mihomo.RequestTimeoutSeconds
+		}
+		if probe.SecretFile != "" && !filepath.IsAbs(probe.SecretFile) {
+			probe.SecretFile = filepath.Join(base, probe.SecretFile)
+		}
 	}
 	if !filepath.IsAbs(config.Storage.Path) {
 		config.Storage.Path = filepath.Join(base, config.Storage.Path)

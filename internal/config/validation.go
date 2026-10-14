@@ -10,6 +10,9 @@ import (
 )
 
 func (c Config) Validate() error {
+	if err := c.IPIntelligence.Validate(); err != nil {
+		return err
+	}
 	host, _, err := net.SplitHostPort(c.HTTP.Listen)
 	if err != nil || host == "" {
 		return fmt.Errorf("http.listen must be host:port: %q", c.HTTP.Listen)
@@ -37,6 +40,19 @@ func (c Config) Validate() error {
 	}
 	if strings.TrimSpace(c.Mihomo.SecretEnv) == "" {
 		return fmt.Errorf("mihomo.secret_env must not be empty")
+	}
+	if probe := c.EgressController; probe != nil {
+		u, err := ParseControllerURL(probe.Controller)
+		if err != nil {
+			return fmt.Errorf("egress_controller.controller: %w", err)
+		}
+		ip, err := netip.ParseAddr(u.Hostname())
+		if err != nil || !ip.IsLoopback() {
+			return fmt.Errorf("egress_controller.controller must use a loopback IP address")
+		}
+		if probe.RequestTimeoutSeconds < 1 || probe.RequestTimeoutSeconds > 30 {
+			return fmt.Errorf("egress_controller.request_timeout_seconds must be in 1..30")
+		}
 	}
 	if c.Storage.Path == "" {
 		return fmt.Errorf("storage.path must not be empty")

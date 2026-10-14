@@ -52,6 +52,10 @@ func cloneOverview(v model.MonitorOverview) model.MonitorOverview {
 	v.Events = append([]model.MonitorEvent{}, v.Events...)
 	v.Rows = append([]model.MonitorRow{}, v.Rows...)
 	for i := range v.Rows {
+		if v.Rows[i].Egress != nil {
+			value := v.Rows[i].Egress.Clone()
+			v.Rows[i].Egress = &value
+		}
 		v.Rows[i].Series = append([]model.MonitorSample{}, v.Rows[i].Series...)
 		if v.Rows[i].Metrics.Score != nil {
 			score := *v.Rows[i].Metrics.Score

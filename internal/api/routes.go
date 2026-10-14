@@ -15,6 +15,8 @@ func (s *Server) route(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 	switch {
+	case request.URL.Path == "/api/v1/ip-intelligence/settings":
+		s.ipIntelligenceSettingsRoute(writer, request)
 	case request.URL.Path == "/api/v1/service" || request.URL.Path == "/api/v1/service/restart":
 		s.serviceRoute(writer, request)
 	case request.URL.Path == "/api/v1/connection" || request.URL.Path == "/api/v1/connection/test":

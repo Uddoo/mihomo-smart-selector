@@ -1,5 +1,19 @@
 import {test, expect} from './fixtures.mjs'
 
+test('a fresh scan shows one prompt and no result-only controls in both languages', async ({page}) => {
+  await page.route('**/api/v1/scans', route => route.fulfill({json: []}))
+  await page.goto('/')
+  await expect(page.locator('.feedback-title')).toHaveText('准备开始扫描')
+  await expect(page.getByText('选择目标策略组和测试服务，开始扫描后在这里比较节点。', {exact: true})).toHaveCount(1)
+  await expect(page.locator('.ranking, .compare, .ranking-tools, .result-view-controls, .export-trigger')).toHaveCount(0)
+  await expect(page.getByRole('button', {name: '开始扫描', exact: true})).toBeEnabled()
+  await page.locator('.language-select select').selectOption('en')
+  await page.setViewportSize({width: 320, height: 844})
+  await expect(page.locator('.feedback-title')).toHaveText('Ready to start a scan')
+  await expect(page.locator('.ranking, .compare, .ranking-tools, .result-view-controls, .export-trigger')).toHaveCount(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
 test('a short scan can be searched and cleared without selecting a node', async ({page}) => {
   await page.goto('/')
   const started = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/v1/scans')
@@ -14,6 +28,16 @@ test('a short scan can be searched and cleared without selecting a node', async 
   const mutations = []
   page.on('request', request => { if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())) mutations.push(request.url()) })
   const search = page.getByRole('searchbox', {name: '搜索扫描结果', exact: true})
+  await search.fill('no-node-matches-this-filter')
+  await expect(page.getByRole('heading', {name: '没有匹配的节点', exact: true})).toBeVisible()
+  await expect(search).toBeEnabled()
+  await expect(page.getByRole('combobox', {name: '排序视图', exact: true})).toBeVisible()
+  await expect(page.getByRole('button', {name: '定位候选', exact: true})).toBeEnabled()
+  await expect(page.getByRole('button', {name: '导出 / 复制', exact: true})).toBeVisible()
+  await expect(page.getByRole('button', {name: '导出 / 复制', exact: true})).toBeDisabled()
+  await page.getByRole('button', {name: '定位候选', exact: true}).click()
+  await expect(search).toHaveValue('')
+  await expect(page.locator('.node-focus')).toHaveCount(count)
   await search.fill('JP-Osaka-02')
   await expect(page.locator('.node-focus')).toHaveCount(1)
   await page.getByRole('button', {name: '查看 JP-Osaka-02 详情', exact: true}).click()

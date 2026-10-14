@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
 	"github.com/Uddoo/mihomo-smart-selector/internal/history"
+	"github.com/Uddoo/mihomo-smart-selector/internal/ipintel"
 	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 	"github.com/Uddoo/mihomo-smart-selector/internal/regions"
+	"net/http"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -35,18 +38,22 @@ type candidate struct {
 }
 
 type Manager struct {
-	probeSlots        chan struct{}
-	workers           sync.WaitGroup
-	stopping          bool
-	maintenanceCancel context.CancelFunc
-	proxyCache        discoveryCache[map[string]mihomo.Proxy]
-	providerCache     discoveryCache[[]mihomo.Provider]
-	cfg               atomic.Pointer[config.Config]
-	settingsMu        sync.Mutex
-	settingsRevision  int
-	client            mihomo.Client
-	classifier        *regions.Classifier
-	store             *history.Store
+	ipIntelligence        *ipintel.Service
+	ipSettings            *ipintel.Settings
+	monitorTraceTransport func(*url.URL) http.RoundTripper
+	probeSlots            chan struct{}
+	workers               sync.WaitGroup
+	stopping              bool
+	maintenanceCancel     context.CancelFunc
+	proxyCache            discoveryCache[map[string]mihomo.Proxy]
+	providerCache         discoveryCache[[]mihomo.Provider]
+	cfg                   atomic.Pointer[config.Config]
+	settingsMu            sync.Mutex
+	settingsRevision      int
+	client                mihomo.Client
+	egressClient          mihomo.Client
+	classifier            *regions.Classifier
+	store                 *history.Store
 
 	mu             sync.Mutex
 	active         map[string]*model.Scan
@@ -58,8 +65,9 @@ type Manager struct {
 
 func NewManager(cfg config.Config, client mihomo.Client, store *history.Store) *Manager {
 	m := &Manager{
-		probeSlots: make(chan struct{}, cfg.Scanner.Concurrency),
-		client:     client, store: store, classifier: regions.New(cfg),
+		ipIntelligence: ipintel.NewService(),
+		probeSlots:     make(chan struct{}, cfg.Scanner.Concurrency),
+		client:         client, store: store, classifier: regions.New(cfg),
 		active: map[string]*model.Scan{}, cancels: map[string]context.CancelFunc{}, stopAfterBatch: map[string]bool{}, subscribers: map[string]map[chan Event]struct{}{},
 	}
 	m.cfg.Store(&cfg)
@@ -67,6 +75,20 @@ func NewManager(cfg config.Config, client mihomo.Client, store *history.Store) *
 }
 
 func (m *Manager) currentConfig() config.Config { return *m.cfg.Load() }
+
+// WithEgressController is set before workers start. Discovery, health checks and
+// business selection continue using the primary Controller.
+func (m *Manager) WithEgressController(client mihomo.Client) *Manager {
+	m.egressClient = client
+	return m
+}
+
+func (m *Manager) egressProbeClient() mihomo.Client {
+	if m.egressClient != nil {
+		return m.egressClient
+	}
+	return m.client
+}
 
 func (m *Manager) Start(request model.ScanRequest) (model.Scan, error) {
 	m.settingsMu.Lock()

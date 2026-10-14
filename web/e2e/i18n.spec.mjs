@@ -1,4 +1,5 @@
 import {test, expect, monitorFixture} from './fixtures.mjs'
+import {selectSettingsCategory} from './settings-navigation.mjs'
 
 const language = page => page.locator('.language-select select')
 
@@ -9,7 +10,8 @@ test('browser language, saved preference and other tabs stay in sync without los
     await page.goto('/#/settings')
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
     await expect(page.getByRole('heading', {name: 'Settings', exact: true})).toBeVisible()
-    const field = page.locator('.settings-inputs input').first()
+    await selectSettingsCategory(page, 'runtime')
+    const field = page.locator('.runtime-fields input').first()
     await field.fill('7')
     await language(page).selectOption('zh-CN')
     await expect(field).toHaveValue('7')
@@ -102,7 +104,10 @@ test('both languages fit all routes at 320px and names and filters remain raw', 
     for (const route of ['scan', 'monitor', 'nodes', 'history', 'settings']) {
       await page.locator('nav button').nth(['scan', 'monitor', 'connectivity', 'nodes', 'history', 'settings'].indexOf(route)).click()
       await expect(page.locator('main.work > header h1')).not.toBeEmpty()
-      if (route === 'settings') await expect(page.locator('.runtime-fields')).toBeVisible()
+      if (route === 'settings') {
+        await selectSettingsCategory(page, 'runtime')
+        await expect(page.locator('.runtime-fields')).toBeVisible()
+      }
       if (route === 'monitor') await expect(page.locator('.monitor-node-card').first()).toBeVisible()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${locale}/${route}: page overflows`).toBe(true)
       await page.screenshot({path: info.outputPath(`${locale}-${route}-320.png`), fullPage: true, animations: 'disabled'})

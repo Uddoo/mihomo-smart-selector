@@ -1,4 +1,5 @@
 import {test, expect} from './fixtures.mjs'
+import {selectSettingsCategory} from './settings-navigation.mjs'
 
 test('delayed and failed page downloads expose recovery and reload the current route', async ({page}, info) => {
   let held
@@ -43,6 +44,7 @@ test('page load timeout is bounded and late imports cannot mount after navigatio
 
 test('runtime edits survive cancelled navigation, hash changes, reload and discard prompts', async ({page}) => {
   await page.goto('/#/settings')
+  await selectSettingsCategory(page, 'runtime')
   const field = page.getByRole('spinbutton', {name:'全局并发节点数', exact:true})
   const original = await field.inputValue()
   const edited = original === '7' ? '6' : '7'
@@ -74,6 +76,7 @@ test('runtime edits survive cancelled navigation, hash changes, reload and disca
   await page.getByRole('button', {name:'节点目录', exact:true}).click()
   await expect(page).toHaveURL(/#\/nodes$/)
   await page.getByRole('button', {name:'偏好设置', exact:true}).click()
+  await selectSettingsCategory(page, 'runtime')
   await expect(field).toHaveValue(original)
 })
 
@@ -81,6 +84,7 @@ test('saving runtime settings clears the dirty guard and preserves the server re
   const original = await (await request.get('/api/v1/settings')).json()
   try {
     await page.goto('/#/settings')
+    await selectSettingsCategory(page, 'runtime')
     const field = page.getByRole('spinbutton', {name:'全局并发节点数', exact:true})
     const value = original.concurrency === 7 ? 6 : 7
     await field.fill(String(value))
@@ -91,6 +95,7 @@ test('saving runtime settings clears the dirty guard and preserves the server re
     await page.getByRole('button', {name:'节点目录', exact:true}).click()
     await expect(page).toHaveURL(/#\/nodes$/)
     await page.getByRole('button', {name:'偏好设置', exact:true}).click()
+    await selectSettingsCategory(page, 'runtime')
     await expect(field).toHaveValue(String(value))
     expect(prompts).toBe(0)
   } finally {
@@ -101,6 +106,7 @@ test('saving runtime settings clears the dirty guard and preserves the server re
 
 test('connection drafts and secrets survive cancel, and confirmed leave clears only the draft', async ({page}) => {
   await page.goto('/#/settings')
+  await selectSettingsCategory(page, 'connection')
   const form = page.locator('.connection-settings')
   await form.getByLabel('密钥操作').selectOption('replace')
   await form.getByLabel('新密钥', {exact:true}).fill('unsaved-fixture-secret')
@@ -114,6 +120,7 @@ test('connection drafts and secrets survive cancel, and confirmed leave clears o
   await page.getByRole('button', {name:'节点目录', exact:true}).click()
   await expect(page).toHaveURL(/#\/nodes$/)
   await page.getByRole('button', {name:'偏好设置', exact:true}).click()
+  await selectSettingsCategory(page, 'connection')
   await expect(form.getByLabel('密钥操作')).toHaveValue('keep')
   await expect(form.getByLabel('新密钥', {exact:true})).toHaveCount(0)
   expect(mutations).toEqual([])
@@ -160,9 +167,11 @@ test('candidate comparison has named column and row headers in both languages', 
   await expect(page.getByText('扫描完成', {exact:true})).toBeVisible()
   const table = page.locator('.comparison-table').filter({visible:true})
   await expect(table.locator('thead th')).toHaveText(['指标','当前','候选'])
-  await expect(table.locator('th[scope="row"]')).toHaveCount(2)
+  await expect(table.locator('th[scope="row"]')).toHaveText(['性能评分','P95 时延','成功率','采样次数'])
+  await expect(table.locator('.comparison-score td').last()).toContainText('/ 90')
   await page.locator('.language-select select').selectOption('en')
   await expect(table.locator('thead th').first()).toHaveText('Metric')
+  await expect(table.locator('th[scope="row"]').last()).toHaveText('Samples')
 })
 
 test('a repeat visit reuses hashed assets and HTML remains revalidated', async ({page, context, request}) => {

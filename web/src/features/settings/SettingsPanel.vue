@@ -69,7 +69,7 @@ onMounted(reload)
       }}</p>
       <p class="settings-note">{{
         t(
-          '首次使用读取 YAML 默认值；保存后，本页运行参数优先于 YAML。Controller 连接请在上方单独配置；监听地址与访问权限仍由服务器配置管理。',
+          '首次使用读取 YAML 默认值；保存后，本页运行参数优先于 YAML。Controller 连接请在“连接”分类中配置；监听地址与访问权限仍由服务器配置管理。',
         )
       }}</p>
       <p

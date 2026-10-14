@@ -14,6 +14,7 @@ import (
 // cleanup does not knowingly overwrite a different client's selection.
 type probeSelectorSession struct {
 	manager     *Manager
+	client      mihomo.Client
 	group       string
 	previous    string
 	expected    string
@@ -21,7 +22,11 @@ type probeSelectorSession struct {
 }
 
 func (m *Manager) readProbeSelector(ctx context.Context, name string) (mihomo.Proxy, string) {
-	proxies, err := m.client.ListProxies(ctx)
+	return readProbeSelectorUsing(ctx, m.client, name)
+}
+
+func readProbeSelectorUsing(ctx context.Context, client mihomo.Client, name string) (mihomo.Proxy, string) {
+	proxies, err := client.ListProxies(ctx)
 	if err != nil {
 		return mihomo.Proxy{}, "probe_selector_unconfirmed"
 	}
@@ -33,18 +38,26 @@ func (m *Manager) readProbeSelector(ctx context.Context, name string) (mihomo.Pr
 }
 
 func (m *Manager) beginProbeSelector(ctx context.Context, name string) (*probeSelectorSession, string) {
-	group, code := m.readProbeSelector(ctx, name)
+	return m.beginProbeSelectorUsing(ctx, m.client, name)
+}
+
+func (m *Manager) beginEgressProbeSelector(ctx context.Context, name string) (*probeSelectorSession, string) {
+	return m.beginProbeSelectorUsing(ctx, m.egressProbeClient(), name)
+}
+
+func (m *Manager) beginProbeSelectorUsing(ctx context.Context, client mihomo.Client, name string) (*probeSelectorSession, string) {
+	group, code := readProbeSelectorUsing(ctx, client, name)
 	if code != "" {
 		return nil, code
 	}
 	if group.Now == "" || !contains(group.All, group.Now) {
 		return nil, "probe_selector_unconfirmed"
 	}
-	return &probeSelectorSession{manager: m, group: name, previous: group.Now, expected: group.Now}, ""
+	return &probeSelectorSession{manager: m, client: client, group: name, previous: group.Now, expected: group.Now}, ""
 }
 
 func (s *probeSelectorSession) selectCandidate(ctx context.Context, name string) string {
-	group, code := s.manager.readProbeSelector(ctx, s.group)
+	group, code := readProbeSelectorUsing(ctx, s.client, s.group)
 	if code != "" {
 		return code
 	}
@@ -55,7 +68,7 @@ func (s *probeSelectorSession) selectCandidate(ctx context.Context, name string)
 		return "candidate_not_in_probe_selector"
 	}
 	s.lastAttempt = name // A failed response may still have applied the write.
-	if err := s.manager.client.Select(ctx, s.group, name); err != nil {
+	if err := s.client.Select(ctx, s.group, name); err != nil {
 		return "probe_selector_switch_failed"
 	}
 	if code := s.confirmCandidate(ctx, name); code != "" {
@@ -66,7 +79,7 @@ func (s *probeSelectorSession) selectCandidate(ctx context.Context, name string)
 }
 
 func (s *probeSelectorSession) confirmCandidate(ctx context.Context, name string) string {
-	group, code := s.manager.readProbeSelector(ctx, s.group)
+	group, code := readProbeSelectorUsing(ctx, s.client, s.group)
 	if code != "" {
 		return code
 	}
@@ -89,7 +102,7 @@ func (s *probeSelectorSession) restore(phase string) *model.ScanWarning {
 	// Cleanup must still run after cancellation, with its own bounded lifetime.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	group, code := s.manager.readProbeSelector(ctx, s.group)
+	group, code := readProbeSelectorUsing(ctx, s.client, s.group)
 	if code != "" {
 		return unconfirmed()
 	}
@@ -103,8 +116,8 @@ func (s *probeSelectorSession) restore(phase string) *model.ScanWarning {
 		return warning("probe_restore_failed", "未能恢复探测组，请到 Controller 核对当前选择。")
 	}
 	// Readback determines success even if the write response was lost.
-	selectErr := s.manager.client.Select(ctx, s.group, s.previous)
-	group, code = s.manager.readProbeSelector(ctx, s.group)
+	selectErr := s.client.Select(ctx, s.group, s.previous)
+	group, code = readProbeSelectorUsing(ctx, s.client, s.group)
 	if code != "" {
 		return unconfirmed()
 	}
