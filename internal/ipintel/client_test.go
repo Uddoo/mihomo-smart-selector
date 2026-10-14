@@ -13,6 +13,31 @@ import (
 	"time"
 )
 
+func TestCredentialIDPartitionsAccountsAndClients(t *testing.T) {
+	client := NewClient()
+	account := credentials{key: "secret", username: "user", server: "eu"}
+	id := client.credentialID(account)
+	if id != client.credentialID(account) {
+		t.Fatal("same account did not retain its cache identity")
+	}
+	if id == NewClient().credentialID(account) {
+		t.Fatal("credential fingerprints were reusable across clients")
+	}
+	for _, changed := range []credentials{
+		{key: "new-secret", username: "user", server: "eu"},
+		{key: "secret", username: "other", server: "eu"},
+		{key: "secret", username: "user", server: "us"},
+	} {
+		if id == client.credentialID(changed) {
+			t.Fatal("changed credentials reused a cache identity")
+		}
+	}
+	if client.credentialID(credentials{key: "a\x00b", username: "c", server: "eu"}) ==
+		client.credentialID(credentials{key: "a", username: "b\x00c", server: "eu"}) {
+		t.Fatal("account field boundaries collided")
+	}
+}
+
 func TestLookupCacheBudgetCredentialsAndNullableEvidence(t *testing.T) {
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

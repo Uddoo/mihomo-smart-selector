@@ -3,7 +3,10 @@ package ipintel
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"io"
 	"net/http"
@@ -29,6 +32,7 @@ type Client struct {
 	scoreKind    string
 	http         *http.Client
 	endpoint     string
+	cacheSecret  [32]byte
 	mu           sync.Mutex
 	cache        map[cacheKey]model.IPIntelligence
 	slot         chan struct{}
@@ -50,8 +54,10 @@ func newProvider(provider string) *Client {
 	case "abuseipdb":
 		source, scoreKind, endpoint = "AbuseIPDB", "abuse_confidence", "https://api.abuseipdb.com/api/v2/check"
 	}
+	var cacheSecret [32]byte
+	rand.Read(cacheSecret[:])
 	return &Client{
-		provider: provider, source: source, scoreKind: scoreKind,
+		provider: provider, source: source, scoreKind: scoreKind, cacheSecret: cacheSecret,
 		http:     &http.Client{Timeout: 6 * time.Second, Transport: &http.Transport{Proxy: http.ProxyFromEnvironment, MaxIdleConns: 2, IdleConnTimeout: time.Minute}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 		endpoint: endpoint, cache: map[cacheKey]model.IPIntelligence{}, blockedUntil: map[[32]byte]time.Time{}, slot: make(chan struct{}, 1), now: time.Now,
 	}
@@ -77,6 +83,22 @@ func (c *Client) Lookup(ctx context.Context, ip, key string, reserve func() bool
 
 type credentials struct{ key, username, server string }
 
+// credentialID partitions the in-memory cache and backoff, not password storage.
+// A random client key prevents reusable unkeyed credential digests. Length prefixes
+// distinguish account fields even when a value contains a separator byte.
+func (c *Client) credentialID(account credentials) [32]byte {
+	mac := hmac.New(sha256.New, c.cacheSecret[:])
+	for _, value := range []string{account.key, account.username, account.server} {
+		var size [8]byte
+		binary.BigEndian.PutUint64(size[:], uint64(len(value)))
+		mac.Write(size[:])
+		mac.Write([]byte(value))
+	}
+	var id [32]byte
+	copy(id[:], mac.Sum(nil))
+	return id
+}
+
 func (c *Client) empty(status string) model.IPIntelligence {
 	return model.IPIntelligence{Status: status, Provider: c.provider, Source: c.source, ScoreKind: c.scoreKind}
 }
@@ -95,7 +117,7 @@ func (c *Client) lookup(ctx context.Context, ip string, account credentials, res
 		result.Status, result.Error = "error", "出口 IP 无效"
 		return result
 	}
-	k := cacheKey{canonical, sha256.Sum256([]byte(account.key + "\x00" + account.username + "\x00" + account.server))}
+	k := cacheKey{canonical, c.credentialID(account)}
 	select {
 	case c.slot <- struct{}{}:
 		defer func() { <-c.slot }()
