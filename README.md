@@ -140,7 +140,7 @@ Clash Party 用户可以在客户端 **内核设置** 中找到 Controller 的�
 <a id="compatibility"></a>
 ## 已验证环境与项目状态
 
-**正式版 `v0.4.4`：更新前端与自动化依赖，同步内嵌页面。** 升级 Lucide、Vite、Playwright 与 vue-tsc，重新生成前端资源，并调整页面加载恢复测试以兼容新版浏览器的重试行为。升级前请查看[兼容性说明](docs/releases/v0.4.4.md#升级与兼容性)。本 README 跟随 `main`，下载版本以对应的
+**版本 `v0.5.0`：监控出口与独立 IP 情报，改进手机工作台。** ChatGPT 监控展示出口 IPv4/IPv6 与四家 IP 情报来源，支持网页配置凭据；设置分类保留草稿，扫描比较与连通性首屏更清晰。IP 情报不改变健康评分或自动切换。升级前请查看[兼容性说明](docs/releases/v0.5.0.md#升级与兼容性)。本 README 跟随 `main`，下载版本以对应的
 [Release 说明](https://github.com/Uddoo/mihomo-smart-selector/releases) 为准。
 主分支的改进可能尚未包含在公开下载包中，使用新描述的行为前请核对安装版本。
 

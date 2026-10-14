@@ -1,6 +1,6 @@
 # Mihomo Smart Selector — Architecture & deployment design
 
-This is the current architecture of the v0.3 application, updated on 2026-09-24.
+This is the current architecture of the v0.5 application, updated on 2026-10-14.
 See [repository structure](project-structure.md) for file ownership and dependency
 rules. [Design records](design/README.md) retain the decisions and verification
 evidence from earlier milestones; their dated plans are not the current contract.
@@ -158,6 +158,42 @@ Mihomo listeners also support a `proxy` field; a non-empty value routes that
 listener directly to the named valid outbound or group. The official references
 are [Mihomo Controller API](https://wiki.metacubex.one/en/api/) and
 [listener common fields](https://wiki.metacubex.one/en/config/inbound/listeners/).
+
+### 3.3 Monitoring exit evidence and provider settings
+
+After successful ChatGPT HTTPS samples, monitoring may observe exit IPv4/IPv6 and
+country through the dedicated egress selector/listener. The scanner adapter owns
+the shared mutation gate, identity checks, request reservation and restoration;
+it discards evidence when restoration cannot be confirmed. An optional loopback
+`egress_controller` handles only dedicated exit selector operations. Discovery,
+HTTPS samples, strict verification and business switching continue through the
+primary Controller. Operators provision and route the isolated core; readback
+alone cannot establish the traffic path.
+
+`internal/ipintel` owns independent IPQualityScore, Scamalytics, ipapi.is and
+AbuseIPDB clients, source semantics, bounded responses, credential-specific caches
+and account backoff. Actual upstream requests reserve shared monitoring budget;
+cache hits and disabled/missing credentials do not. Exit/provider evidence stays
+in memory and never contributes to HTTPS scores or failover decisions. GET
+snapshots only read evidence. Changed plans discard obsolete probe results.
+
+`GET/PUT /api/v1/ip-intelligence/settings` uses existing API access controls,
+Origin checks, JSON-only writes, no-store responses and revision conflicts. The
+settings owner persists validated overrides atomically to the private
+`<storage.path>.ip-intelligence.json` sidecar before updating live state. Reads
+expose configuration/source status but never saved API keys. Clear suppresses
+server credential fallback; restore re-enables it. This is private-file storage,
+not encryption at rest. Cache/backoff keys use length-prefixed account fields and
+HMAC-SHA-256 with a random per-client key, not a password verifier or reusable
+unkeyed credential digest.
+
+The frontend `SettingsWorkspace` keeps hidden category forms mounted so drafts,
+async operations and leave-page guards survive category changes. Desktop tabs
+and a native mobile select organize the existing save boundaries. IP settings
+links reveal the corresponding category before its panel handles focus.
+
+See [monitoring](monitoring.md) for provider disclosure, expiry, retry timing,
+configuration and dedicated-routing requirements.
 
 ## 4. Candidate and score pipeline
 

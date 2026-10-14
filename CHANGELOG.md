@@ -8,6 +8,26 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.5.0] - 2026-10-14
+
+### Added
+
+- Observe ChatGPT monitoring exit IPv4/IPv6 and country through a dedicated probe path, with independent IPQualityScore, Scamalytics, ipapi.is and AbuseIPDB evidence. Preserve source score meanings, timestamps, expiry, unknown fields and partial failures without changing HTTPS health scores or automatic switching.
+- Configure IP intelligence credentials through a revision-protected API and settings UI, with private server-side persistence, redacted reads, explicit clear/restore operations and direct navigation from monitoring.
+- Support an optional loopback-only egress Controller for isolated exit probing while discovery, HTTPS sampling and business switching retain the primary Controller.
+
+### Changed
+
+- Organize settings into five responsive categories while preserving unsaved drafts, leave-page protection and the existing form save boundaries.
+- Compact mobile navigation and connectivity controls so service results enter the first view earlier; move the mobile project link into settings.
+- Show one initial scan prompt, reveal result tools when results exist, and compare current/candidate performance out of 90, P95, success rate and sample count.
+- Regenerate embedded frontend and gzip resources, and extend Go, frontend and browser regression coverage.
+
+### Security
+
+- Partition in-memory credential caches and backoff with HMAC-SHA-256 and a random per-client key instead of reusable unkeyed credential digests. Encode account fields with length prefixes.
+- Keep saved provider keys out of API reads and browser storage; apply Origin checks, JSON-only updates, revision conflict handling and atomic private-file persistence. Credential files are not encrypted at rest.
+
 ## [v0.4.4] - 2026-10-12
 
 ### Changed
@@ -585,7 +605,8 @@ The rc.6 build candidate was not published. This release includes its changes.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.4...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.4...v0.5.0
 [v0.4.4]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.3...v0.4.4
 [v0.4.3]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.2...v0.4.3
 [v0.4.2]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.1...v0.4.2
