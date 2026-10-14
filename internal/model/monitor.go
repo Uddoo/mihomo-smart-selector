@@ -163,6 +163,7 @@ type MonitorTimeline struct {
 
 type MonitorRow struct {
 	MonitorNode
+	Egress          *MonitorEgress  `json:"egress,omitempty"`
 	EvidenceVersion string          `json:"evidence_version"`
 	State           MonitorState    `json:"state"`
 	Metrics         MonitorMetrics  `json:"metrics"`

@@ -35,6 +35,62 @@ P2 增加历史连续性、1h/24h/7d分析、小时聚合、Provider相关提示
 
 历史查询按节点缓存统计与最近 60 条记录，新基准、时隙边界和保留清理都会使相关缓存失效；健康状态独立刷新。该优化不更改数据库格式、120 秒基准间隔、共享并发和请求预算。实现与验证方法见[性能优化说明](design/monitor-performance.md)。
 
+## ChatGPT 出口 IP、属性与信誉
+
+网页的“设置 → IP 情报服务”提供四家的独立启用开关。未配置时可直接填写 API Key；已配置时点击“更换密钥”输入新值，也可取消更换。“更多选项”提供清除密钥和恢复服务端配置，保存前可以撤销；Scamalytics 另有帐号用户名和 eu/us 节点设置。底部显示未保存状态，点击“保存 IP 情报设置”后在后续出口查询中使用，无需重启；已有观测在下一次检测前仍保留，可从监控列表点击“复测”触发新检测。密钥输入默认是密码框，可临时查看正在填写的值；保存后清空输入，只回传已配置状态，不写入浏览器存储。网页配置以原子方式保存在存储数据库路径附加 `.ip-intelligence.json` 的独立私有文件中，Linux 权限为 0600，重启后继续使用。清除操作显式停止使用该来源的密钥，不会悄悄回退到环境变量；“恢复服务端配置”才重新启用原 YAML 的密钥来源。多个页面修改时使用版本冲突检查，保存失败不应用部分配置。
+
+使用 `chatgpt` 模板的任务会在概览中展示独立的出口与 IP 信誉区域，默认展示当前节点，其他候选可展开查看。每个节点成功完成 HTTPS 采样后，约每 10 分钟通过 `https://chatgpt.com/cdn-cgi/trace` 重新获取该节点的出口 IPv4/IPv6；点击节点“复测”也会重新检查出口。该请求经过已配置的专用探测组与代理入口，前后确认节点选择，结束后恢复探测组。未配置、预算不足、扫描占用、身份变化和请求失败都显示相应状态，不计为 HTTPS 失败。
+
+在“扫描设置”中配置并启用“真实出口地区验证”。专用探测组必须独立于业务策略组，包含被监控的叶子节点，代理入口的流量必须实际路由到这个专用组；Controller 回读只能证明选择器状态，不能替代这条路由配置。ChatGPT 监控固定请求 ChatGPT 域名，避免把其他站点的分流出口当成 ChatGPT 出口。
+
+若不能热加载承载业务的核心，可在服务端 YAML 配置独立的 `egress_controller`（字段同 `mihomo`：`controller`、`secret_file` / `secret_env`、`request_timeout_seconds`）。它只接受回环 IP 地址，用于出口探测组的读取、切换和恢复；业务发现、HTTPS 采样与自动切换仍使用原 Controller。ChatGPT 出口证据还会同时检查两个核心的节点 Provider/协议身份。独立核心应从相同的 Provider 文件读取节点，使用仅本机监听的代理入口，并禁用 TUN、透明代理入口和订阅网络更新；其启动、退出和刷新均不应操作业务核心、系统 DNS 或防火墙。此配置不出现在网页运行设置中，凭据只在后端读取。
+
+每家服务设置项均提供“获取 API Key”官方入口、获取步骤和“API 文档”链接。IPQualityScore 前往 API Keys 控制台；Scamalytics 在官方 API 套餐页申请，并使用收到的用户名、密钥与注册时选定的 EU/US 节点；ipapi.is 登录 Dashboard 获取密钥；AbuseIPDB 注册并登录后在帐号控制台创建密钥。
+
+IP 情报可同时接入以下正式 API，按来源独立展示：
+
+| 来源 | 展示内容 | 评分口径 |
+| --- | --- | --- |
+| [IPQualityScore](https://www.ipqualityscore.com/documentation/proxy-detection-api/overview) | 连接类型、ASN/ISP、VPN/Proxy/Tor、近期滥用 | 原始 fraud_score 与信誉分 100 − fraud_score |
+| [Scamalytics v3](https://docs.scamalytics.com/ip-fraud-risk-api/v3/) | 综合风险、机房/VPN、开源代理/Tor、基础归属地 | 原始 scamalytics_score 与信誉分 100 − scamalytics_score |
+| [ipapi.is](https://ipapi.is/developers.html) | 机房/VPN/Proxy/Tor、滥用标记、ASN/运营商与地区 | 公司网络与 ASN 的滥用比例，不换算单个 IP 综合分 |
+| [AbuseIPDB](https://docs.abuseipdb.com/#check-endpoint) | 近 30 天举报数、Tor、用途与 ISP | abuseConfidenceScore 原值，不换算为综合信誉分 |
+
+配置任意一个或多个来源。未配置密钥显示“未配置”，enabled: false 显示“未启用”，二者均不发起请求。原有顶层 api_key_env / api_key_file 继续作为 IPQualityScore 的兼容配置；显式提供 ipqualityscore 下的密钥字段时使用新配置。
+
+```yaml
+ip_intelligence:
+  ipqualityscore:
+    enabled: true
+    api_key_env: IPQUALITYSCORE_API_KEY
+    api_key_file: /etc/mihomo-smart-selector/ipqs.key
+  scamalytics:
+    enabled: true
+    api_key_env: SCAMALYTICS_API_KEY
+    api_key_file: /etc/mihomo-smart-selector/scamalytics.key
+    username_env: SCAMALYTICS_USERNAME
+    username: "" # 非空时优先于 username_env。
+    server: eu # 帐号注册时选择的节点：eu=api12，us=api11。
+  ipapi_is:
+    enabled: true
+    api_key_env: IPAPI_IS_API_KEY
+    api_key_file: /etc/mihomo-smart-selector/ipapi-is.key
+  abuseipdb:
+    enabled: true
+    api_key_env: ABUSEIPDB_API_KEY
+    api_key_file: /etc/mihomo-smart-selector/abuseipdb.key
+```
+
+每家来源的环境变量非空时优先，否则读取其密钥文件；相对路径以配置文件所在目录为基准，请限制文件读取权限。凭据不进入运行设置 API 或浏览器，缓存键只使用凭据摘要。配置文件修改后重启服务；密钥文件在下一次检测时重新读取。无需 OpenAI 密钥，也无需同时注册四家帐号。所有来源都未配置时，出口 IP 检测仍可独立工作。
+
+四家查询并行执行，每家使用独立缓存、请求门控和帐号退避；每个实际网络请求仍计入共享后台预算。成功结果按来源、实际 IP 和帐号凭据缓存 24 小时，不按节点名称重复查询；缓存和退避互不串用，请求预算仍共享。单家失败、密钥失效或额度不足不覆盖其他来源。429 响应遵守 Retry-After 且至少退避 1 小时；鉴权失败或供应商返回帐号/额度错误也进行独立退避。Scamalytics 用户名与 API 节点参与缓存身份，其 test 模式响应不会成为正式评分。缺失布尔值显示“未知”，无效或缺失分数显示“无评分数据”，付费字段占位文字不作为有效属性。未确认机房也不会自动标成住宅。
+
+比较区域保留每家原始分数及口径，综合风险分、举报置信分、网络滥用比例不能直接平均；新鲜结果中的机房、VPN、Proxy 或 Tor 标记相互矛盾时会提示“来源判断不一致”。这些信息不代表 OpenAI 官方风控、帐号状态或封禁概率，不参与现有 HTTPS 健康分、排名或自动切换。
+
+对外仅发送出口 IP、必要凭据和固定查询参数，不发送浏览器指纹、节点名称、Provider 或本地配置。IPQualityScore / AbuseIPDB 使用请求头传密钥，ipapi.is 使用 JSON 请求体；Scamalytics 按其官方协议在服务端 HTTPS 查询参数中传密钥，原始 URL 与供应商错误正文均不返回浏览器或记录到应用日志。请求禁止重定向，避免把凭据转交另一站点；查询客户端遵循服务进程的标准 HTTP(S) 代理环境变量。AbuseIPDB 仅调用只读 check 接口，不提交举报。
+
+最新出口与情报缓存仅保存在内存，重启后重新采集。出口超过 20 分钟未更新或任务暂停时标记旧观测；各来源情报独立显示查询时间和有效期，过期结果不继续作为新鲜评分或来源冲突依据。读取 API 快照不会触发探测或消耗第三方额度。
+
 <a id="live-screenshots"></a>
 ## 实机界面与读图说明（2026-09-11）
 

@@ -1,4 +1,5 @@
 import {test, expect} from './fixtures.mjs'
+import {selectSettingsCategory} from './settings-navigation.mjs'
 
 test('LAN tokens stay in memory and old stored tokens are removed without being used', async ({page}) => {
   await page.addInitScript(() => {
@@ -22,6 +23,7 @@ test('LAN tokens stay in memory and old stored tokens are removed without being 
   const stored = () => page.evaluate(() => ({session: sessionStorage.getItem('mss-api-token'), local: localStorage.getItem('mss-api-token')}))
   expect(await stored()).toEqual({session: null, local: null})
   await page.locator('nav button').last().click()
+  await selectSettingsCategory(page, 'connection')
   await expect(page.locator('.connection-settings')).toBeVisible()
   expect(authorizations).toContain('Bearer browser-lan-test-value')
   await page.reload()
@@ -57,6 +59,7 @@ test('connection editor retains the draft when an existing secret cannot move', 
   const rejection = '更换 Controller 地址后，请输入新密钥或选择不使用密钥'
   await page.route('**/api/v1/connection/test', route => route.fulfill({status: 400, json: {error: rejection}}))
   await page.goto('/#/settings')
+  await selectSettingsCategory(page, 'connection')
   const form = page.locator('.connection-settings')
   await form.getByLabel(/^Controller 地址/).fill('http://127.0.0.1:9191')
   await form.getByRole('button', {name: '测试连接', exact: true}).click()

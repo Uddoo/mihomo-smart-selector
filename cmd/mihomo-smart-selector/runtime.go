@@ -16,6 +16,8 @@ import (
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
 	"github.com/Uddoo/mihomo-smart-selector/internal/connection"
 	"github.com/Uddoo/mihomo-smart-selector/internal/history"
+	"github.com/Uddoo/mihomo-smart-selector/internal/ipintel"
+	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
 	"github.com/Uddoo/mihomo-smart-selector/internal/monitor"
 	"github.com/Uddoo/mihomo-smart-selector/internal/scan"
 )
@@ -81,6 +83,19 @@ func serveOnce(ctx context.Context, path string, storage *runtimeStorage) (bool,
 		return false, err
 	}
 	manager := scan.NewManager(cfg, controller, store)
+	if cfg.EgressController != nil {
+		probeController, err := mihomo.New(*cfg.EgressController)
+		if err != nil {
+			return false, fmt.Errorf("load isolated egress Controller: %w", err)
+		}
+		defer probeController.CloseIdleConnections()
+		manager.WithEgressController(probeController)
+	}
+	ipSettings, err := ipintel.OpenSettings(cfg.IPIntelligence, cfg.Storage.Path+".ip-intelligence.json")
+	if err != nil {
+		return false, err
+	}
+	manager.WithIPIntelligenceSettings(ipSettings)
 	if err := manager.LoadSettings(ctx); err != nil {
 		return false, err
 	}
@@ -94,6 +109,7 @@ func serveOnce(ctx context.Context, path string, storage *runtimeStorage) (bool,
 	}
 	apiServer.WithMonitor(monitoring)
 	apiServer.WithConnection(connections)
+	apiServer.WithIPIntelligenceSettings(ipSettings)
 	var boot [16]byte
 	if _, err := rand.Read(boot[:]); err != nil {
 		return false, err
@@ -111,6 +127,14 @@ func serveOnce(ctx context.Context, path string, storage *runtimeStorage) (bool,
 		}
 		if _, _, _, err := connection.Open(next.Mihomo, next.Storage.Path+".connection.json"); err != nil {
 			return fmt.Errorf("无法读取已保存的连接或密钥，重启未执行；请修正连接配置后重试")
+		}
+		if _, err := ipintel.OpenSettings(next.IPIntelligence, next.Storage.Path+".ip-intelligence.json"); err != nil {
+			return fmt.Errorf("无法读取 IP 情报私有配置，重启未执行")
+		}
+		if next.EgressController != nil {
+			if _, err := mihomo.ResolveSecret(*next.EgressController); err != nil {
+				return fmt.Errorf("无法读取独立出口探测凭据，重启未执行")
+			}
 		}
 		return manager.PrepareRestart()
 	}, func() { restarts <- struct{}{} })

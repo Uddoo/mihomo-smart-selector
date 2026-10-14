@@ -363,6 +363,25 @@ test('entering, returning and reloading stay idle until a test action is clicked
   await expect(page.locator('[data-group="social"] .service-latency')).toHaveText(Array(10).fill('Not tested'))
 })
 
+test('mobile first view puts service results on screen before testing', async ({page}) => {
+  const {calls}=await connectivityFixture(page)
+  await page.setViewportSize({width:375,height:812})
+  await page.goto('/#/connectivity')
+  await expect(page.locator('.service-card').first()).toBeVisible()
+  await expect(page.locator('.connectivity-legend')).toHaveCount(0)
+  await expect(page.locator('.retest-issues')).toHaveCount(0)
+  for (const locale of ['zh-CN','en']) {
+    await page.locator('.language-select select').selectOption(locale)
+    const card=await page.locator('.service-card').first().boundingBox()
+    expect(card.y+card.height).toBeLessThanOrEqual(812)
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+    const brand=await page.locator('.brand').boundingBox()
+    const actions=await page.locator('.header-actions').boundingBox()
+    expect(actions.y).toBeLessThan(brand.y+brand.height)
+  }
+  expect(calls).toHaveLength(0)
+})
+
 test('compact category controls preserve filters across breakpoints and fit themed mobile layouts', async ({page}) => {
   const {calls}=await connectivityFixture(page,{mixed:true})
   await page.addInitScript(()=>{localStorage.setItem('mss-palette','nord');localStorage.setItem('mss-theme','dark')})

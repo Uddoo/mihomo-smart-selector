@@ -58,6 +58,7 @@ export async function monitorFixture(page, options = {}) {
       if (state.mode === 'hang') { state.held.push(route); return }
       if (state.mode === 'error') return route.fulfill({status: 503, json: {error: options.errorMessage || '测试：服务暂不可用'}})
       const payload = {plan, current: nodes[0].name, issue: '', suspended: false, failover_message: '', observed_at: at, now: at, next_at: at, retention_days: 7, window: query.get('window') || '24h', data_version: state.version, instance_id: 'fixture-boot', events: [], rows: plan.nodes.map(node => ({...node, evidence_version: state.evidenceVersions?.[node.series_id], metrics, series: options.recentSamples ? [{slot: 1, at, outcome: 'success', delay_ms: 80, reason: '', kind: 'baseline'}] : [], state: {status: 'healthy', last_at: at, last_success: at, failures: 0, successes: 720}}))}
+      if (options.egress) for (const row of payload.rows) row.egress = options.egress[row.id]
       if (query.get('view') === 'summary') {
         payload.sample_series_id = query.get('series_id') || ''
         for (const row of payload.rows) if (row.series_id !== payload.sample_series_id) delete row.series

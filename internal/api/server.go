@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
 	"github.com/Uddoo/mihomo-smart-selector/internal/connection"
+	"github.com/Uddoo/mihomo-smart-selector/internal/ipintel"
 	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
 	"github.com/Uddoo/mihomo-smart-selector/internal/monitor"
 	"github.com/Uddoo/mihomo-smart-selector/internal/scan"
@@ -26,6 +27,7 @@ type Server struct {
 	exposed    bool
 	monitor    *monitor.Manager
 	connection *connection.Manager
+	ipSettings *ipintel.Settings
 	service    *serviceControl
 }
 

@@ -2,6 +2,7 @@
 import { t, translateMessage } from '../../i18n/index'
 import { Activity, Pause, Play, ShieldCheck, ChevronDown } from '@lucide/vue'
 import MonitorNodeList from './MonitorNodeList.vue'
+import MonitorEgressPanel from './MonitorEgressPanel.vue'
 import MonitorPlanEditor from './MonitorPlanEditor.vue'
 import MonitorHistoryPanel from './MonitorHistoryPanel.vue'
 import MonitorDiagnosticsPanel from './MonitorDiagnosticsPanel.vue'
@@ -260,6 +261,13 @@ const {
               }}</p></div
             ></details
           >
+          <MonitorEgressPanel
+            v-if="plan.profile_id === 'chatgpt'"
+            :rows="data.rows"
+            :current="data.current"
+            :now="data.now"
+            :active="plan.enabled && !data.suspended && !data.issue"
+          />
           <section class="monitor-panel">
             <div class="monitor-heading"
               ><div

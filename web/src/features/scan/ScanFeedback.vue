@@ -53,7 +53,7 @@ const title = computed(() => {
         interrupted: '扫描已中断',
         failed: '扫描失败',
       } as Record<string, string>
-    )[props.scan?.status || ''] || '准备就绪',
+    )[props.scan?.status || ''] || '准备开始扫描',
   )
 })
 const icon = computed(() =>
@@ -137,7 +137,12 @@ function duration(seconds?: number) {
             aria-live="polite"
             aria-atomic="true"
             >{{ title }}</b
-          ><p class="feedback-context">{{ context }}</p></div
+          ><p class="feedback-context">{{ context }}</p
+          ><p
+            v-if="phase === 'idle'"
+            class="feedback-context"
+            >{{ nextStep }}</p
+          ></div
         >
       </div>
       <div class="feedback-tags"
@@ -256,6 +261,16 @@ function duration(seconds?: number) {
 }
 .scan-feedback.stopped {
   --feedback-color: var(--warning);
+}
+.scan-feedback.idle {
+  border-bottom: 0;
+}
+.scan-feedback.idle .scan-state {
+  padding-block: var(--space-5);
+}
+.scan-feedback.idle .feedback-title {
+  color: var(--text);
+  font-size: 16px;
 }
 .scan-state {
   display: flex;

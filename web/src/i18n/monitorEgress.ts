@@ -1,0 +1,177 @@
+export const monitorEgressMessages = {
+  '获取 API Key': 'Get API key',
+  '注册并登录 IPQualityScore，在控制台的 API Keys 页面创建或复制密钥。':
+    'Sign up or sign in to IPQualityScore, then create or copy a key on the dashboard’s API Keys page.',
+  '在官方 API 套餐页申请访问；取得凭据后，填写用户名、API Key 和注册时选择的 EU / US 节点。':
+    'Apply for access on the official API plans page. Once you receive your credentials, enter the username, API key and EU / US node selected at signup.',
+  '注册并登录 ipapi.is，在 Dashboard 中获取 API Key，再粘贴到上方输入框。':
+    'Sign up or sign in to ipapi.is, get your API key from the dashboard, then paste it into the field above.',
+  '注册并登录 AbuseIPDB，在帐号控制台创建 API Key，再粘贴到上方输入框。':
+    'Sign up or sign in to AbuseIPDB, create an API key in your account dashboard, then paste it into the field above.',
+  保存后清除: 'Clear on save',
+  将使用服务端配置: 'Use server configuration on save',
+  待保存: 'Pending save',
+  综合风险评分: 'Fraud risk score',
+  综合风险评分与代理识别: 'Fraud risk score and proxy detection',
+  'IP 属性与网络滥用记录': 'IP attributes and network abuse signals',
+  举报记录与滥用置信度: 'Abuse reports and confidence score',
+  '保存后停止使用此来源的密钥，不会回退到环境变量。':
+    'Saving stops using this source’s key without falling back to environment variables.',
+  '保存后使用服务端环境变量或密钥文件。':
+    'Saving switches to the server environment variable or key file.',
+  输入新密钥以替换现有密钥: 'Enter a new key to replace the saved key',
+  '粘贴此服务的 API Key': 'Paste this service’s API key',
+  '只保存到服务端，保存后不回显。': 'Saved only on the server; never returned after saving.',
+  注册时获得的用户名: 'Username from your account',
+  'API 文档': 'API documentation',
+  更多密钥操作: 'More key actions',
+  更多选项: 'More options',
+  更换密钥: 'Replace key',
+  取消更换: 'Cancel replacement',
+  撤销: 'Undo',
+  '{p0} / {p1} 已配置': '{p0} / {p1} configured',
+  密钥与保存方式: 'Key storage and saving',
+  所有更改已保存: 'All changes saved',
+  公司网络: 'Company network',
+  无可用滥用比例: 'No abuse ratio available',
+  查看完整标记: 'View all signals',
+  启用: 'Enable',
+  已配置密钥: 'Key configured',
+  保留当前密钥: 'Keep current key',
+  'IP 情报服务': 'IP intelligence services',
+  '为 ChatGPT 出口检测配置任意一个或多个服务。保存后用于后续查询，无需重启。':
+    'Configure any services for ChatGPT egress checks. Saved settings apply to subsequent lookups without restarting.',
+  '密钥仅发送给本服务，不存入浏览器存储；保存后不回显。清除密钥会停止使用该来源的密钥，恢复服务端配置可重新使用环境变量或密钥文件。':
+    'Keys are sent only to this service, never stored in browser storage or returned after saving. Clearing stops using that source’s key; restoring server configuration uses its environment variable or key file again.',
+  使用网页保存的密钥: 'Using a key saved from the web interface',
+  密钥已清除: 'Key cleared',
+  '使用服务端环境变量 / 密钥文件': 'Using the server environment variable / key file',
+  '填写 / 替换密钥': 'Enter / replace key',
+  清除密钥: 'Clear key',
+  恢复服务端配置: 'Restore server configuration',
+  'Scamalytics 帐号用户名': 'Scamalytics account username',
+  'Scamalytics API 节点': 'Scamalytics API node',
+  'API 节点须与注册帐号时选择的节点一致。':
+    'The API node must match the node selected when registering the account.',
+  '保存后会清除网页密钥并停用该来源的密钥，不会自动回退到环境变量。':
+    'Saving clears the web key and stops using that source’s credentials, without falling back to an environment variable.',
+  '保存 IP 情报设置': 'Save IP intelligence settings',
+  '正在读取 IP 情报设置…': 'Loading IP intelligence settings…',
+  'IP 情报设置已保存，将在下一次出口检测时使用。':
+    'IP intelligence settings saved. They will be used at the next egress check.',
+  '无法读取或保存 IP 情报设置': 'Could not read or save IP intelligence settings',
+  'IP 情报配置已被其他页面更新，请重新读取后再保存':
+    'IP intelligence settings changed in another page. Reload before saving.',
+  'API 密钥须为非空单行文本，且不超过 4096 字节':
+    'The API key must be nonempty single-line text of at most 4096 bytes',
+  '无法读取 IP 情报私有配置': 'Could not read private IP intelligence settings',
+  'IP 情报私有配置无效': 'Invalid private IP intelligence settings',
+  '请选择有效的 IP 情报来源': 'Choose valid IP intelligence sources',
+  'IP 情报来源或启用状态无效': 'Invalid IP intelligence source or enabled state',
+  '只有替换操作可以提交 API 密钥': 'Only a replace operation may submit an API key',
+  '请选择有效的 API 密钥操作': 'Choose a valid API key action',
+  'Scamalytics 需要填写帐号用户名': 'Enter the Scamalytics account username',
+  'Scamalytics 用户名或 API 节点无效': 'Invalid Scamalytics username or API node',
+  '无法保存 IP 情报配置': 'Could not save IP intelligence settings',
+  '无法保存 IP 情报配置，请检查服务端目录权限':
+    'Could not save IP intelligence settings. Check server directory permissions.',
+  'IP 情报设置暂不可用，请重启服务':
+    'IP intelligence settings are unavailable. Restart the service.',
+  跨站密钥配置请求被拒绝: 'Cross-site credential configuration request rejected',
+  '密钥配置请求必须使用 JSON': 'Credential configuration requests must use JSON',
+  '在设置页的“IP 情报服务”中填写密钥；也可使用服务端环境变量或密钥文件。':
+    'Enter keys under IP intelligence services on the Settings page, or use server environment variables or key files.',
+  '前往 IP 情报设置': 'Open IP intelligence settings',
+  滥用记录: 'Abuse record',
+  'IP 情报来源对比': 'IP intelligence source comparison',
+  '来源判断不一致：{p0}。请结合各来源口径查看。':
+    'Sources disagree on {p0}. Review each source’s assessment separately.',
+  滥用置信分: 'Abuse confidence score',
+  属性与滥用标记: 'Attributes and abuse signals',
+  情报已过期: 'Intelligence expired',
+  无综合评分: 'No composite score',
+  '分数越高，举报滥用依据越强': 'Higher means stronger evidence of reported abuse',
+  '近 {p0} 天举报：{p1}': 'Reports in the last {p0} days: {p1}',
+  '公司网络滥用比例：{p0}': 'Company network abuse ratio: {p0}',
+  'ASN 网络滥用比例：{p0}': 'ASN network abuse ratio: {p0}',
+  查询时间: 'Query time',
+  未启用: 'Disabled',
+  托管网络: 'Hosting network',
+  运营商网络: 'ISP network',
+  政府网络: 'Government network',
+  'Scamalytics API 节点必须为 eu 或 us': 'The Scamalytics API node must be eu or us',
+  'Scamalytics 用户名格式无效': 'Invalid Scamalytics username format',
+  'Scamalytics 需要配置有效用户名与 API 节点': 'Scamalytics needs a valid username and API node',
+  '经专用探测路径读取每个节点的 ChatGPT 出口；成功采样后约每 10 分钟更新，各来源情报独立缓存 24 小时。':
+    'Check each node’s ChatGPT egress through the dedicated probe path about every 10 minutes after successful sampling. Each source caches intelligence independently for 24 hours.',
+  '各来源独立展示。IPQualityScore 与 Scamalytics 的信誉分为 100 − 原始风险分；AbuseIPDB 展示举报滥用置信分；ipapi.is 展示属性与网络滥用比例，不换算综合分。':
+    'Sources are shown separately. IPQualityScore and Scamalytics reputation scores equal 100 − original risk score. AbuseIPDB shows reported-abuse confidence; ipapi.is shows attributes and network abuse ratios without a composite score.',
+  '这些结果不代表 OpenAI 官方评分、帐号状态或封禁概率；不同来源的分数不能直接平均。':
+    'These results are not official OpenAI scores, account status or ban probabilities. Scores from different sources cannot be averaged directly.',
+  '每个来源可在 ip_intelligence 中独立配置环境变量、密钥文件与 enabled 开关。Scamalytics 还需帐号用户名及对应的 eu/us API 节点。未配置的来源不会发起查询。':
+    'Configure each source’s environment variable, key file and enabled switch under ip_intelligence. Scamalytics also requires the account username and matching eu/us API node. Unconfigured sources make no requests.',
+  '只提交出口 IP、必要的帐号凭据及固定查询参数；密钥保留在后端。每个来源独立缓存和退避，缓存与最新出口观测在服务重启后重新采集。':
+    'Only the egress IP, required account credentials and fixed query parameters are submitted. Keys stay on the backend. Each source caches and backs off independently; cached intelligence and latest egress observations are collected again after a restart.',
+  接口退避中: 'API retry backoff',
+  'IP 情报接口暂缓重试，请核对密钥与配额':
+    'IP intelligence retries are paused; check the key and quota',
+  '当前选择不在监控列表，展开查看候选节点的出口。':
+    'The current selection is outside the monitor list. Expand to see candidate egress.',
+  收起其他节点: 'Hide other nodes',
+  '查看其他节点出口（{p0}）': 'Show other node egress ({p0})',
+  'ChatGPT 出口与 IP 信誉': 'ChatGPT egress and IP reputation',
+  '经专用探测路径读取每个节点的 ChatGPT 出口；成功采样后约每 10 分钟更新，IP 情报缓存 24 小时。':
+    'Check each node’s ChatGPT egress through the dedicated probe path, about every 10 minutes after successful sampling. IP intelligence is cached for 24 hours.',
+  等待成功采样: 'Waiting for a successful sample',
+  'ChatGPT 出口 IP': 'ChatGPT egress IP',
+  '请在扫描设置中配置并启用真实出口地区验证。':
+    'Configure and enable actual exit region verification in scan settings.',
+  '出口检测：{p0}': 'Egress checked: {p0}',
+  'IP 属性': 'IP type',
+  'IP 信誉分': 'IP reputation score',
+  '原始风险分：{p0}': 'Original risk score: {p0}',
+  '情报查询：{p0}': 'Intelligence queried: {p0}',
+  数据来源与配置: 'Data source and configuration',
+  '数据源：IPQualityScore。信誉分 = 100 − 原始风险分，越高表示该来源评估的 IP 风险越低；不代表 OpenAI 官方评分、帐号状态或封禁概率。':
+    'Source: IPQualityScore. Reputation = 100 − original risk score; higher means lower IP risk according to this source. It is not an official OpenAI score, account status or ban probability.',
+  'IP 信誉独立展示，不参与 HTTPS 健康分、节点排名和故障自动切换。暂停监控或出口观测超时后，旧结果仅供查阅。':
+    'IP reputation is separate from HTTPS health, rankings and failover. Old observations are for reference when monitoring is paused or egress evidence expires.',
+  '在服务环境变量 IPQUALITYSCORE_API_KEY 或配置项 ip_intelligence.api_key_file 中提供密钥。未配置密钥时仍可检测出口 IP。':
+    'Provide the key through the service environment variable IPQUALITYSCORE_API_KEY or ip_intelligence.api_key_file. Egress IP checks still work without a key.',
+  '情报查询只提交出口 IP；密钥保留在后端。缓存与最新出口观测保存在内存，服务重启后重新检测。':
+    'Intelligence lookups submit only the egress IP; the key stays on the backend. Cache and latest egress observations are held in memory and checked again after a restart.',
+  等待探测额度: 'Waiting for probe capacity',
+  等待请求预算: 'Waiting for request budget',
+  检测失败: 'Check failed',
+  接口限额: 'API quota reached',
+  检测已取消: 'Check cancelled',
+  已检测: 'Checked',
+  出口观测已过期: 'Egress observation expired',
+  等待出口检测: 'Waiting for egress check',
+  无评分数据: 'No score data',
+  住宅: 'Residential',
+  机房: 'Data center',
+  移动网络: 'Mobile',
+  企业: 'Corporate',
+  教育网络: 'Education',
+  近期滥用: 'Recent abuse',
+  检出: 'Detected',
+  未检出: 'Not detected',
+  '无法读取 IP 情报密钥文件': 'Could not read the IP intelligence key file',
+  'IP 情报密钥格式无效': 'Invalid IP intelligence key format',
+  '出口 IP 无效': 'Invalid egress IP',
+  'IP 情报接口限额已用尽，稍后重试': 'IP intelligence quota exhausted; retry later',
+  '后台请求预算不足，IP 情报稍后重试':
+    'Background request budget exhausted; intelligence will retry later',
+  'IP 情报请求失败': 'IP intelligence request failed',
+  'IP 情报接口拒绝请求，请核对密钥与配额':
+    'IP intelligence request rejected; check the key and quota',
+  'IP 情报响应无效': 'Invalid IP intelligence response',
+  'IP 情报查询失败，请核对密钥与配额': 'IP intelligence lookup failed; check the key and quota',
+  专用探测组不能作为业务监控目标: 'The dedicated probe group cannot be a monitoring target',
+  无法核实出口探测节点身份: 'Could not verify the egress probe node identity',
+  '节点身份已变化，出口证据已丢弃': 'Node identity changed; egress evidence discarded',
+  出口探测代理入口无效: 'Invalid egress probe proxy endpoint',
+  'ChatGPT 出口探测失败或响应无效': 'ChatGPT egress check failed or returned an invalid response',
+  'ChatGPT trace 未返回有效出口 IP': 'ChatGPT trace did not return a valid egress IP',
+} as const

@@ -1281,12 +1281,17 @@ dialog {
     padding: 12px 10px 8px;
   }
   .brand {
-    padding: 0 4px 12px;
-    font-size: 20px;
+    min-height: 44px;
+    padding: 0 170px 0 4px;
+    gap: 8px;
+    font-size: 17px;
+  }
+  .brand > svg {
+    width: 24px;
+    height: 24px;
   }
   .brand small {
-    display: inline;
-    margin-left: 5px;
+    display: none;
   }
   nav {
     display: grid;
@@ -1308,11 +1313,7 @@ dialog {
     height: 18px;
   }
   .sidebar-footer {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: var(--space-2);
-    border-top: 1px solid var(--line);
-    padding: var(--space-1) 0 0;
+    display: none;
   }
   .sidebar-connection {
     display: none;
@@ -1323,7 +1324,7 @@ dialog {
   }
   .work > header {
     min-height: 90px;
-    padding: 18px 0;
+    padding: 16px 0;
     gap: 10px;
   }
   .work h1 {
@@ -1793,16 +1794,24 @@ html:has(dialog[open]) {
 }
 @media (max-width: 760px) {
   .shell {
+    position: relative;
     grid-template-rows: auto 1fr;
-  }
-  .work > header {
-    flex-wrap: wrap;
   }
   .work > header > div:first-child {
     flex: 1 1 100%;
   }
   .header-actions {
-    margin-inline-start: auto;
+    position: absolute;
+    top: 12px;
+    right: max(14px, env(safe-area-inset-right));
+    gap: 6px;
+  }
+  .header-actions .language-select > svg {
+    display: none;
+  }
+  .header-actions .theme {
+    width: 44px;
+    justify-content: center;
   }
   nav .nav-full {
     display: none;

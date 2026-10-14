@@ -31,7 +31,7 @@ func (m *Manager) verifyEgress(ctx context.Context, results []model.NodeResult, 
 		}
 		return nil
 	}
-	session, code := m.beginProbeSelector(ctx, verification.SelectorGroup)
+	session, code := m.beginEgressProbeSelector(ctx, verification.SelectorGroup)
 	if code != "" {
 		for i := range results {
 			results[i].EgressError = probeSelectionMessage(code)

@@ -4,7 +4,11 @@ import { scanResultMessages } from './scanResults.ts'
 import { connectivityMessages } from './connectivity.ts'
 import { historyMessages } from './history.ts'
 import { monitorTaskMessages } from './monitorTasks.ts'
+import { monitorEgressMessages } from './monitorEgress.ts'
+import { settingsNavigationMessages } from './settingsNavigation.ts'
 export const en = {
+  ...settingsNavigationMessages,
+  ...monitorEgressMessages,
   ...monitorTaskMessages,
   容量不足: 'Insufficient capacity',
   候选与保留容量: 'Candidate and retention capacity',
@@ -557,6 +561,7 @@ export const en = {
   '已继续监控，缺测期间不会补造样本。':
     'Monitoring resumed. No samples are fabricated for the gap.',
   '监控已暂停，历史记录保留。': 'Monitoring paused. History is retained.',
+  监控已暂停: 'Monitoring paused',
   操作失败: 'Operation failed',
   '已开启故障自动切换：当前节点确认不可用时，选择健康候选中基准成功率最高者。':
     'Automatic failover enabled. When the current node is confirmed unavailable, the healthy candidate with the highest baseline success rate is selected.',
@@ -815,6 +820,7 @@ export const en = {
   扫描配置: 'Scan configuration',
   目标策略组: 'Target group',
   '{p0}（已失效）': '{p0} (unavailable)',
+  已失效: 'Unavailable',
   测试服务: 'Test service',
   自动使用绑定或推荐: 'Use binding or recommendation',
   '（待配置）': ' (setup required)',
@@ -875,6 +881,7 @@ export const en = {
   实时更新中: 'Live updates',
   '页面刷新已暂停，后台扫描继续运行': 'Page updates paused; the background scan continues',
   定时刷新中: 'Polling for updates',
+  '{p0} 个节点': '{p0} nodes',
   '· {p0} 个节点': '· Nodes: {p0}',
   '结果返回即更新排名，验证后分数仍可能变化':
     'Ranking updates as results arrive; checks may change scores',

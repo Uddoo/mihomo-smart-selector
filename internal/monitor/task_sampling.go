@@ -182,6 +182,10 @@ func (m *TaskRuntime) step(ctx context.Context, now time.Time) {
 		}
 	}
 	sample.At = m.now()
+	if sample.Outcome == "success" {
+		// Deferred after mu.Unlock, but before the sampling context is cancelled.
+		defer m.captureEgress(child, *p, *chosen, kind == "manual")
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.closed || m.plan == nil || m.plan.Revision != p.Revision || child.Err() != nil {

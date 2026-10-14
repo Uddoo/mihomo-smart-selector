@@ -198,6 +198,7 @@ func (m *TaskRuntime) commitPlan(ctx context.Context, p *model.MonitorPlan, prev
 	if changed {
 		m.states = restoredStates
 		m.slots = restoredSlots
+		m.egress = nil
 	}
 	m.plan = clonePlan(p)
 	if profile != nil {

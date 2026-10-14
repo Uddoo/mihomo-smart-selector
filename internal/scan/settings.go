@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
+	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 )
 
@@ -85,11 +86,12 @@ func (m *Manager) SaveSettings(ctx context.Context, s config.RuntimeSettings) (c
 	for _, v := range []struct {
 		enabled bool
 		group   string
-	}{{s.Egress.Enabled, s.Egress.SelectorGroup}, {s.Strict.Enabled, s.Strict.SelectorGroup}} {
+		client  mihomo.Client
+	}{{s.Egress.Enabled, s.Egress.SelectorGroup, m.egressProbeClient()}, {s.Strict.Enabled, s.Strict.SelectorGroup, m.client}} {
 		if !v.enabled {
 			continue
 		}
-		proxies, err := m.client.ListProxies(ctx)
+		proxies, err := v.client.ListProxies(ctx)
 		if err != nil {
 			return s, fmt.Errorf("无法检查探测组，请确认 Controller 连接")
 		}

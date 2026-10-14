@@ -98,13 +98,15 @@ test('region controls wrap in both languages and themes and the sidebar opens th
     expect(layout.clipped, variant.name).toBe(false)
     expect(layout.minHeight).toBeGreaterThanOrEqual(variant.width < 760 ? 44 : 40)
     expect(layout.rows).toBeGreaterThan(1)
-    await expect(page.locator('.project-link')).toBeVisible()
+    if (variant.width <= 760) await expect(page.locator('.project-link')).toBeHidden()
+    else await expect(page.locator('.project-link')).toBeVisible()
     await page.evaluate(() => window.scrollTo(0, 0))
     const screenshot = path.join(captures, variant.name + '.png')
     await page.screenshot({path: screenshot, fullPage: true})
     await info.attach(variant.name, {path: screenshot, contentType: 'image/png'})
   }
 
+  await page.getByRole('button', {name: 'Settings', exact: true}).click()
   const url = 'https://github.com/Uddoo/mihomo-smart-selector'
   const link = page.getByRole('link', {name: 'Open the Mihomo Smart Selector project in a new tab'})
   await expect(link).toHaveAttribute('href', url)
@@ -115,6 +117,6 @@ test('region controls wrap in both languages and themes and the sidebar opens th
   await page.keyboard.press('Enter')
   const project = await popup
   await expect(project).toHaveURL(url)
-  await expect(page).toHaveURL(/#\/scan$/)
+  await expect(page).toHaveURL(/#\/settings$/)
   await project.close()
 })

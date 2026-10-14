@@ -49,6 +49,10 @@ func (m *TaskRuntime) overviewWithCache(ctx context.Context, window string, deta
 			o.Issue = "共享监控存储异常，所有任务已停止采样"
 		}
 		states := map[string]model.MonitorState{}
+		egress := map[string]model.MonitorEgress{}
+		for k, v := range m.egress {
+			egress[k] = v.Clone()
+		}
 		for k, v := range m.states {
 			states[k] = v
 		}
@@ -78,6 +82,9 @@ func (m *TaskRuntime) overviewWithCache(ctx context.Context, window string, deta
 				return o, e
 			}
 			row.MonitorNode, row.State = n, states[n.ID]
+			if value, ok := egress[n.ID]; ok && p.ProfileID == "chatgpt" {
+				row.Egress = &value
+			}
 			if !details {
 				row.Series = []model.MonitorSample{}
 			}

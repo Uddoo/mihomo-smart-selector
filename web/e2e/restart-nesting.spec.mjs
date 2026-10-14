@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {test, expect} from './fixtures.mjs'
+import {selectSettingsCategory} from './settings-navigation.mjs'
 
 test('settings restarts the real service once, applies a saved connection and preserves the form', async ({page, request}) => {
   const connection = await (await request.get('/api/v1/connection')).json()
@@ -10,6 +11,7 @@ test('settings restarts the real service once, applies a saved connection and pr
   page.on('request', req => { if (req.method() === 'POST' && req.url().endsWith('/service/restart')) posts++ })
   try {
     await page.goto('/#/settings')
+    await selectSettingsCategory(page, 'connection')
     const form = page.locator('.connection-settings')
     await form.getByLabel('连接超时（秒）').fill('17')
     await expect(form.getByRole('button', {name: '重启服务', exact: true})).toBeDisabled()

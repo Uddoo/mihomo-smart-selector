@@ -35,6 +35,7 @@ type TaskRuntime struct {
 	observedAt         time.Time
 	fault              bool
 	states             map[string]model.MonitorState
+	egress             map[string]model.MonitorEgress
 	manual             map[string]bool
 	slots              map[string]int64
 	refreshAt, cleanAt time.Time

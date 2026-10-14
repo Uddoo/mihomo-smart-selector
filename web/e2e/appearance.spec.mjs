@@ -1,4 +1,5 @@
 import {test, expect, monitorFixture} from './fixtures.mjs'
+import {selectSettingsCategory} from './settings-navigation.mjs'
 
 const palette = (page, value) => page.locator(`input[name="palette"][value="${value}"]`)
 const mode = (page, value) => page.locator(`input[name="appearance-mode"][value="${value}"]`)
@@ -7,8 +8,10 @@ const root = page => page.locator('html')
 
 test('appearance choices persist independently and synchronize without discarding edits', async ({page,context}) => {
   await page.goto('/#/settings')
-  const field = page.locator('.settings-inputs input').first()
+  await selectSettingsCategory(page, 'runtime')
+  const field = page.locator('.runtime-fields input').first()
   await field.fill('7')
+  await selectSettingsCategory(page, 'appearance')
   await setPalette(page,'iris')
   await mode(page,'dark').check()
   await expect(root(page)).toHaveAttribute('data-palette','iris')

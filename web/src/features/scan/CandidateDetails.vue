@@ -7,23 +7,18 @@ import type { ScanWorkbenchState } from './useScanWorkbench'
 import { ChevronDown } from '@lucide/vue'
 const { state } = defineProps<{ state: ScanWorkbenchState }>()
 const {
-  loading,
   now,
   current,
   best,
   candidate,
   currentResult,
-  configLocked,
-  retest,
   selectionReason,
-  choose,
   regionLabel,
   percentLabel,
   latency,
   points,
   statusLabel,
   statusTone,
-  scan,
   running,
   hasJitterEvidence,
   evidence,
@@ -41,73 +36,89 @@ const comparison = computed(() =>
   >
     <h2>{{ t('候选详情') }}</h2>
     <template v-if="candidate">
-      <div class="candidate-heading"
-        ><span class="candidate-tag">{{
-          candidate.name === best?.name ? (running ? t('暂列第一') : t('最高评分')) : t('已选候选')
-        }}</span
-        ><h3>{{ candidate.name }}</h3
-        ><p
-          >{{ candidate.provider || t('未知 Provider') }} ·
-          {{ regionLabel(candidate.inferred_region) }}</p
-        ></div
-      >
+      <div class="candidate-overview">
+        <div class="candidate-heading"
+          ><span class="candidate-tag">{{
+            candidate.name === best?.name
+              ? running
+                ? t('暂列第一')
+                : t('最高评分')
+              : t('已选候选')
+          }}</span
+          ><h3>{{ candidate.name }}</h3
+          ><p
+            >{{ candidate.provider || t('未知 Provider') }} ·
+            {{ regionLabel(candidate.inferred_region) }}</p
+          ></div
+        >
+        <section
+          class="decision-summary"
+          :aria-label="t('候选决策摘要')"
+        >
+          <small>{{ t('与当前节点的本次测量比较') }}</small
+          ><strong>{{ translateMessage(comparison) }}</strong>
+          <p>{{ translateMessage(evidence(candidate)) }}</p>
+          <p :class="selectionReason(candidate) ? 'bad' : 'good'">{{
+            translateMessage(
+              selectionReason(candidate) ||
+                (current?.now === candidate.name
+                  ? t('当前节点，可继续观察或复测')
+                  : t('符合当前切换条件，确认后执行')),
+            )
+          }}</p>
+        </section>
+      </div>
       <section
-        class="decision-summary"
-        :aria-label="t('候选决策摘要')"
+        class="candidate-comparison"
+        :aria-label="t('与当前节点的本次测量比较')"
       >
-        <small>{{ t('与当前节点的本次测量比较') }}</small
-        ><strong>{{ translateMessage(comparison) }}</strong>
-        <p>{{ translateMessage(evidence(candidate)) }}</p>
-        <p :class="selectionReason(candidate) ? 'bad' : 'good'">{{
-          translateMessage(
-            selectionReason(candidate) ||
-              (current?.now === candidate.name
-                ? t('当前节点，可继续观察或复测')
-                : t('符合当前切换条件，确认后执行')),
-          )
-        }}</p>
+        <div class="current-node"
+          ><span>{{ t('当前节点') }}</span
+          ><b>{{ current?.now || '—' }}</b></div
+        >
+        <table
+          class="comparison-table"
+          :aria-label="t('当前与候选指标')"
+          ><thead
+            ><tr
+              ><th scope="col">{{ t('指标') }}</th
+              ><th scope="col">{{ t('当前') }}</th
+              ><th scope="col">{{ t('候选') }}</th></tr
+            ></thead
+          ><tbody
+            ><tr class="comparison-score"
+              ><th scope="row">{{ t('性能评分') }}</th
+              ><td
+                ><template v-if="currentResult"
+                  ><strong>{{ currentResult.score.toFixed(1) }}</strong
+                  ><small> / 90</small></template
+                ><template v-else>{{ t('本次未测') }}</template></td
+              ><td
+                ><strong>{{ candidate.score.toFixed(1) }}</strong
+                ><small> / 90</small></td
+              ></tr
+            ><tr
+              ><th scope="row">{{ t('P95 时延') }}</th
+              ><td>{{ currentResult ? latency(currentResult.p95_ms) : t('本次未测') }}</td
+              ><td>{{ latency(candidate.p95_ms) }}</td></tr
+            ><tr
+              ><th scope="row">{{ t('成功率') }}</th
+              ><td>{{
+                currentResult ? percentLabel(currentResult.success_rate) : t('本次未测')
+              }}</td
+              ><td>{{ percentLabel(candidate.success_rate) }}</td></tr
+            ><tr
+              ><th scope="row">{{ t('采样次数') }}</th
+              ><td>{{ currentResult ? currentResult.samples?.length || 0 : t('本次未测') }}</td
+              ><td>{{ candidate.samples?.length || 0 }}</td></tr
+            ></tbody
+          ></table
+        >
       </section>
       <CandidateActions
         class="desktop-candidate-actions"
         :state="state"
       />
-      <div class="candidate-score"
-        ><div
-          ><b>{{ t('性能评分') }}</b
-          ><span
-            ><strong>{{ candidate.score.toFixed(1) }}</strong> / 90</span
-          ></div
-        ><meter
-          min="0"
-          max="90"
-          :value="candidate.score"
-          :aria-label="t('候选性能评分')"
-      /></div>
-      <div class="current-node"
-        ><span>{{ t('当前节点') }}</span
-        ><b>{{ current?.now || '—' }}</b></div
-      >
-      <table
-        class="comparison-table"
-        :aria-label="t('当前与候选指标')"
-        ><thead
-          ><tr
-            ><th scope="col">{{ t('指标') }}</th
-            ><th scope="col">{{ t('当前') }}</th
-            ><th scope="col">{{ t('候选') }}</th></tr
-          ></thead
-        ><tbody
-          ><tr
-            ><th scope="row">{{ t('P95 时延') }}</th
-            ><td>{{ currentResult ? latency(currentResult.p95_ms) : t('本次未测') }}</td
-            ><td>{{ latency(candidate.p95_ms) }}</td></tr
-          ><tr
-            ><th scope="row">{{ t('成功率') }}</th
-            ><td>{{ currentResult ? percentLabel(currentResult.success_rate) : t('本次未测') }}</td
-            ><td>{{ percentLabel(candidate.success_rate) }}</td></tr
-          ></tbody
-        ></table
-      >
       <p class="settings-note"
         >{{
           t('采样时间：{p0}', {
@@ -201,3 +212,56 @@ const comparison = computed(() =>
     >
   </aside>
 </template>
+
+<style scoped>
+.candidate-overview {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  min-width: 0;
+}
+.candidate-comparison {
+  min-width: 0;
+  align-self: start;
+}
+.candidate-comparison .current-node {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.candidate-comparison .comparison-table {
+  width: 100%;
+  table-layout: fixed;
+  margin: 0;
+}
+.candidate-comparison .comparison-table th,
+.candidate-comparison .comparison-table td {
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+  vertical-align: baseline;
+}
+.candidate-comparison .comparison-table th:first-child {
+  padding-left: 0;
+  text-align: left;
+}
+.candidate-comparison .comparison-table thead th {
+  color: var(--muted);
+  font-weight: 500;
+}
+.candidate-comparison .comparison-table td {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.comparison-score strong {
+  font-size: 18px;
+  font-weight: 600;
+}
+.comparison-score small {
+  display: inline-block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+</style>

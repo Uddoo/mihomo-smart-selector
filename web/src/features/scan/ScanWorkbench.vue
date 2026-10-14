@@ -111,22 +111,14 @@ const scanFailed = computed(
 const emptyTitle = computed(() =>
   results.value.length
     ? '没有匹配的节点'
-    : running.value
-      ? '正在检测节点'
-      : scanFailed.value
-        ? '本次扫描未完成'
-        : scan.value
-          ? '本次扫描没有结果'
-          : '准备开始扫描',
+    : scanFailed.value
+      ? '本次扫描未完成'
+      : '本次扫描没有结果',
 )
 const emptyDescription = computed(() =>
   results.value.length
     ? '换一个节点名称，或清空搜索查看全部结果。'
-    : running.value
-      ? '第一个节点完成后，检测结果会实时显示在这里。'
-      : scan.value
-        ? '检查上方扫描状态与配置，然后重新扫描。'
-        : '选择目标策略组和测试服务，开始扫描后在这里比较节点。',
+    : '检查上方扫描状态与配置，然后重新扫描。',
 )
 function scanStatus(value: string) {
   return (
@@ -526,9 +518,16 @@ onBeforeUnmount(() => {
         v-if="scan"
         :scan="scan"
       />
-      <div class="grid">
+      <div
+        v-if="results.length || (scan && !running && !starting && !scanStartError)"
+        class="grid"
+        :class="{ 'results-only': !candidate }"
+      >
         <section class="ranking panel">
-          <div class="head">
+          <div
+            v-if="results.length"
+            class="head"
+          >
             <div
               ><h2>{{ t('实时排名') }}</h2
               ><p>{{
@@ -538,13 +537,14 @@ onBeforeUnmount(() => {
               }}</p></div
             >
           </div>
-          <div class="ranking-tools"
+          <div
+            v-if="results.length"
+            class="ranking-tools"
             ><TableSearch
               id="scan-result-query"
               v-model="resultQuery"
               :label="t('搜索扫描结果')"
               :placeholder="t('搜索扫描结果…')"
-              :disabled="!results.length"
             /><button
               :disabled="!results.some((row) => row.name === current?.now)"
               @click="locateNode(current?.now)"
@@ -555,7 +555,9 @@ onBeforeUnmount(() => {
               >{{ t('定位候选') }}</button
             ></div
           >
-          <ResultViewControls v-model="resultView"
+          <ResultViewControls
+            v-if="results.length"
+            v-model="resultView"
             ><ResultExport
               :scan="scan"
               :rows="filteredResults"
@@ -670,7 +672,8 @@ onBeforeUnmount(() => {
                   <td class="numeric">{{ percentLabel(result.success_rate) }}</td>
                   <td class="numeric">{{ latency(result.p95_ms) }}</td>
                   <td class="score numeric"
-                    ><b>{{ result.score.toFixed(1) }}</b></td
+                    ><b>{{ result.score.toFixed(1) }}</b
+                    ><small class="score-limit"> / 90</small></td
                   >
                   <td class="action-column"
                     ><button
@@ -733,11 +736,11 @@ onBeforeUnmount(() => {
         </section>
 
         <CandidateDetails
-          v-if="!mobile"
+          v-if="!mobile && candidate"
           :state="state"
         />
         <dialog
-          v-else
+          v-if="mobile && candidate"
           ref="detailDialog"
           class="candidate-drawer"
           :aria-label="t('候选详情')"
@@ -775,3 +778,21 @@ onBeforeUnmount(() => {
     }}</p>
   </section>
 </template>
+
+<style scoped>
+.scan-workbench .grid.results-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+.score-limit {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.ranking tbody tr.selected .score-limit {
+  color: var(--selection-muted);
+}
+.ranking td.score {
+  white-space: nowrap;
+}
+</style>

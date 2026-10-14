@@ -85,11 +85,43 @@ region_overrides: {}
 # Enabling this makes the scanner mutate only this dedicated, hidden selector.
 # It must never be the user's service selector. The scanner serializes calls
 # because a selector has one active member at a time.
+# Optional isolated probe core. Omit to use the primary Mihomo Controller.
+# It must listen on a loopback IP; credentials stay in backend configuration.
+# egress_controller:
+#   controller: http://127.0.0.1:9091
+#   secret_file: probe-controller-secret
+#   request_timeout_seconds: 8
 egress_verification:
   enabled: false
   selector_group: __SMART_PROBE__
   proxy_url: http://127.0.0.1:17890
   trace_url: https://chatgpt.com/cdn-cgi/trace
+
+# Optional IP intelligence sources for ChatGPT monitoring. Configure any subset.
+# Within each source, a nonempty environment value takes precedence over its file.
+ip_intelligence:
+  # Legacy IPQualityScore fallback; existing configurations remain supported.
+  api_key_env: IPQUALITYSCORE_API_KEY
+  api_key_file: ""
+  ipqualityscore:
+    enabled: true
+    # Omitted key fields use the legacy fields above.
+  scamalytics:
+    enabled: true
+    api_key_env: SCAMALYTICS_API_KEY
+    api_key_file: ""
+    username_env: SCAMALYTICS_USERNAME
+    username: "" # An explicit username takes precedence over username_env.
+    server: eu # eu=api12, us=api11; must match the node selected at sign-up.
+  ipapi_is:
+    enabled: true
+    api_key_env: IPAPI_IS_API_KEY
+    api_key_file: ""
+  abuseipdb:
+    enabled: true
+    api_key_env: ABUSEIPDB_API_KEY
+    api_key_file: ""
+# Relative secret file paths resolve next to this configuration file.
 
 auto_switch:
   # Reserved for the scheduler phase; manual selection remains the default.
