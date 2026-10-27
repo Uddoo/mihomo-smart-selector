@@ -8,6 +8,10 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Security
+
+- Require Go 1.27.3 for the standard-library fix for GO-2026-6809, including CI and release builds.
+
 ## [v0.5.0] - 2026-10-14
 
 ### Added
