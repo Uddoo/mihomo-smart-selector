@@ -3,6 +3,8 @@ import { api } from '../../shared/api/api'
 import { rankResults, hasJitterEvidence, evidence } from './ranking'
 import { useScanSession } from './scanSession'
 import { useNodeSelection } from './useNodeSelection'
+import { replaceMonitorFromScan } from './scanMonitor'
+import type { MonitorReplacement } from './scanMonitor'
 import {
   percentLabel,
   latency,
@@ -48,6 +50,10 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
   } = discovery
   const { failure, notice } = feedback
   const savingBinding = ref(false)
+  const replacingMonitor = shallowRef(false)
+  const openingScan = shallowRef(false)
+  const monitorReplacement = shallowRef<MonitorReplacement | null>(null)
+  const monitorReplacementError = shallowRef<{ scanID: string; message: string } | null>(null)
   const group = ref('')
   const serviceID = ref('')
   const areas = ref<string[]>([])
@@ -82,6 +88,8 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
     { flush: 'sync' },
   )
   async function openRecent(event: Event) {
+    if (starting.value || switching.value || replacingMonitor.value || openingScan.value) return
+    openingScan.value = true
     try {
       await session.open((event.target as HTMLSelectElement).value)
       await restoreForm()
@@ -89,6 +97,8 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
       pendingChoice.value = null
     } catch (error) {
       failure.value = error instanceof Error ? error.message : '无法打开扫描'
+    } finally {
+      openingScan.value = false
     }
   }
 
@@ -130,7 +140,13 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
               : '准备就绪',
   )
   const configLocked = computed(
-    () => running.value || starting.value || switching.value || savingBinding.value,
+    () =>
+      running.value ||
+      starting.value ||
+      switching.value ||
+      savingBinding.value ||
+      replacingMonitor.value ||
+      openingScan.value,
   )
   const progress = computed(() => scan.value?.progress)
   const percent = computed(() =>
@@ -254,6 +270,23 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
     } finally {
       savingBinding.value = false
       await preflight()
+    }
+  }
+
+  async function replaceMonitor(count: number) {
+    if (configLocked.value || loading.value || !discoveryValid.value || !scan.value) return
+    const snapshot = scan.value
+    replacingMonitor.value = true
+    monitorReplacement.value = null
+    monitorReplacementError.value = null
+    failure.value = ''
+    try {
+      monitorReplacement.value = await replaceMonitorFromScan(snapshot, count)
+    } catch (error) {
+      failure.value = error instanceof Error ? error.message : '无法替换监控列表'
+      monitorReplacementError.value = { scanID: snapshot.id, message: failure.value }
+    } finally {
+      replacingMonitor.value = false
     }
   }
 
@@ -462,6 +495,11 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
     profileReady,
     openRecent,
     saveBinding,
+    replacingMonitor,
+    openingScan,
+    monitorReplacement,
+    monitorReplacementError,
+    replaceMonitor,
     provider,
     start,
     stop,

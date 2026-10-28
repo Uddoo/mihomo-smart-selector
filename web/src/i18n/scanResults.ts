@@ -1,4 +1,23 @@
 export const scanResultMessages = {
+  扫描排名前: 'Top',
+  名: 'scan results',
+  监控排名数量: 'Number of ranked nodes to monitor',
+  替换监控列表: 'Replace monitor list',
+  '正在替换监控列表…': 'Replacing monitor list…',
+  '扫描完成后可替换监控列表。': 'Complete the scan before replacing the monitor list.',
+  '请输入有效的排名数量。': 'Enter a valid number of ranked nodes.',
+  '请输入 1 至 {count} 之间的整数。': 'Enter an integer between 1 and {count}.',
+  '排名数量不能超过监控候选上限 {count}。':
+    'The number of ranked nodes cannot exceed the monitor limit of {count}.',
+  '排名中的节点已失效，请重新扫描后替换。':
+    'A ranked node is no longer available. Run a new scan before replacing the list.',
+  '扫描排名与提交名单不一致，请重新读取扫描。':
+    'The submitted list does not match the scan ranking. Reload the scan.',
+  无法替换监控列表: 'Could not replace the monitor list',
+  '按扫描结果综合排名取前 {count} 名，覆盖「{group}」的监控列表；没有任务时新建，已有任务保留监控设置。搜索与排序视图不影响取值。':
+    'Use the top {count} nodes by overall scan rank to replace the monitor list for “{group}”. Create a task if needed; keep existing monitor settings. Search and sort views do not affect this selection.',
+  '已将「{group}」的监控列表替换为扫描排名前 {count} 名。':
+    'Replaced the monitor list for “{group}” with the top {count} scan results.',
   综合排名: 'Overall rank',
   稳定优先: 'Stability first',
   响应优先: 'Response first',

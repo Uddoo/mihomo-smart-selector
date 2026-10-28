@@ -1,4 +1,4 @@
-# 扫描结果：查看、测量说明与导出
+# 扫描结果：查看、监控名单、测量说明与导出
 
 ## 中文
 
@@ -22,6 +22,19 @@
 排名列始终保留综合排名。改变视图、搜索、定位或导出均不修改评分、推荐候选或 Controller
 选择。手动切换仍需通过服务端的扫描完成、证据有效期、成员资格和其他选择条件检查。
 更换视图时分页回到第一页；定位当前节点或候选会按照当前视图找到其所在页。
+
+### 用扫描排名替换监控列表
+
+扫描完成后，在排名表上方填写“扫描排名前 N 名”，点击“替换监控列表”，即可用本次扫描
+综合排名第 1 至 N 名完整覆盖该扫描策略组的监控名单。默认取前 6 名；结果不足 6 个时
+取全部。搜索、翻页、排序视图及扫描后修改的表单策略组均不影响取值和目标策略组。
+
+已有任务保留启停状态、自动切换、服务模板和成功率容差；候选上限不足时自动扩至 N，
+已有更大上限继续保留。没有对应任务时，使用本次扫描服务新建并启用监控，默认关闭
+自动切换。最多支持 30 个候选；后端核对扫描所属 Controller、目标组、综合排名和节点
+Provider。校验失效或任务 revision 冲突时提示错误，不覆盖名单。
+未完成、失败、中断或停止的扫描不能执行此操作。替换只使用节点名称，扫描成绩不作为
+监控样本，既有监控历史按原有规则保留；操作本身不切换当前出口。
 
 ### 本次测量说明
 
@@ -74,6 +87,22 @@ freshness orders valid, unknown, then expired.
 The rank column retains overall rank. Views do not change scores, the recommended candidate, or selection
 rules. Search and locate operate on the current view, and changing views resets pagination. Switching
 still requires the existing server-side checks and explicit confirmation.
+
+### Replace the monitor list from scan ranks
+
+After a scan completes, enter N beside **Top N scan results** and click **Replace monitor list**.
+This replaces the scan group's entire candidate list with overall scan ranks 1 through N. The default
+is six nodes, or all results when fewer are available. Search, pagination, sort views and later form
+changes do not alter the ranking or target group.
+
+Existing tasks keep their enabled state, automatic switching, profile and success-rate tolerance.
+Candidate capacity grows to N when necessary; a larger existing capacity is retained. If the group
+has no task, a new enabled task uses the scan's service with automatic switching disabled. The maximum
+is 30 candidates. The server validates the scan's Controller, target group, overall ranks and node
+providers. Failed validation and revision conflicts leave the list unchanged.
+Incomplete, failed, interrupted and stopped scans cannot replace the list. Only node names are used:
+scan scores are not imported as monitoring samples, existing history follows normal retention, and
+this action does not switch the current exit.
 
 ### Measurement details
 

@@ -233,7 +233,7 @@ HTTP 可达不等于登录、播放或地区解锁成功；严格验证和出口
 
 ### 本地 Mock 演示
 
-需要 **Go 1.27.x** 与两个终端。Vue 界面已嵌入，演示无需 Node.js、订阅或真实 Controller 密钥。
+需要 **Go 1.27.3 或更高版本** 与两个终端。Vue 界面已嵌入，演示无需 Node.js、订阅或真实 Controller 密钥。
 
 终端 1：
 
@@ -259,7 +259,7 @@ go run ./cmd/mihomo-smart-selector -config config.dev.example.yaml
 
 ### 构建与验证
 
-前端开发除 Go 1.27.x 外，还需要 Node.js ≥22.12、pnpm 11.19.x。
+前端开发除 Go 1.27.3 或更高版本外，还需要 Node.js ≥22.12、pnpm 11.19.x。
 项目局部 Go 工具链可以放在 `.tools/go`；该目录不包含在新 clone 中。
 
 ```sh

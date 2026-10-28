@@ -54,7 +54,7 @@ checks, assertions and artifact validation intact.
 
 Required tools:
 
-- Go 1.27.x;
+- Go 1.27.3 or later;
 - Node.js 22.12 or newer;
 - pnpm 11.19.x;
 - PowerShell 7; and

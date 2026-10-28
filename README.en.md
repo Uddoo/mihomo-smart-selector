@@ -279,7 +279,7 @@ override. [Troubleshooting →](docs/troubleshooting.md)
 
 ### Local mock demo
 
-You need **Go 1.27.x** and two terminals. The Vue dashboard is embedded; this
+You need **Go 1.27.3 or later** and two terminals. The Vue dashboard is embedded; this
 demo needs no Node.js, subscription or real Controller secret.
 
 Terminal 1:

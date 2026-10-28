@@ -101,7 +101,8 @@ func (s *Server) monitorTaskRoute(w http.ResponseWriter, r *http.Request) {
 func (s *Server) saveMonitorTask(w http.ResponseWriter, r *http.Request, taskID string, status int) {
 	var body struct {
 		model.MonitorRequest
-		Enabled *bool `json:"enabled"`
+		Enabled *bool  `json:"enabled"`
+		ScanID  string `json:"scan_id,omitempty"`
 	}
 	if !decodeJSON(w, r, &body) {
 		return
@@ -114,6 +115,12 @@ func (s *Server) saveMonitorTask(w http.ResponseWriter, r *http.Request, taskID 
 	if taskID == "" && body.Revision != 0 {
 		writeError(w, 409, history.ErrMonitorRevision.Error())
 		return
+	}
+	if body.ScanID != "" {
+		if err := s.manager.ValidateMonitorScan(r.Context(), body.ScanID, body.Group, body.ProfileID, body.Nodes); err != nil {
+			writeError(w, 409, err.Error())
+			return
+		}
 	}
 	plan, err := s.monitor.SaveTask(r.Context(), taskID, body.MonitorRequest)
 	if err != nil {
