@@ -68,6 +68,7 @@ import ScanMeasurement from './ScanMeasurement.vue'
 import ScanFeedback from './ScanFeedback.vue'
 import ResultViewControls from './ResultViewControls.vue'
 import ResultExport from './ResultExport.vue'
+import ScanMonitorReplace from './ScanMonitorReplace.vue'
 import { orderResults } from './scanResults'
 import type { ResultView } from './scanResults'
 const resultQuery = ref('')
@@ -172,7 +173,7 @@ onBeforeUnmount(() => {
       ><span>{{ t('活动 / 最近扫描') }}</span
       ><select
         :value="scan?.id"
-        :disabled="starting || switching"
+        :disabled="starting || switching || state.replacingMonitor.value || state.openingScan.value"
         @change="openRecent"
         ><option
           v-for="item in recent"
@@ -566,6 +567,10 @@ onBeforeUnmount(() => {
               :demo="health?.mihomo_version === 'dev-mock'"
               :selection-reason="selectionReason"
           /></ResultViewControls>
+          <ScanMonitorReplace
+            v-if="results.length"
+            :state="state"
+          />
           <div
             v-if="!pageResults.length"
             class="ranking-empty"

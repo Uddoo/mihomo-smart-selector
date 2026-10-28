@@ -152,6 +152,23 @@ routes remain shared. The [monitoring API table](monitoring.md#api) is the detai
 route reference. Read caches never authorize an automatic switch; failover uses
 fresh evidence and retains cooldown, readback and audit requirements.
 
+Completed scans can supply the first N nodes of their overall ranking to the
+matching group's monitoring task. Search, pagination and alternative result
+views do not change that prefix. The client preserves an existing task's
+settings or creates an enabled task with automatic switching disabled; it grows
+candidate capacity only when the chosen prefix requires it. This imports node
+names, not scan measurements, and does not issue a business-selector write.
+
+Task create/update requests may include `scan_id`. Before saving such a request,
+the scanner validates the stored scan's Controller scope, completion state,
+target group, exact ranked prefix and current Provider names. Every selected
+candidate must still exist with its recorded Provider; a failed check or stale
+task revision rejects the complete update. Monitoring-list import does not
+reuse switch-eligibility gates, so it does not silently skip failed, unrefined
+or expired results. Current candidates use the existing discovery cache.
+Historical-scan loading and monitor replacement share the workbench operation
+lock. See [scan results](scan-results.md) for the user-facing workflow.
+
 The Controller API supports `GET /proxies`, `GET /providers/proxies`,
 `GET /proxies/{name}/delay`, and `PUT /proxies/{name}` for selector choice.
 Mihomo listeners also support a `proxy` field; a non-empty value routes that

@@ -8,6 +8,16 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Replace a group's complete monitoring candidate list with the first N nodes in a completed scan's overall ranking. Search, pagination and alternative result views do not change the selected prefix or target group.
+- Preserve existing monitoring settings and candidate capacity, growing capacity when necessary; create an enabled task with automatic switching disabled when the group has no task.
+
+### Fixed
+
+- Validate scan-based monitor updates on the server against the stored scan's Controller scope, completion state, group, ranked prefix and current Provider identities. Invalid sources and revision conflicts leave existing plans unchanged.
+- Lock scan actions while a historical scan is loading, and show replacement results and errors beside the action.
+
 ## [v0.5.0] - 2026-10-14
 
 ### Added
