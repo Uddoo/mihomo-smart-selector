@@ -24,6 +24,10 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 - Include the mainline frontend dependency updates and regenerate matching embedded frontend and gzip resources.
 
+### Security
+
+- Require Go 1.27.3 to address GO-2026-6809 in `crypto/x509`, which distrusts compromised intermediate certificates during certificate verification.
+
 ## [v0.5.0] - 2026-10-14
 
 ### Added
