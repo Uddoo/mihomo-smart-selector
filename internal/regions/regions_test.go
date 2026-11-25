@@ -2,10 +2,49 @@ package regions
 
 import (
 	"reflect"
+	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
 )
+
+func TestClassifierMatchesUnfilteredRegexp(t *testing.T) {
+	cfg := config.Config{
+		Regions: []config.Region{
+			{Code: "XA", Aliases: []string{"Kſ+", "µΣ[1]", "ǅ.ß", "A+B", "B.A"}},
+			{Code: "XB", Aliases: []string{"S+", "IS", "Ｍｉｘ　站", "�港"}},
+		},
+		RegionOverrides: map[string]string{"Ks+ → JP": "XB"},
+	}
+	classifier := New(cfg)
+	oracle := New(cfg)
+	for i := range oracle.rules {
+		// An empty literal is contained in every name, so every regexp runs.
+		oracle.rules[i].foldedAlias = ""
+	}
+	check := func(name string) {
+		t.Helper()
+		got, want := classifier.Classify(name), oracle.Classify(name)
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%q: got %#v, unfiltered regexp gave %#v", name, got, want)
+		}
+	}
+
+	for _, name := range []string{
+		"ſG1", "KR-1", "aſG1", "JPK", "iſ", "iſ-1",
+		"Ks+", "Ks+ / ſ+", "Ks+ → JP", "Ks+ via JP",
+		"Μς[1]", "μσ[1]", "Μς1", "ǆ.ẞ", "Ǆ.SS",
+		"B.A / A+B", "ＭＩ\u200bＸ\u00a0站", "\xff港",
+		"印度尼西亚", "印度尼西亚/印度", "",
+	} {
+		check(name)
+	}
+	// Exercise every dictionary literal, including its non-ASCII fold variants.
+	for _, rule := range classifier.rules {
+		check("【" + strings.Map(unicode.SimpleFold, rule.alias) + "】-01")
+	}
+}
 
 func TestBuiltinCoverageAndNormalization(t *testing.T) {
 	c := New(config.Config{Regions: []config.Region{{Code: "JP", Name: "Japan", Aliases: []string{"JP"}}}})

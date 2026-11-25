@@ -8,6 +8,13 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.6.1] - 2026-11-25
+
+### Changed
+
+- Speed up node catalog requests by filtering region aliases before regular expression matching and reusing the protocol name normalizer.
+- Reduce allocations when reading raw and archived monitoring history by reusing a per-query JSON buffer for small records.
+
 ## [v0.6.0] - 2026-10-29
 
 ### Added
@@ -625,7 +632,9 @@ The rc.6 build candidate was not published. This release includes its changes.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.6.1...HEAD
+[v0.6.1]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.6.0...v0.6.1
+[v0.6.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.4...v0.5.0
 [v0.4.4]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.3...v0.4.4
 [v0.4.3]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.2...v0.4.3
