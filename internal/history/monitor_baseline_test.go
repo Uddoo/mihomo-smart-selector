@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -53,6 +54,10 @@ func TestCompactBaselineMatchesFullHistory(t *testing.T) {
 		}
 		scheduled := anchor + ((i+211)*17%210)*120
 		v := model.MonitorSample{NodeID: "node", SeriesID: series.ID, Kind: "baseline", Slot: i, ScheduledAt: scheduled, At: time.Unix(scheduled+4, 0).UTC(), Outcome: "success", DelayMS: int(i + 1), Reason: "raw detail", ReasonCode: "ok", DataVersion: 2}
+		if i == 1 || i == 209 {
+			// Cover oversized payloads both outside and inside the final tail.
+			v.Reason = strings.Repeat("raw detail", 600)
+		}
 		if i%5 == 0 {
 			v.Outcome = "failure"
 		}

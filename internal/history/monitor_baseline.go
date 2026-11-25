@@ -126,14 +126,24 @@ func (s *Store) VisitSeriesBaseline(ctx context.Context, series model.MonitorSer
 		return nil, err
 	}
 	hour := hourPayload{Slots: make([][5]int64, 0, 30)}
+	// A normal hour holds 30 five-integer slots and fits in 4 KiB. Reuse the
+	// decoder input for typical rows without retaining an oversized payload.
+	var data string
+	var input []byte
+	decode := func(payload string, dst any) error {
+		if len(payload) > 4<<10 {
+			return json.Unmarshal([]byte(payload), dst)
+		}
+		input = append(input[:0], payload...)
+		return json.Unmarshal(input, dst)
+	}
 	for rows.Next() {
-		var data string
 		if err = rows.Scan(&data); err != nil {
 			rows.Close()
 			return nil, err
 		}
 		hour.Slots = hour.Slots[:0]
-		if err = json.Unmarshal([]byte(data), &hour); err != nil {
+		if err = decode(data, &hour); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -167,13 +177,12 @@ func (s *Store) VisitSeriesBaseline(ctx context.Context, series model.MonitorSer
 	tail := baselineTail{}
 	fallback := false
 	for rows.Next() {
-		var data string
 		if err = rows.Scan(&data); err != nil {
 			rows.Close()
 			return nil, err
 		}
 		raw.Slot, raw.Kind, raw.Outcome, raw.Delay = 0, "", "", 0
-		if err = json.Unmarshal([]byte(data), &raw); err != nil {
+		if err = decode(data, &raw); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -218,7 +227,7 @@ func (s *Store) VisitSeriesBaseline(ctx context.Context, series model.MonitorSer
 			if !found {
 				return fmt.Errorf("recent baseline payload unavailable")
 			}
-			if err := json.Unmarshal([]byte(data), &sample); err != nil {
+			if err := decode(data, &sample); err != nil {
 				return err
 			}
 			sample.Resolution = "raw"

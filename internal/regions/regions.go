@@ -21,6 +21,7 @@ type Match struct {
 
 type aliasRule struct {
 	code, alias string
+	foldedAlias string
 	pattern     *regexp.Regexp
 }
 type hit struct {
@@ -52,7 +53,12 @@ func New(cfg config.Config) *Classifier {
 				}
 				pattern = "(?i)(?:^|[^A-Z0-9])(" + regexp.QuoteMeta(alias) + ")" + suffix
 			}
-			c.rules = append(c.rules, aliasRule{region.Code, alias, regexp.MustCompile(pattern)})
+			c.rules = append(c.rules, aliasRule{
+				code:        region.Code,
+				alias:       alias,
+				foldedAlias: foldLiteral(alias),
+				pattern:     regexp.MustCompile(pattern),
+			})
 		}
 	}
 	return c
@@ -75,8 +81,12 @@ func (c *Classifier) Classify(nodeName string) Match {
 		}
 	}
 	name := normalizeName(nodeName)
+	foldedName := foldLiteral(name)
 	var hits []hit
 	for _, rule := range c.rules {
+		if !strings.Contains(foldedName, rule.foldedAlias) {
+			continue
+		}
 		for _, span := range rule.pattern.FindAllStringSubmatchIndex(name, -1) {
 			start, end := span[2], span[3]
 			// Lowercase English words such as "in", "it" and "no" are not country
@@ -146,8 +156,10 @@ func EntryKind(name, protocol string) string {
 	return "proxy"
 }
 
+var protocolSeparators = strings.NewReplacer("-", "", "_", "", " ", "")
+
 func IsBuiltin(protocol string) bool {
-	switch strings.ToLower(strings.NewReplacer("-", "", "_", "", " ", "").Replace(protocol)) {
+	switch strings.ToLower(protocolSeparators.Replace(protocol)) {
 	case "direct", "reject", "rejectdrop", "pass", "passrule", "compatible":
 		return true
 	}
@@ -188,6 +200,22 @@ func (c *Classifier) find(code string) (config.Region, bool) {
 func toMatch(region config.Region, source string) Match {
 	return Match{Code: region.Code, Name: region.Name, Emoji: region.Emoji, Source: source}
 }
+
+// foldLiteral maps each rune to the smallest member of its regexp (?i) class.
+// SimpleFold visits members in increasing order, then wraps to the smallest.
+// Folding can change byte lengths, so only use this string for the prefilter.
+func foldLiteral(s string) string {
+	return strings.Map(func(r rune) rune {
+		for {
+			next := unicode.SimpleFold(r)
+			if next <= r {
+				return next
+			}
+			r = next
+		}
+	}, s)
+}
+
 func normalizeName(name string) string {
 	return strings.Map(func(r rune) rune {
 		if r >= 0xff01 && r <= 0xff5e {
