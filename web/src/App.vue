@@ -35,6 +35,7 @@ const {
   unlock,
   feedback,
   discovery,
+  restoringForm,
   scanView,
   catalogView,
   historyView,
@@ -263,7 +264,7 @@ const currentPage = computed(
         :loader="panels.monitor"
         :groups="groups"
         :services="services"
-        :scan-locked="configLocked"
+        :scan-locked="configLocked || scanView.loading.value"
         @open-scan="openMonitorScan"
       />
       <AsyncPanel
@@ -277,6 +278,7 @@ const currentPage = computed(
         :loading="discovery.loading.value"
         :read-at="discovery.discoveryUpdatedAt.value"
         :locked="configLocked || actions.openingServiceScan.value"
+        :restoring-scan="restoringForm"
         @refresh="load"
         @candidates="actions.openServiceCandidates"
         @scan="actions.openServiceScan"

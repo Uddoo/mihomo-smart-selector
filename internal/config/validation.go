@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 func (c Config) Validate() error {
@@ -241,6 +242,11 @@ func validateProbes(scope string, probes []Probe) error {
 func validateStrictProbes(profile ProbeProfile) error {
 	names := map[string]bool{}
 	for _, probe := range profile.StrictProbes {
+		// Strict evidence fingerprints use JSON. Do not let lossy UTF-8
+		// replacement make two different byte-matching assertions equivalent.
+		if !utf8.ValidString(probe.Name) || !utf8.ValidString(probe.URL) || !utf8.ValidString(probe.BodyContains) {
+			return fmt.Errorf("strict probe name, URL and body_contains in profile %q must be valid UTF-8 text", profile.ID)
+		}
 		if strings.TrimSpace(probe.Name) == "" || strings.TrimSpace(probe.ExpectedStatus) == "" {
 			return fmt.Errorf("every strict probe in profile %q needs name and expected_status", profile.ID)
 		}

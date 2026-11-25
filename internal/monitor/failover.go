@@ -2,14 +2,11 @@ package monitor
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
-	"github.com/Uddoo/mihomo-smart-selector/internal/scan"
 )
 
 type switchSource interface {
@@ -30,6 +27,16 @@ func fresh(at, now time.Time, age time.Duration) bool {
 	return !at.IsZero() && !at.After(now) && now.Sub(at) <= age
 }
 
+func confirmedFailure(state model.MonitorState, now time.Time) bool {
+	return state.Status == "unavailable" && state.Failures >= 2 && fresh(state.LastAt, now, 90*time.Second)
+}
+
+func freshBackup(state model.MonitorState, now time.Time) bool {
+	return state.Status == "healthy" && fresh(state.LastSuccess, now, 240*time.Second) && fresh(state.LastAt, now, 240*time.Second)
+}
+
+const noFailoverCandidate = "等待当前节点确认故障及可用候选；无符合条件的候选时保持现状"
+
 // Use one best-rate anchor for the whole election. Pairwise tolerances would
 // make ordering non-transitive. Within the preferred band, prioritize P95;
 // keep every other eligible node as a success-rate-ordered fallback.
@@ -39,7 +46,7 @@ func failoverCandidates(o model.MonitorOverview) []model.MonitorRow {
 	}
 	failed := false
 	for _, r := range o.Rows {
-		if r.Name == o.Current && r.State.Status == "unavailable" && r.State.Failures >= 2 && fresh(r.State.LastAt, o.Now, 90*time.Second) {
+		if r.Name == o.Current && confirmedFailure(r.State, o.Now) {
 			failed = true
 		}
 	}
@@ -49,7 +56,7 @@ func failoverCandidates(o model.MonitorOverview) []model.MonitorRow {
 	out := []model.MonitorRow{}
 	bestRate := 0.0
 	for _, r := range o.Rows {
-		if r.Name != o.Current && r.State.Status == "healthy" && fresh(r.State.LastSuccess, o.Now, 240*time.Second) && fresh(r.State.LastAt, o.Now, 240*time.Second) && r.Metrics.Samples > 0 && r.Metrics.SuccessRate > 0 {
+		if r.Name != o.Current && freshBackup(r.State, o.Now) && r.Metrics.Samples > 0 && r.Metrics.SuccessRate > 0 {
 			out = append(out, r)
 			bestRate = max(bestRate, r.Metrics.SuccessRate)
 		}
@@ -91,15 +98,24 @@ func (m *TaskRuntime) failover(ctx context.Context, now time.Time) {
 		m.mu.Unlock()
 		return
 	}
-	// Do not read history at all while the selected node is healthy/unknown.
-	failed := false
-	if m.issue == "" && fresh(m.observedAt, now, 45*time.Second) {
-		for _, n := range m.plan.Nodes {
-			state := m.states[n.ID]
-			if n.Name == m.current && state.Status == "unavailable" && state.Failures >= 2 && fresh(state.LastAt, now, 90*time.Second) {
-				failed = true
-				break
+	if m.issue != "" || !fresh(m.observedAt, now, 45*time.Second) {
+		m.mu.Unlock()
+		return
+	}
+	failed, hasBackup := false, false
+	for _, n := range m.plan.Nodes {
+		state := m.states[n.ID]
+		if n.Name == m.current {
+			if !confirmedFailure(state, now) {
+				m.mu.Unlock()
+				return
 			}
+			failed = true
+		} else if freshBackup(state, now) {
+			hasBackup = true
+		}
+		if failed && hasBackup {
+			break
 		}
 	}
 	if !failed {
@@ -107,6 +123,11 @@ func (m *TaskRuntime) failover(ctx context.Context, now time.Time) {
 		return
 	}
 	m.failoverAt = now.Add(30 * time.Second)
+	if !hasBackup {
+		m.failoverMessage = noFailoverCandidate
+		m.mu.Unlock()
+		return
+	}
 	m.mu.Unlock()
 	o, err := m.overview(ctx, "24h", false)
 	if err != nil {
@@ -116,7 +137,7 @@ func (m *TaskRuntime) failover(ctx context.Context, now time.Time) {
 	if len(candidates) == 0 {
 		m.mu.Lock()
 		if m.plan != nil && o.Plan != nil && m.plan.Revision == o.Plan.Revision {
-			m.failoverMessage = "等待当前节点确认故障及可用候选；无符合条件的候选时保持现状"
+			m.failoverMessage = noFailoverCandidate
 		}
 		m.mu.Unlock()
 		return
@@ -136,29 +157,10 @@ func (m *TaskRuntime) failover(ctx context.Context, now time.Time) {
 		m.inflight = cancel
 		m.mu.Unlock()
 		// Budgeted fresh verification never replaces a baseline sample.
-		sample := model.MonitorSample{NodeID: candidate.ID, Kind: "failover", Slot: now.Unix() / 30, At: now, Outcome: "success"}
-		for _, probe := range profile.Probes {
-			if !m.takeBudget(m.now()) {
-				sample.Outcome = "unknown"
-				sample.Reason = "自动切换等待探测预算"
-				sample.ReasonCode = "budget"
-				break
-			}
-			delay, probeErr := m.source.MonitorDelay(child, candidate.MonitorNode, probe)
-			if probeErr != nil || delay <= 0 {
-				sample.Outcome = "failure"
-				sample.Reason = "自动切换前复测失败"
-				if errors.Is(probeErr, scan.ErrMonitorBusy) || (probeErr != nil && (strings.Contains(probeErr.Error(), "HTTP 401") || strings.Contains(probeErr.Error(), "HTTP 403"))) || !m.source.MonitorReachable(child) {
-					sample.Outcome = "unknown"
-					sample.Reason = "探测额度或 Controller 不可用，暂不切换"
-					sample.ReasonCode = "controller"
-					if errors.Is(probeErr, scan.ErrMonitorBusy) {
-						sample.ReasonCode = "busy"
-					}
-				}
-				break
-			}
-			sample.DelayMS = max(sample.DelayMS, delay)
+		sample := model.MonitorSample{NodeID: candidate.ID, Kind: "failover", Slot: now.Unix() / 30, At: now}
+		if !m.probeNode(child, candidate.MonitorNode, profile, &sample) {
+			cancel()
+			return
 		}
 		sample.At = m.now()
 		m.mu.Lock()

@@ -61,6 +61,37 @@ async function ready(page) {
   await expect(page.locator('.binding-refresh')).toContainText('配置读取于')
 }
 
+test('slow scan recovery leaves metadata refresh and candidate navigation available', async ({page}) => {
+  await fixture(page)
+  let pending
+  await page.route('**/api/v1/scans/fixture-other-service', route => { pending = route })
+  await page.goto('/#/connectivity')
+  await expect.poll(() => !!pending).toBe(true)
+  await expect(page.getByRole('button', {name: '刷新配置', exact: true})).toBeEnabled()
+  await card(page).locator('summary').click()
+  await expect(card(page).getByRole('button', {name: '读取节点验证记录'}).first()).toBeEnabled()
+  await expect(card(page).getByRole('button', {name: '前往扫描工作台验证'}).first()).toBeDisabled()
+  await expect(card(page).getByRole('button', {name: '查看最近扫描'})).toBeDisabled()
+  await card(page).getByRole('button', {name: '查看该组候选节点'}).first().click()
+  await expect(page.locator('.catalog-group-scope')).toContainText(groupName)
+  await pending.fallback()
+})
+
+test('connectivity recovers a running scan after an initial history failure', async ({page}) => {
+  await fixture(page)
+  let reads = 0, streams = 0
+  const active = {id: 'active', status: 'running', request: {target_group: groupName, profile_id: 'chatgpt', mode: 'quick'}, profile: {id: 'chatgpt', label: 'ChatGPT'}, progress: {completed: 1, total: 2}}
+  await page.route('**/api/v1/scans', route => ++reads === 1
+    ? route.fulfill({status: 503, json: {error: '暂时读不到扫描'}}) : route.fulfill({json: [active]}))
+  await page.route('**/api/v1/scans/active', route => route.fulfill({json: active}))
+  await page.route('**/api/v1/scans/active/events', route => { streams++; return route.fulfill({contentType: 'text/event-stream', body: ': ready\n\n'}) })
+  await ready(page)
+  await expect(page.getByRole('alert').filter({hasText: '暂时读不到扫描'})).toBeVisible()
+  await page.getByRole('button', {name: '刷新配置', exact: true}).click()
+  await expect.poll(() => streams).toBeGreaterThan(0)
+  await expect(page.locator('nav button.active')).toHaveAttribute('aria-label', '连通性测试')
+})
+
 test('category and search intersect valid bindings before testing', async ({page}) => {
   const state=await fixture(page)
   await ready(page); await mine(page).click()

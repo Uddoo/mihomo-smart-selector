@@ -24,7 +24,7 @@ func benchmarkArchiveOverview(b *testing.B, candidateCount int, window string) {
 	defer store.Close()
 	now := time.Now().UTC().Truncate(time.Hour)
 	start := now.Add(-90 * 24 * time.Hour)
-	f := &fakeSource{profile: config.ProbeProfile{ID: "chatgpt", Probes: []config.Probe{{Name: "test", URL: "https://example.com/"}}}, reachable: true}
+	f := &fakeSource{profile: config.ProbeProfile{ID: "chatgpt", Probes: []config.Probe{{Name: "test", URL: "https://example.com/"}}}}
 	names := []string{}
 	for i := 0; i < candidateCount; i++ {
 		name := fmt.Sprintf("N%d", i)

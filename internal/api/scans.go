@@ -1,8 +1,11 @@
 package api
 
 import (
-	"github.com/Uddoo/mihomo-smart-selector/internal/model"
+	"errors"
 	"net/http"
+
+	"github.com/Uddoo/mihomo-smart-selector/internal/history"
+	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 )
 
 func (s *Server) createScan(writer http.ResponseWriter, request *http.Request) {
@@ -34,10 +37,18 @@ func (s *Server) preflightScan(writer http.ResponseWriter, request *http.Request
 func (s *Server) getScan(writer http.ResponseWriter, request *http.Request, id string) {
 	scan, err := s.manager.Get(request.Context(), id)
 	if err != nil {
-		writeError(writer, http.StatusNotFound, "scan not found")
+		writeScanReadError(writer, err)
 		return
 	}
 	writeJSON(writer, http.StatusOK, scan)
+}
+
+func writeScanReadError(writer http.ResponseWriter, err error) {
+	if errors.Is(err, history.ErrScanNotFound) {
+		writeError(writer, http.StatusNotFound, "scan not found")
+		return
+	}
+	writeError(writer, http.StatusInternalServerError, "could not read scan")
 }
 
 func (s *Server) selectNode(writer http.ResponseWriter, request *http.Request, id string) {

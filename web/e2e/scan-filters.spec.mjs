@@ -55,6 +55,34 @@ test('scan regions follow discovered nodes and clear stale selections only after
   expect(mutations).toEqual([])
 })
 
+test('a region with no candidates allows one service binding and keeps scanning disabled', async ({page}) => {
+  const group = 'Mock Group 02'
+  const writes = []
+  await page.route('**/api/v1/scans', route => route.fulfill({json: []}))
+  await page.route('**/api/v1/nodes', route => route.fulfill({json: [node('Unmatched', 'local-region')]}))
+  page.on('request', request => {
+    if (request.method() === 'PUT' && request.url().endsWith('/bindings')) writes.push(request.postDataJSON())
+  })
+  await page.goto('/#/scan')
+  await page.getByRole('combobox', {name: '目标策略组', exact: true}).selectOption(group)
+  await page.getByRole('combobox', {name: '测试服务', exact: true}).selectOption('chatgpt')
+  await page.locator('.advanced-config > summary').click()
+  const start = page.getByRole('button', {name: '开始扫描', exact: true})
+  await expect(start).toBeEnabled()
+  await page.locator('.region-filter').getByRole('button', {name: 'local-region', exact: true}).click()
+  await expect(page.getByRole('button', {name: '清除扫描筛选', exact: true})).toBeVisible()
+  await expect(start).toBeDisabled()
+  const bind = page.getByRole('button', {name: '保存绑定', exact: true})
+  await expect(bind).toBeEnabled()
+  await bind.click()
+  const remove = page.getByRole('button', {name: '移除绑定', exact: true})
+  await expect(remove).toBeVisible()
+  expect(writes).toEqual([{group, profile_id: 'chatgpt'}])
+  await expect(start).toBeDisabled()
+  await remove.click()
+  await expect(remove).toHaveCount(0)
+})
+
 test('region controls wrap in both languages and themes and the sidebar opens the project separately', async ({page, context}, info) => {
   await page.emulateMedia({reducedMotion: 'reduce'})
   const codes = ['JP', 'US', 'KR', 'HK', 'TW', 'SG', 'AE', 'AU', 'CA', 'DE', 'GB', 'NL']

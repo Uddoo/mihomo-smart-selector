@@ -50,6 +50,7 @@ defineProps<{
   available: boolean
   loading: boolean
   locked: boolean
+  restoringScan: boolean
 }>()
 defineEmits<{
   refresh: [group: string]
@@ -145,6 +146,7 @@ defineEmits<{
             :available="available"
             :loading="loading"
             :locked="locked"
+            :restoring-scan="restoringScan"
             @retest="$emit('retestService', $event)"
             @candidates="$emit('candidates', $event)"
             @scan="$emit('scan', $event)"

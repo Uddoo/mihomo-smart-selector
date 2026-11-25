@@ -46,15 +46,36 @@ uses `arm64`.
 
 ## Build
 
-From the project root on Windows PowerShell, substitute the architecture found
-during preflight:
+The script builds Linux binaries with `CGO_ENABLED=0`. Choose the Go architecture
+that matches the device's CPU and userspace. CI checks the ELF class, machine
+and Go build settings for each accepted target.
+
+| `-GoArch` | Script | CI check | OpenWrt / iStoreOS device evidence |
+| --- | --- | --- | --- |
+| `amd64` (64-bit x86) | Accepted | ELF64 x86-64 | Current build untested on hardware |
+| `arm64` (64-bit ARM) | Accepted (default) | ELF64 AArch64 | Earlier build tested on NanoPi R5S LTS running iStoreOS 24.10.8. Current build untested on hardware. |
+| `arm` (32-bit ARM) | Accepted | ELF32 ARM | Current build untested on hardware |
+| `386` (32-bit x86) | Accepted | ELF32 Intel 80386 | Current build untested on hardware |
+| `mips`, `mipsle` (32-bit MIPS) | Rejected before compilation | Rejection reason and empty output | No binary built |
+
+An ELF machine name alone does not establish CPU compatibility. For example,
+the default 32-bit builds tested here reported `GOARM=7` and `GO386=sse2`.
+Check those settings against the target device. The [historical ARM64 test](../../docs/releases/v0.2.0.md)
+covered a backup, upgrade and short monitoring check on one router.
+
+Earlier scripts offered `mips` and `mipsle`, but the SQLite driver and libc
+versions pinned in [go.mod](../../go.mod) lack Linux implementations for those
+targets.
+
+From the project root in PowerShell 7, substitute the architecture found during
+preflight.
 
 ```powershell
 ./tools/build-openwrt.ps1 -GoArch arm64 -OutputPath dist/linux-arm64
 ```
 
-The build script uses `CGO_ENABLED=0`, prints Go build metadata, and prints the
-binary's SHA-256. Stage these files on the router under `/tmp/mss-stage/`:
+The build script prints Go build metadata and the binary's SHA-256. Stage the
+following files on the router under `/tmp/mss-stage/`.
 
 - `dist/linux-<arch>/mihomo-smart-selector`
 - `deploy/openwrt/mihomo-smart-selector.init`

@@ -139,8 +139,10 @@ export function useControllerDiscovery(options: DiscoveryOptions) {
       try {
         await options.onReady(scope)
       } catch (error) {
-        if (requestRevision === revision)
-          failure.value = error instanceof Error ? error.message : '无法恢复扫描'
+        if (requestRevision === revision) {
+          discoveryError = error instanceof Error ? error.message : '无法恢复扫描'
+          failure.value = discoveryError
+        }
       }
     }
     if (requestRevision === revision && scope === 'scan' && options.page.value === 'scan')

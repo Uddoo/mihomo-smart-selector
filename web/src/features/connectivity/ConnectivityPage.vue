@@ -18,6 +18,7 @@ const props = defineProps<{
   loading: boolean
   readAt: number | null
   locked: boolean
+  restoringScan: boolean
 }>()
 defineEmits<{
   refresh: []
@@ -137,6 +138,7 @@ watch(visibleIds, async (ids) => {
       :available="available"
       :loading="loading"
       :locked="locked || loading"
+      :restoring-scan="restoringScan"
       :collapsed="!!collapsed[group.id]"
       :only-issues="onlyIssues"
       @refresh="run"

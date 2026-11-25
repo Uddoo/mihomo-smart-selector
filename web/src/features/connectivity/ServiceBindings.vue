@@ -8,6 +8,7 @@ defineProps<{
   available: boolean
   loading: boolean
   locked: boolean
+  restoringScan: boolean
 }>()
 defineEmits<{
   candidates: [group: string]
@@ -77,7 +78,7 @@ const scanStatus = {
             >
             <button
               v-if="binding.latestScan"
-              :disabled="locked"
+              :disabled="locked || restoringScan"
               @click="$emit('scan', binding.latestScan.id)"
               >{{ t('查看最近扫描') }}</button
             >
@@ -85,6 +86,7 @@ const scanStatus = {
           <NodeVerification
             :binding="binding"
             :locked="locked"
+            :restoring-scan="restoringScan"
             @prepare="(group, profile) => $emit('verify', group, profile)"
           />
         </template>

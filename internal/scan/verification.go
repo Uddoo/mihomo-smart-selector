@@ -15,12 +15,13 @@ import (
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 )
 
-func (m *Manager) verifyEgress(ctx context.Context, results []model.NodeResult, scanID string) (warning *model.ScanWarning) {
+func (m *Manager) verifyEgress(ctx context.Context, scan model.Scan, candidates []candidate, results []model.NodeResult) (warning *model.ScanWarning) {
 	if len(results) == 0 {
 		return nil
 	}
 	for i := range results {
 		results[i].VerifiedRegion = ""
+		results[i].EgressEvidenceSource = ""
 		results[i].EgressError = probeSelectionMessage("probe_selector_unconfirmed")
 	}
 	verification := m.currentConfig().EgressVerification
@@ -39,6 +40,12 @@ func (m *Manager) verifyEgress(ctx context.Context, results []model.NodeResult, 
 		return nil
 	}
 	defer func() { warning = session.restore("egress") }()
+	source := egressSourcePrimary
+	var isolated *isolatedEgressCandidates
+	if m.egressClient != nil {
+		source = egressSourceIsolated
+		isolated = newIsolatedEgressCandidates(scan.Request.TargetGroup, candidates)
+	}
 	httpClient := &http.Client{
 		Timeout: time.Duration(m.currentConfig().Scanner.TimeoutMS+1000) * time.Millisecond,
 		Transport: &http.Transport{
@@ -52,9 +59,9 @@ func (m *Manager) verifyEgress(ctx context.Context, results []model.NodeResult, 
 		if ctx.Err() != nil {
 			return nil
 		}
-		if code := session.selectCandidate(ctx, result.Name); code != "" {
+		if code := session.selectCandidateWith(ctx, result.Name, isolated); code != "" {
 			result.EgressError = probeSelectionMessage(code)
-			if code == "candidate_not_in_probe_selector" {
+			if code == "candidate_not_in_probe_selector" || code == "egress_identity_unconfirmed" {
 				continue
 			}
 			return nil
@@ -71,9 +78,26 @@ func (m *Manager) verifyEgress(ctx context.Context, results []model.NodeResult, 
 			body, readErr = io.ReadAll(io.LimitReader(response.Body, 64<<10))
 			response.Body.Close()
 		}
-		// Keep the response local until its node identity is confirmed again.
-		if code := session.confirmCandidate(ctx, result.Name); code != "" {
+		// Keep the region local until readback. A response with no usable
+		// region needs only the ordinary selector check.
+		region := ""
+		if requestErr == nil && readErr == nil && response.StatusCode == http.StatusOK {
+			for _, line := range strings.Split(string(body), "\n") {
+				key, value, found := strings.Cut(line, "=")
+				if found && key == "loc" && len(value) == 2 {
+					region = strings.ToUpper(value)
+				}
+			}
+		}
+		postCheck := isolated
+		if region == "" {
+			postCheck = nil
+		}
+		if code := session.confirmCandidateWith(ctx, result.Name, postCheck); code != "" {
 			result.EgressError = probeSelectionMessage(code)
+			if code == "egress_identity_unconfirmed" {
+				continue
+			}
 			return nil
 		}
 		if requestErr != nil {
@@ -84,18 +108,13 @@ func (m *Manager) verifyEgress(ctx context.Context, results []model.NodeResult, 
 			result.EgressError = "egress trace response was not usable"
 			continue
 		}
-		for _, line := range strings.Split(string(body), "\n") {
-			key, value, found := strings.Cut(line, "=")
-			if found && key == "loc" && len(value) == 2 {
-				result.VerifiedRegion = strings.ToUpper(value)
-			}
-		}
-		result.EgressError = ""
-		if result.VerifiedRegion == "" {
+		if region == "" {
 			result.EgressError = "egress trace did not include a country code"
+		} else {
+			result.VerifiedRegion, result.EgressEvidenceSource, result.EgressError = region, source, ""
 		}
 		copy := *result
-		m.publish(scanID, Event{Kind: "egress-verified", Message: "egress verification completed: " + result.Name, At: time.Now().UTC(), Result: &copy})
+		m.publish(scan.ID, Event{Kind: "egress-verified", Message: "egress verification completed: " + result.Name, At: time.Now().UTC(), Result: &copy})
 	}
 	return nil
 }

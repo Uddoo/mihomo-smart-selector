@@ -100,7 +100,57 @@ func (s *Store) MonitorStorage(ctx context.Context, scope string) (model.Monitor
 
 var ErrMonitorCleanupPending = errors.New("monitor cleanup has more bounded batches")
 
-func (s *Store) cleanupMonitorScope(ctx context.Context, scope string, p model.MonitorRetention, now time.Time) error {
+func retentionExec(ctx context.Context, tx *sql.Tx, query string, args ...any) (int, error) {
+	r, err := tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return 0, err
+	}
+	n, err := r.RowsAffected()
+	return int(n), err
+}
+
+// Only requeue missing archives when their raw rows are actually up for removal.
+// This repairs legacy orphans without continually rebuilding recent hours whose
+// redundant archives were intentionally evicted under MaxHourly.
+func cleanupRawBatch(ctx context.Context, tx *sql.Tx, scope string, cutoff *int64, limit int, repairBudget *int) (deleted, queued int, err error) {
+	observations := `SELECT rowid AS id,series_id,kind,scheduled_at,scheduled_at/3600*3600 AS hour
+		FROM monitor_observations WHERE series_id IN (SELECT id FROM monitor_series WHERE scope=?)`
+	args := []any{scope}
+	if cutoff != nil {
+		observations += ` AND scheduled_at<?`
+		args = append(args, *cutoff)
+	}
+	candidates := `WITH due AS MATERIALIZED (` + observations + ` ORDER BY scheduled_at,rowid LIMIT ?) `
+	args = append(args, limit)
+	if *repairBudget > 0 {
+		queued, err = retentionExec(ctx, tx, candidates+`INSERT INTO monitor_dirty_hours(series_id,hour)
+			SELECT DISTINCT r.series_id,r.hour FROM due r WHERE r.kind='baseline'
+			AND NOT EXISTS (SELECT 1 FROM monitor_hourly h WHERE h.series_id=r.series_id AND h.hour=r.hour)
+			AND NOT EXISTS (SELECT 1 FROM monitor_dirty_hours d WHERE d.series_id=r.series_id AND d.hour=r.hour) LIMIT ?`, append(args, *repairBudget)...)
+		if err != nil {
+			return 0, 0, err
+		}
+		*repairBudget -= queued
+	}
+	const eligible = `r.kind!='baseline' OR (
+		EXISTS (SELECT 1 FROM monitor_hourly h WHERE h.series_id=r.series_id AND h.hour=r.hour)
+		AND NOT EXISTS (SELECT 1 FROM monitor_dirty_hours d WHERE d.series_id=r.series_id AND d.hour=r.hour))`
+	if cutoff == nil {
+		// Prefer the oldest raw rows, including those just sent for rollup.
+		deleted, err = retentionExec(ctx, tx, candidates+`DELETE FROM monitor_observations WHERE rowid IN (
+			SELECT r.id FROM due r WHERE `+eligible+`)`, args...)
+		if err != nil || deleted > 0 || queued > 0 {
+			return deleted, queued, err
+		}
+	}
+	// All expired rows are due. Likewise a dirty oldest row should not cause
+	// a hard raw-cap failure while another already sealed row can be reclaimed.
+	deleted, err = retentionExec(ctx, tx, `DELETE FROM monitor_observations WHERE rowid IN (
+		SELECT r.id FROM (`+observations+`) r WHERE `+eligible+` ORDER BY r.scheduled_at,r.id LIMIT ?)`, args...)
+	return deleted, queued, err
+}
+
+func (s *Store) cleanupMonitorScope(ctx context.Context, scope string, p model.MonitorRetention, now time.Time, repairBudget *int) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -108,31 +158,78 @@ func (s *Store) cleanupMonitorScope(ctx context.Context, scope string, p model.M
 	defer tx.Rollback()
 	pending := false
 	execute := func(query string, cap int, args ...any) error {
-		r, e := tx.ExecContext(ctx, query, args...)
-		if e != nil {
-			return e
-		}
-		n, e := r.RowsAffected()
-		if n >= int64(cap) {
+		n, e := retentionExec(ctx, tx, query, args...)
+		if n >= cap {
 			pending = true
 		}
 		return e
 	}
-	protected := `(kind!='baseline' OR (EXISTS(SELECT 1 FROM monitor_hourly h WHERE h.series_id=monitor_observations.series_id AND h.hour=monitor_observations.scheduled_at/3600*3600) AND NOT EXISTS(SELECT 1 FROM monitor_dirty_hours d WHERE d.series_id=monitor_observations.series_id AND d.hour=monitor_observations.scheduled_at/3600*3600)))`
-	if err = execute(`DELETE FROM monitor_observations WHERE rowid IN (SELECT rowid FROM monitor_observations WHERE series_id IN (SELECT id FROM monitor_series WHERE scope=?) AND scheduled_at<? AND `+protected+` ORDER BY scheduled_at LIMIT 500)`, 500, scope, now.Add(-time.Duration(p.RawDays)*24*time.Hour).Unix()); err != nil {
+	rawCutoff := now.Add(-time.Duration(p.RawDays) * 24 * time.Hour).Unix()
+	deleted, queued, err := cleanupRawBatch(ctx, tx, scope, &rawCutoff, 500, repairBudget)
+	if err != nil {
 		return err
 	}
+	pending = deleted == 500 || queued > 0
 	var rawCount int
 	if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM monitor_observations WHERE series_id IN (SELECT id FROM monitor_series WHERE scope=?)`, scope).Scan(&rawCount); err != nil {
 		return err
 	}
-	if rawCount > p.MaxRawSamples {
-		if err = execute(`DELETE FROM monitor_observations WHERE rowid IN (SELECT rowid FROM monitor_observations WHERE series_id IN (SELECT id FROM monitor_series WHERE scope=?) AND `+protected+` ORDER BY scheduled_at LIMIT ?)`, 500, scope, min(500, rawCount-p.MaxRawSamples)); err != nil {
+	if remaining := 500 - deleted; remaining > 0 && rawCount > p.MaxRawSamples {
+		deleted, queued, err = cleanupRawBatch(ctx, tx, scope, nil, min(remaining, rawCount-p.MaxRawSamples), repairBudget)
+		if err != nil {
 			return err
 		}
+		rawCount -= deleted
+		pending = pending || queued > 0 || deleted == remaining || (deleted > 0 && rawCount > p.MaxRawSamples)
 	}
-	if err = execute(`DELETE FROM monitor_hourly WHERE rowid IN (SELECT rowid FROM monitor_hourly WHERE series_id IN (SELECT id FROM monitor_series WHERE scope=?) AND (hour<? OR rowid IN (SELECT h.rowid FROM monitor_hourly h JOIN monitor_series t ON t.id=h.series_id WHERE t.scope=? ORDER BY h.hour DESC,h.series_id LIMIT -1 OFFSET ?)) AND NOT EXISTS(SELECT 1 FROM monitor_dirty_hours d WHERE d.series_id=monitor_hourly.series_id AND d.hour=monitor_hourly.hour) ORDER BY hour LIMIT 200)`, 200, scope, now.Add(-time.Duration(p.AggregateDays)*24*time.Hour).Unix(), scope, p.MaxHourly); err != nil {
+	// Expiry and overflow may discard an old archive after its raw batch drains.
+	pruned, err := retentionExec(ctx, tx, `DELETE FROM monitor_hourly WHERE rowid IN (
+		SELECT h.rowid FROM monitor_hourly h WHERE h.series_id IN (SELECT id FROM monitor_series WHERE scope=?)
+		AND (h.hour<? OR h.rowid IN (SELECT older.rowid FROM monitor_hourly older JOIN monitor_series t ON t.id=older.series_id
+			WHERE t.scope=? ORDER BY older.hour DESC,older.series_id LIMIT -1 OFFSET ?))
+		AND NOT EXISTS (SELECT 1 FROM monitor_dirty_hours d WHERE d.series_id=h.series_id AND d.hour=h.hour)
+		AND NOT EXISTS (SELECT 1 FROM monitor_observations r WHERE r.series_id=h.series_id AND r.kind='baseline'
+			AND r.scheduled_at>=h.hour AND r.scheduled_at<h.hour+3600)
+		ORDER BY h.hour LIMIT 200)`, scope, now.Add(-time.Duration(p.AggregateDays)*24*time.Hour).Unix(), scope, p.MaxHourly)
+	if err != nil {
 		return err
+	}
+	var hourlyCount int
+	if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM monitor_hourly WHERE series_id IN (SELECT id FROM monitor_series WHERE scope=?)`, scope).Scan(&hourlyCount); err != nil {
+		return err
+	}
+	if pruned < 200 && hourlyCount > p.MaxHourly && rawCount <= p.MaxRawSamples {
+		// A clean hour can still contain archived-only slots from an earlier raw
+		// batch. Prove each compact slot has its immutable raw source before
+		// evicting the copy. Never unseal a raw hour due for expiry this pass.
+		n, err := retentionExec(ctx, tx, `DELETE FROM monitor_hourly WHERE rowid IN (
+			SELECT h.rowid FROM monitor_hourly h INDEXED BY monitor_hourly_time
+			WHERE h.series_id IN (SELECT id FROM monitor_series WHERE scope=?) AND h.hour>=?
+			AND NOT EXISTS (SELECT 1 FROM monitor_observations r WHERE r.series_id=h.series_id AND r.kind='baseline'
+				AND r.scheduled_at>=h.hour AND r.scheduled_at<h.hour+3600 AND r.scheduled_at<?)
+			AND NOT EXISTS (SELECT 1 FROM monitor_dirty_hours d WHERE d.series_id=h.series_id AND d.hour=h.hour)
+			AND EXISTS (SELECT 1 FROM monitor_observations r WHERE r.series_id=h.series_id AND r.kind='baseline'
+				AND r.scheduled_at>=h.hour AND r.scheduled_at<h.hour+3600)
+			AND NOT EXISTS (SELECT 1 FROM json_each(h.payload,'$.slots') slot WHERE NOT EXISTS (
+				SELECT 1 FROM monitor_observations r WHERE r.series_id=h.series_id AND r.kind='baseline'
+				AND r.slot=json_extract(slot.value,'$[0]') AND r.scheduled_at>=h.hour AND r.scheduled_at<h.hour+3600))
+			ORDER BY h.hour,h.series_id LIMIT ?)`, scope, rawCutoff/3600*3600, rawCutoff, min(200-pruned, hourlyCount-p.MaxHourly))
+		if err != nil {
+			return err
+		}
+		pruned += n
+		hourlyCount -= n
+	}
+	pending = pending || pruned == 200
+	if !pending && hourlyCount > p.MaxHourly && rawCount <= p.MaxRawSamples {
+		// Don't declare capacity blocked while the next aggregation batch can
+		// still seal a late sample and make an existing archive reclaimable.
+		err = tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM monitor_dirty_hours d JOIN monitor_hourly h
+			ON h.series_id=d.series_id AND h.hour=d.hour WHERE d.series_id IN (SELECT id FROM monitor_series WHERE scope=?)
+			AND d.hour<=?)`, scope, rollupHourCutoff(now)).Scan(&pending)
+		if err != nil {
+			return err
+		}
 	}
 	cutoff := now.Add(-time.Duration(p.EventDays) * 24 * time.Hour).Unix()
 	if err = execute(`DELETE FROM monitor_events WHERE id IN (SELECT id FROM monitor_events WHERE plan_id IN (SELECT plan_id FROM monitor_revisions WHERE scope=?) AND at<? ORDER BY at LIMIT 500)`, 500, scope, cutoff); err != nil {
@@ -150,8 +247,11 @@ func (s *Store) cleanupMonitorScope(ctx context.Context, scope string, p model.M
 	if pending {
 		return ErrMonitorCleanupPending
 	}
-	if err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM monitor_observations WHERE series_id IN (SELECT id FROM monitor_series WHERE scope=?)`, scope).Scan(&rawCount); err != nil {
-		return err
+	if *repairBudget == 0 && (rawCount > p.MaxRawSamples || hourlyCount > p.MaxHourly) {
+		return ErrMonitorCleanupPending
+	}
+	if hourlyCount > p.MaxHourly {
+		return fmt.Errorf("小时聚合仍含唯一或待重算的证据，无法安全清理至容量上限")
 	}
 	if rawCount > p.MaxRawSamples {
 		return fmt.Errorf("聚合尚未完成，保留唯一证据；请等待聚合后继续监控或提高容量上限")

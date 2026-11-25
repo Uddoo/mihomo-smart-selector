@@ -10,7 +10,7 @@ import (
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
 	"github.com/Uddoo/mihomo-smart-selector/internal/history"
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
-	"github.com/Uddoo/mihomo-smart-selector/internal/scan"
+	"github.com/Uddoo/mihomo-smart-selector/internal/monitor/probe"
 )
 
 type fakeSource struct {
@@ -18,7 +18,6 @@ type fakeSource struct {
 	nodes         []model.MonitorNode
 	err, delayErr error
 	current       string
-	reachable     bool
 	calls         int
 	delay         func(context.Context) (int, error)
 }
@@ -34,16 +33,20 @@ func (f *fakeSource) MonitorDelay(ctx context.Context, _ model.MonitorNode, _ co
 	}
 	return 150, f.delayErr
 }
-func (f *fakeSource) MonitorReachable(context.Context) bool { return f.reachable }
 
 func setup(t *testing.T) (*Manager, *history.Store, *fakeSource, *time.Time) {
 	t.Helper()
-	store, err := history.Open(filepath.Join(t.TempDir(), "monitor.db"))
+	return setupAt(t, filepath.Join(t.TempDir(), "monitor.db"))
+}
+
+func setupAt(t *testing.T, path string) (*Manager, *history.Store, *fakeSource, *time.Time) {
+	t.Helper()
+	store, err := history.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { store.Close() })
-	f := &fakeSource{profile: config.ProbeProfile{ID: "chatgpt", Probes: []config.Probe{{Name: "trace", URL: "https://example.com/health", ExpectedStatus: "200"}}}, nodes: []model.MonitorNode{{ID: "node-a", Name: "A", Provider: "one", Protocol: "VLESS"}}, current: "A", reachable: true}
+	f := &fakeSource{profile: config.ProbeProfile{ID: "chatgpt", Probes: []config.Probe{{Name: "trace", URL: "https://example.com/health", ExpectedStatus: "200"}}}, nodes: []model.MonitorNode{{ID: "node-a", Name: "A", Provider: "one", Protocol: "VLESS"}}, current: "A"}
 	m, err := New(store, f)
 	if err != nil {
 		t.Fatal(err)
@@ -145,7 +148,7 @@ func TestControllerFailureBusyAndProfileChangeAreUnknown(t *testing.T) {
 			case "controller":
 				f.err = errors.New("Controller unavailable")
 			case "busy":
-				f.delayErr = scan.ErrMonitorBusy
+				f.delayErr = probe.ErrBusy
 			case "profile":
 				f.profile.Probes[0].URL = "https://example.com/new"
 			case "removed":

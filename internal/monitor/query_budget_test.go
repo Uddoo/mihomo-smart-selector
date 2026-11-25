@@ -73,6 +73,19 @@ func TestMaintenanceYieldsToForegroundAndIdles(t *testing.T) {
 	}
 }
 
+func TestOnlyFreshBackupUsesProbeBudgetAtFreshnessBoundary(t *testing.T) {
+	m, source, now := failoverFixture(t)
+	m.states["node-b"] = model.MonitorState{} // The higher-ranked node is unknown.
+	boundary := now.Add(-240 * time.Second)
+	m.states["node-c"] = model.MonitorState{Status: "healthy", LastAt: boundary, LastSuccess: boundary}
+	_, before := m.budget.snapshot(*now)
+	m.failover(context.Background(), *now)
+	_, after := m.budget.snapshot(*now)
+	if len(source.switches) != 1 || source.switches[0] != "C" || source.calls != 1 || after-before != 1 {
+		t.Fatalf("one eligible backup: switches=%v probes=%d budget spent=%d", source.switches, source.calls, after-before)
+	}
+}
+
 func TestHistorySlotDoesNotBlockConfirmedFailover(t *testing.T) {
 	m, source, now := failoverFixture(t)
 	release, err := m.acquireHistory(context.Background())

@@ -9,7 +9,22 @@ import (
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 )
 
-func (m *Manager) selectionReason(s model.Scan, r model.NodeResult, p config.ProbeProfile, now time.Time) string {
+// Resolve once per scan view or selection, not once per ranked result.
+type selectionPolicy struct {
+	requireStrict, requireRegion bool
+	strictRulesID                string
+	expectedRegions              []string
+}
+
+func selectionPolicyFor(p config.ProbeProfile) selectionPolicy {
+	policy := selectionPolicy{requireStrict: p.RequireStrict, requireRegion: p.RequireRegion, expectedRegions: p.ExpectedRegions}
+	if p.RequireStrict {
+		policy.strictRulesID = strictRulesID(p.StrictProbes)
+	}
+	return policy
+}
+
+func (m *Manager) selectionReason(s model.Scan, r model.NodeResult, policy selectionPolicy, now time.Time) string {
 	if s.ControllerScope == "" || s.ControllerScope != m.bindingScope() {
 		return "扫描不属于当前 Controller，请重新扫描"
 	}
@@ -32,17 +47,33 @@ func (m *Manager) selectionReason(s model.Scan, r model.NodeResult, p config.Pro
 	if r.SuccessRate < m.currentConfig().Scanner.MinSuccessRate {
 		return "成功率低于最低切换门槛"
 	}
-	if p.RequireStrict && r.StrictVerificationStatus != "passed" {
-		return "此服务要求严格验证通过"
+	if policy.requireStrict {
+		if r.StrictVerificationStatus != "passed" {
+			return "此服务要求严格验证通过"
+		}
+		if s.Profile.StrictRulesID == "" || policy.strictRulesID == "" {
+			return "严格规则版本未知，请重新扫描"
+		}
+		if s.Profile.StrictRulesID != policy.strictRulesID {
+			return "严格验证规则已变化，请重新扫描"
+		}
 	}
-	if p.RequireRegion && (r.VerifiedRegion == "" || !containsFold(p.ExpectedRegions, r.VerifiedRegion)) {
-		return "此服务要求出口地区匹配"
+	if policy.requireRegion {
+		if r.VerifiedRegion == "" || !containsFold(policy.expectedRegions, r.VerifiedRegion) {
+			return "此服务要求出口地区匹配"
+		}
+		// A legacy country alone cannot tell us whether a different Controller's
+		// same-name leaf supplied it. Keep it visible, but require new evidence.
+		if r.EgressEvidenceSource != egressSourcePrimary && r.EgressEvidenceSource != egressSourceIsolated {
+			return "已返回的数据保留供查看；重新扫描完成后可选择节点。"
+		}
 	}
 	return ""
 }
 
 func (m *Manager) decorateScan(s model.Scan) model.Scan {
 	p, err := m.currentConfig().ProbeProfileByID(s.Request.ProfileID)
+	policy := selectionPolicyFor(p)
 	for i := range s.Results {
 		r := &s.Results[i]
 		measured := r.MeasuredAt
@@ -55,7 +86,7 @@ func (m *Manager) decorateScan(s model.Scan) model.Scan {
 		if err != nil {
 			r.SelectionReason = "服务模板已失效，请重新扫描"
 		} else {
-			r.SelectionReason = m.selectionReason(s, *r, p, time.Now())
+			r.SelectionReason = m.selectionReason(s, *r, policy, time.Now())
 		}
 	}
 	return s

@@ -10,6 +10,7 @@ import (
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
 	"github.com/Uddoo/mihomo-smart-selector/internal/history"
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
+	"github.com/Uddoo/mihomo-smart-selector/internal/monitor/probe"
 )
 
 func TestMonitorSharesGateAndSettingsCannotReplaceInFlightPool(t *testing.T) {
@@ -31,7 +32,7 @@ func TestMonitorSharesGateAndSettingsCannotReplaceInFlightPool(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("monitor did not acquire gate")
 	}
-	if _, err = m.MonitorDelay(ctx, model.MonitorNode{Name: "b"}, config.Probe{}); !errors.Is(err, ErrMonitorBusy) {
+	if _, err = m.MonitorDelay(ctx, model.MonitorNode{Name: "b"}, config.Probe{}); !errors.Is(err, probe.ErrBusy) {
 		t.Fatal(err)
 	}
 	s := m.Settings()

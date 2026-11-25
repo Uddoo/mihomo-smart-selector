@@ -26,15 +26,20 @@ func (m *Manager) readProbeSelector(ctx context.Context, name string) (mihomo.Pr
 }
 
 func readProbeSelectorUsing(ctx context.Context, client mihomo.Client, name string) (mihomo.Proxy, string) {
+	group, _, code := readProbeSelectorCatalog(ctx, client, name)
+	return group, code
+}
+
+func readProbeSelectorCatalog(ctx context.Context, client mihomo.Client, name string) (mihomo.Proxy, map[string]mihomo.Proxy, string) {
 	proxies, err := client.ListProxies(ctx)
 	if err != nil {
-		return mihomo.Proxy{}, "probe_selector_unconfirmed"
+		return mihomo.Proxy{}, nil, "probe_selector_unconfirmed"
 	}
 	group, ok := proxies[name]
 	if !ok || !strings.EqualFold(group.Type, "Selector") {
-		return mihomo.Proxy{}, "probe_selector_unavailable"
+		return mihomo.Proxy{}, nil, "probe_selector_unavailable"
 	}
-	return group, ""
+	return group, proxies, ""
 }
 
 func (m *Manager) beginProbeSelector(ctx context.Context, name string) (*probeSelectorSession, string) {
@@ -57,7 +62,11 @@ func (m *Manager) beginProbeSelectorUsing(ctx context.Context, client mihomo.Cli
 }
 
 func (s *probeSelectorSession) selectCandidate(ctx context.Context, name string) string {
-	group, code := readProbeSelectorUsing(ctx, s.client, s.group)
+	return s.selectCandidateWith(ctx, name, nil)
+}
+
+func (s *probeSelectorSession) selectCandidateWith(ctx context.Context, name string, isolated *isolatedEgressCandidates) string {
+	group, code := s.readCandidateSelector(ctx, name, isolated)
 	if code != "" {
 		return code
 	}
@@ -79,7 +88,11 @@ func (s *probeSelectorSession) selectCandidate(ctx context.Context, name string)
 }
 
 func (s *probeSelectorSession) confirmCandidate(ctx context.Context, name string) string {
-	group, code := readProbeSelectorUsing(ctx, s.client, s.group)
+	return s.confirmCandidateWith(ctx, name, nil)
+}
+
+func (s *probeSelectorSession) confirmCandidateWith(ctx context.Context, name string, isolated *isolatedEgressCandidates) string {
+	group, code := s.readCandidateSelector(ctx, name, isolated)
 	if code != "" {
 		return code
 	}
@@ -134,6 +147,8 @@ func probeSelectionMessage(code string) string {
 	switch code {
 	case "candidate_not_in_probe_selector":
 		return "候选未加入专用选择器"
+	case "egress_identity_unconfirmed":
+		return "无法核实业务节点与独立出口节点身份，未采信地区证据"
 	case "probe_selector_unavailable":
 		return "专用选择器不可用"
 	case "probe_selector_switch_failed":

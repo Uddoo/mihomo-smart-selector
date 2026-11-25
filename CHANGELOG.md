@@ -8,6 +8,28 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.6.2] - 2026-11-25
+
+### Changed
+
+- Reuse the short-lived Controller catalog for read-only scan previews. Starting a scan still reads current group membership.
+
+### Fixed
+
+- Require a passing result for the current strict rules before a strict-gated switch. Retest older results with missing or outdated rule fingerprints.
+- Verify the provider and protocol of a same-name node on an isolated egress Controller before accepting its exit region for selection.
+
+- Fix monitoring retention getting stuck between cleanup batches. When hourly storage is full, maintenance can discard redundant rollups while preserving raw samples. It rebuilds missing rollups from surviving samples before those samples are due for removal.
+- Wait for the initial scan form to finish restoring before accepting a scan or a service binding. A failed history read releases the form and subsequent refreshes preserve edits.
+- Keep tracking an accepted scan or retest when browser session storage is unavailable.
+- Allow saving a valid group and service binding when temporary scan filters match no nodes.
+- Keep a shared Controller catalog read available to other callers when one request is canceled.
+- Build monitor candidate suggestions from the last completed scan for the current Controller, group, and profile, checking each ranked node against its current provider.
+- Return HTTP 500 when a stored scan cannot be read, so the browser can retry the same scan after recovery. Missing scan records continue to return HTTP 404.
+- Skip the 24-hour monitoring history read during a failover check when no other node has recent healthy observations.
+- Classify Controller authentication and availability errors consistently during sampling and failover verification. A node name containing `HTTP 401` or `HTTP 403` can no longer mask a node-path failure.
+- Limit the OpenWrt build script to `amd64`, `arm64`, `arm`, and `386`. Requests for `mips` or `mipsle` now explain the SQLite dependency limitation before compilation.
+
 ## [v0.6.1] - 2026-11-25
 
 ### Changed
@@ -636,7 +658,8 @@ The rc.6 build candidate was not published. This release includes its changes.
 - GitHub Actions use read-only repository permissions, non-persistent checkout
   credentials, fixed runner/tool versions, and full commit-SHA action pins.
 
-[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.6.2...HEAD
+[v0.6.2]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.6.1...v0.6.2
 [v0.6.1]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.6.0...v0.6.1
 [v0.6.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/Uddoo/mihomo-smart-selector/compare/v0.4.4...v0.5.0

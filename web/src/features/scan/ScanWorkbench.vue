@@ -37,7 +37,8 @@ const {
   binding,
   invalidBindings,
   serviceSource,
-  profileReady,
+  canStartScan,
+  canSaveBinding,
   openRecent,
   load,
   saveBinding,
@@ -173,7 +174,13 @@ onBeforeUnmount(() => {
       ><span>{{ t('活动 / 最近扫描') }}</span
       ><select
         :value="scan?.id"
-        :disabled="starting || switching || state.replacingMonitor.value || state.openingScan.value"
+        :disabled="
+          loading ||
+          starting ||
+          switching ||
+          state.replacingMonitor.value ||
+          state.openingScan.value
+        "
         @change="openRecent"
         ><option
           v-for="item in recent"
@@ -212,7 +219,7 @@ onBeforeUnmount(() => {
       <button
         v-if="!configExpanded"
         class="scan-button primary"
-        :disabled="configLocked || !group || !profileReady"
+        :disabled="!canStartScan"
         @click="start"
         ><RefreshCw
           :size="16"
@@ -265,7 +272,7 @@ onBeforeUnmount(() => {
         >
         <button
           class="scan-button primary"
-          :disabled="configLocked || !group || !profileReady"
+          :disabled="!canStartScan"
           @click="start"
           ><RefreshCw
             :size="16"
@@ -324,7 +331,7 @@ onBeforeUnmount(() => {
         <div class="service-binding">
           <span>{{ translateMessage(serviceSource) }}</span>
           <button
-            :disabled="configLocked || loading || !profile || groupMissing"
+            :disabled="!canSaveBinding"
             @click="saveBinding()"
             >{{ t('保存绑定') }}</button
           >
@@ -484,6 +491,7 @@ onBeforeUnmount(() => {
     <ScanCompatibility
       v-if="!running && !groupMissing && discoveryValid"
       :preview="preview"
+      :preview-current="state.previewCurrent.value"
       :disabled="configLocked || loading"
       :navigation="state.nestedNavigation.value"
       @select-group="state.selectNestedGroup"

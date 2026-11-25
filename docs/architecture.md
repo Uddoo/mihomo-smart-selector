@@ -129,13 +129,23 @@ scan scores or monitoring history.
 - `internal/monitor/scheduler.go` owns a Controller-level `Manager` and shared
   scheduling. `task_runtime.go`, `task_plan.go` and `task_sampling.go` own the
   state, plan edits and observations for one task. Tasks do not create their
-  own background worker pools.
+  own background worker pools. Failover reads the 24-hour ranking history only
+  after confirming both a failed current node and a different node with recent
+  healthy observations. Both routine sampling and failover verification use
+  the adapter's typed probe errors to distinguish contention, Controller
+  failures and node-path failures. Canceled probes produce no observation.
 - `internal/history` owns persistence, migrations, immutable revisions, queries,
   rollups and retention. API handlers do not issue SQL directly.
 - `web/src/app/useApplication.ts` creates the frontend state owners once.
   Authentication, progressive discovery and cross-feature navigation are
   application concerns. Feature views receive scoped state contracts; navigating
   away from the scan page does not dispose the scan session or selection audit.
+  The scan form waits for its first history read before it can authorize a scan
+  or binding. If recovery fails, the current draft becomes editable. Later
+  refreshes can reconnect to a scan while preserving that draft. The active
+  tab tracks an accepted scan in memory even when it cannot save a recovery ID.
+  A current preflight confirms the group and service for a binding. Starting a
+  scan also requires candidates that match the current region and provider filters.
 
 ### 3.2 Multi-group monitoring and compatibility
 
@@ -263,7 +273,12 @@ Historical results also use the current reservations for `selection_reason` and
 new selection requests: reserving a previously scanned business group blocks its
 selection before any Controller write or pending audit is created. Replaying an
 existing `request_id` still returns the original saved switch evidence without
-repeating the operation, even after its group becomes reserved.
+repeating the operation, even after its group becomes reserved. If the current
+profile requires strict verification, a stored pass authorizes a new selection
+only when the scan's nonempty `strict_rules_id` matches the current rules.
+Changing even a private body assertion invalidates that pass, not the history.
+Strict rule names, URLs and body assertions must be valid UTF-8 text so their
+JSON fingerprint does not discard byte differences.
 
 Strict verification checks the highest-ranked candidates within `max_candidates`;
 remaining candidates are marked `not_run_limit`. Its budget is independent of
@@ -276,6 +291,15 @@ check selection before each request. Results are committed only after post-probe
 readback confirms that the same candidate remains selected and a member. A failed
 read or changed selection stops that phase; strict evidence collected earlier for
 the affected candidate is discarded. Missing candidates are skipped.
+
+For a manual scan using an isolated egress Controller, selector readback by
+name is not sufficient. The business leaf's name, provider and protocol must
+match fresh metadata on both Controllers before selecting the probe candidate
+and before accepting its country. Successful country observations record their
+source in the result JSON; historical rows are not backfilled from today's
+configuration. A source-less country remains visible but cannot authorize a new
+`require_region` selection. Matching this public metadata is not proof that
+both Controllers have identical upstream node configurations.
 
 Cleanup uses a separate 10-second context even after scan cancellation. It first
 reads current state and avoids knowingly overwriting a selection different from
@@ -302,9 +326,11 @@ a separate selection request. Older results without measurement timestamps use
 the scan completion time; older stable results without refinement evidence must
 be retested. Settings saved before these fields existed inherit YAML defaults.
 
-Catalog endpoints share two-second proxies/provider snapshots and coalesce
-concurrent reads. Scans, binding writes and selection membership checks bypass
-this cache. A successful switch invalidates the proxy catalog.
+Catalog endpoints and preflight share proxy and provider snapshots for two seconds.
+Concurrent callers share the Controller request. Each caller can cancel its own
+wait, and the last caller to leave cancels the upstream request. Scan execution,
+binding writes and selection membership checks read current membership directly.
+A successful switch invalidates the proxy catalog.
 
 ### 4.1 Service probe profiles and verification boundaries
 
@@ -428,6 +454,8 @@ SQLite at the configured path stores operational evidence and user settings:
 - monitoring tasks, immutable plan revisions, series identities, raw observations,
   hourly rollups, node/environment events and task-scoped failover evidence.
 
+Retention applies each Controller scope's time and row limits in bounded batches. Before removing a baseline observation, it requires a clean rollup for that hour. Surviving observations from older databases can supply a missing rollup when their raw rows come up for deletion. If only the hourly limit is exceeded, a recent rollup can be removed when every archived slot still has its raw observation.
+
 Schema initialization enters through `history.Store.migrate` in `migrations.go`.
 The migration files preserve the existing sequence: base scan schema, legacy
 monitor schema, series schema, diagnostics schema, transactional task-key rebuild,
@@ -445,6 +473,11 @@ contain a custom secret, is written through an owner-readable temporary file
 (Unix `0600`; inherited Windows ACLs), and is excluded from version control.
 YAML and the existing environment/secret file are not rewritten. See the
 [connection setup guide](connection-settings.md#english) for precedence and restart steps.
+
+Monitor candidate suggestions start with the current leaf and use the latest
+completed scan for the active Controller, group and profile. Ranked leaves must
+still belong to the group and match their recorded providers. The global scan
+history remains available for browsing.
 
 Scans and switch records retain their Controller scope. Selection, retest,
 idempotent switch retries and pending-outcome reconciliation reject foreign

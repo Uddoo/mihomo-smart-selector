@@ -8,7 +8,7 @@ import (
 	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
 )
 
-// Only read-only catalog endpoints use this cache. Scans and selection always
+// Catalog endpoints and preflight share this cache. Scans and selection always
 // discover fresh membership through the underlying client.
 type discoveryCache[T any] struct {
 	mu       sync.Mutex
@@ -19,46 +19,69 @@ type discoveryCache[T any] struct {
 }
 
 type discoveryFlight[T any] struct {
-	done  chan struct{}
-	value T
-	err   error
+	done    chan struct{}
+	cancel  context.CancelFunc
+	waiters int
+	value   T
+	err     error
 }
 
 func (c *discoveryCache[T]) get(ctx context.Context, fetch func(context.Context) (T, error), clone func(T) T) (T, error) {
-	for {
-		c.mu.Lock()
-		if time.Now().Before(c.until) {
-			value := clone(c.value)
-			c.mu.Unlock()
-			return value, nil
-		}
-		if c.flight != nil {
-			flight := c.flight
-			c.mu.Unlock()
-			select {
-			case <-ctx.Done():
-				var zero T
-				return zero, ctx.Err()
-			case <-flight.done:
-				return clone(flight.value), flight.err
-			}
-		}
-		c.flight = &discoveryFlight[T]{done: make(chan struct{})}
-		revision := c.revision
+	var zero T
+	c.mu.Lock()
+	if err := ctx.Err(); err != nil {
 		c.mu.Unlock()
-		value, err := fetch(ctx)
+		return zero, err
+	}
+	if time.Now().Before(c.until) {
+		value := c.value
+		c.mu.Unlock()
+		return clone(value), nil
+	}
+	flight := c.flight
+	if flight == nil {
+		// Every caller can leave independently. The last one cancels the read.
+		readCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+		flight = &discoveryFlight[T]{done: make(chan struct{}), cancel: cancel}
+		c.flight = flight
+		go c.runFlight(readCtx, flight, c.revision, fetch, clone)
+	}
+	flight.waiters++
+	c.mu.Unlock()
+
+	select {
+	case <-ctx.Done():
 		c.mu.Lock()
+		flight.waiters--
+		if flight.waiters == 0 && c.flight == flight {
+			c.flight = nil
+			flight.cancel()
+		}
+		c.mu.Unlock()
+	case <-flight.done:
+	}
+	if err := ctx.Err(); err != nil {
+		return zero, err
+	}
+	return clone(flight.value), flight.err
+}
+
+func (c *discoveryCache[T]) runFlight(ctx context.Context, flight *discoveryFlight[T], revision uint64, fetch func(context.Context) (T, error), clone func(T) T) {
+	defer flight.cancel()
+	value, err := fetch(ctx)
+	flight.value, flight.err = clone(value), err
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	// An abandoned read can finish after a replacement has already started.
+	if c.flight == flight {
 		if err == nil && revision == c.revision {
-			c.value = clone(value)
+			c.value = flight.value
 			c.until = time.Now().Add(2 * time.Second)
 		}
-		c.flight.value = clone(value)
-		c.flight.err = err
-		close(c.flight.done)
 		c.flight = nil
-		c.mu.Unlock()
-		return value, err
 	}
+	close(flight.done)
 }
 
 func cloneProxies(input map[string]mihomo.Proxy) map[string]mihomo.Proxy {

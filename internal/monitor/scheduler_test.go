@@ -27,8 +27,7 @@ type parallelSource struct {
 	missing       string
 }
 
-func (*parallelSource) MonitorScope() string                  { return "parallel-controller" }
-func (*parallelSource) MonitorReachable(context.Context) bool { return true }
+func (*parallelSource) MonitorScope() string { return "parallel-controller" }
 func (s *parallelSource) MonitorCatalog(ctx context.Context, group, profile string) (config.ProbeProfile, []model.MonitorNode, string, error) {
 	s.mu.Lock()
 	block, missing, current := s.metadataBlock == group, s.missing == group, s.current[group]

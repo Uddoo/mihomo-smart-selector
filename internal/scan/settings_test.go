@@ -32,10 +32,10 @@ func TestEgressUsesNewConnectionForEachCandidate(t *testing.T) {
 	defer proxy.Close()
 	cfg := config.Defaults()
 	cfg.EgressVerification = config.EgressConfig{Enabled: true, SelectorGroup: "probe", ProxyURL: proxy.URL, TraceURL: "http://trace.test/"}
-	fake := &fakeMihomo{proxies: map[string]mihomo.Proxy{"probe": {Name: "probe", Type: "Selector", Now: "original", All: []string{"a", "b", "original"}}}}
+	fake := &manualEgressController{proxies: map[string]mihomo.Proxy{"probe": {Name: "probe", Type: "Selector", Now: "original", All: []string{"a", "b", "original"}}}}
 	m := NewManager(cfg, fake, nil)
 	results := []model.NodeResult{{Name: "a"}, {Name: "b"}}
-	m.verifyEgress(context.Background(), results, "test")
+	m.verifyEgress(context.Background(), model.Scan{ID: "test"}, nil, results)
 	for _, result := range results {
 		if result.VerifiedRegion != "JP" {
 			t.Fatalf("connection reused across candidates: %+v", results)
@@ -43,6 +43,10 @@ func TestEgressUsesNewConnectionForEachCandidate(t *testing.T) {
 	}
 	if fake.proxies["probe"].Now != "original" {
 		t.Fatal("selection not restored")
+	}
+	// Baseline, three selector reads per candidate, then two for restoration.
+	if fake.proxyReads != 9 || fake.providerReads != 0 {
+		t.Fatalf("single-controller verification read proxies %d times and providers %d times", fake.proxyReads, fake.providerReads)
 	}
 }
 
@@ -100,7 +104,7 @@ func TestEgressVerificationRestoresProbeSelection(t *testing.T) {
 	fake := &fakeMihomo{proxies: map[string]mihomo.Proxy{"probe": {Name: "probe", Type: "Selector", Now: "original", All: []string{"original", "candidate"}}}}
 	manager := NewManager(cfg, fake, nil)
 	results := []model.NodeResult{{Name: "candidate", InferredRegion: "JP"}}
-	manager.verifyEgress(context.Background(), results, "test")
+	manager.verifyEgress(context.Background(), model.Scan{ID: "test"}, nil, results)
 	if results[0].VerifiedRegion != "JP" {
 		t.Fatalf("exit not verified: %+v", results)
 	}

@@ -37,7 +37,7 @@ export function useFeatureNavigation(
     { flush: 'sync' },
   )
   function openMonitorScan(target: string, profileID: string) {
-    if (configLocked.value) return
+    if (configLocked.value || loading.value) return
     group.value = target
     serviceID.value = profileID
     areas.value = []
@@ -49,7 +49,6 @@ export function useFeatureNavigation(
   function openServiceCandidates(target: string) {
     if (
       configLocked.value ||
-      loading.value ||
       !metadataValid.value ||
       !groups.value.some((item) => item.name === target)
     )

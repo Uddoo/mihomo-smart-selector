@@ -2,6 +2,17 @@ package config
 
 import "testing"
 
+func TestStrictRuleTextMustBeUTF8(t *testing.T) {
+	p := ProbeProfile{ID: "test", StrictProbes: []StrictProbe{{Name: "正文", URL: "https://example.invalid/", ExpectedStatus: "200", BodyContains: "已就绪"}}}
+	if err := validateStrictProbes(p); err != nil {
+		t.Fatalf("valid Unicode rule rejected: %v", err)
+	}
+	p.StrictProbes[0].BodyContains = string([]byte{0xff})
+	if err := validateStrictProbes(p); err == nil {
+		t.Fatal("invalid UTF-8 in a persisted strict rule accepted")
+	}
+}
+
 func TestStagedSettingsAndServiceGateValidation(t *testing.T) {
 	for _, tc := range []struct {
 		name   string

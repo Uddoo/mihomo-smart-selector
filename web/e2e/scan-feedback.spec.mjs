@@ -71,6 +71,28 @@ test('real scan exposes pending confirmation and retains completed statistics wi
   expect(selections).toBe(0)
 })
 
+test('an accepted scan completes exactly once when saving its tab recovery ID is denied', async ({page}) => {
+  await page.addInitScript(() => {
+    const original = Storage.prototype.setItem
+    Storage.prototype.setItem = function (key, value) {
+      if (key === 'mss-scan-id') throw new DOMException('Storage is full', 'QuotaExceededError')
+      return original.call(this, key, value)
+    }
+  })
+  const starts = []
+  page.on('request', req => {
+    if (req.method() === 'POST' && new URL(req.url()).pathname === '/api/v1/scans') starts.push(req)
+  })
+  await page.route('**/api/v1/scans', route => route.request().method() === 'GET' ? route.fulfill({json: []}) : route.continue())
+  await page.goto('/#/scan')
+  await page.getByRole('button', {name: '开始扫描', exact: true}).click()
+  await expect(feedback(page).locator('.feedback-title')).toHaveText('扫描完成')
+  await expect(feedback(page).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
+  await expect(page.getByRole('button', {name: '重新扫描', exact: true})).toBeEnabled()
+  expect(starts).toHaveLength(1)
+  expect(await page.evaluate(() => sessionStorage.getItem('mss-scan-id'))).toBeNull()
+})
+
 test('stop feedback survives snapshots, retries failures and allows escalation before terminal confirmation', async ({page, request}) => {
   const state = await controlledScan(page, await seedScan(request))
   const calls = [], held = []
@@ -134,6 +156,20 @@ test('application-owned scan survives catalog and history navigation without res
   expect(await page.evaluate(() => sessionStorage.getItem('mss-scan-id'))).toBe(id)
   expect(mutations).toEqual([])
   expect(errors).toEqual([])
+})
+
+test('monitor can reopen the workbench when a scan finishes after navigation', async ({page, request}) => {
+  await monitorFixture(page)
+  const state = await controlledScan(page, await seedScan(request))
+  await page.getByRole('button', {name: '持续监控', exact: true}).click()
+  const open = page.getByRole('button', {name: '去工作台复测并选择', exact: true})
+  await expect(open).toBeDisabled()
+  state.scan = {...state.scan, status: 'complete', completed_at: new Date().toISOString()}
+  await state.refresh()
+  await expect(open).toBeEnabled()
+  await open.click()
+  await expect(page.getByRole('combobox', {name: '目标策略组', exact: true})).toHaveValue('🤖 ChatGPT')
+  await expect(page.getByRole('combobox', {name: '测试服务', exact: true})).toHaveValue('chatgpt')
 })
 
 test('scan feedback handles empty snapshots, refinement, start failure and bilingual reduced motion', async ({page, request}) => {

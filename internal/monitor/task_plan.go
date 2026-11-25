@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
-	"github.com/Uddoo/mihomo-smart-selector/internal/scan"
+	"github.com/Uddoo/mihomo-smart-selector/internal/monitor/probe"
 	"math"
 	"time"
 )
@@ -134,7 +134,7 @@ func (m *TaskRuntime) savePlan(ctx context.Context, r model.MonitorRequest, impl
 			return nil, fmt.Errorf("候选已失效或不在目标组内，请刷新")
 		}
 	}
-	hash := scan.MonitorProfileHash(p)
+	hash := probe.ProfileHash(p)
 	configuredProfile = &p
 	plan := &model.MonitorPlan{Enabled: r.Enabled, CandidateLimit: limit, FailoverTolerancePP: tolerance, Group: r.Group, ProfileID: p.ID, ProfileHash: hash, Nodes: selected, Revision: previous + 1, CreatedAt: m.now()}
 	if old != nil {

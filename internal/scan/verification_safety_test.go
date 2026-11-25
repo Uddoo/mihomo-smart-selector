@@ -168,10 +168,10 @@ func TestVerificationConfirmsIdentityAndReportsRestore(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 				f.cancel = cancel
-				results := []model.NodeResult{{Name: "candidate", VerifiedRegion: "DE", StrictVerificationStatus: "passed", StrictChecks: []model.StrictCheck{{Status: "passed"}}}}
+				results := []model.NodeResult{{Name: "candidate", VerifiedRegion: "DE", EgressEvidenceSource: "isolated_identity_v1", StrictVerificationStatus: "passed", StrictChecks: []model.StrictCheck{{Status: "passed"}}}}
 				var warning *model.ScanWarning
 				if phase == "egress" {
-					warning = m.verifyEgress(ctx, results, "test")
+					warning = m.verifyEgress(ctx, model.Scan{ID: "test"}, nil, results)
 				} else {
 					warning = m.verifyStrict(ctx, profile, results, "test")
 				}
@@ -186,8 +186,13 @@ func TestVerificationConfirmsIdentityAndReportsRestore(t *testing.T) {
 				if !verified && phase == "strict" && (len(r.StrictChecks) != 0 || r.RestrictionStatus != "not_checked") {
 					t.Fatal("unconfirmed strict response leaked evidence")
 				}
-				if !verified && phase == "egress" && r.EgressError == "" {
-					t.Fatal("unconfirmed egress response omitted its reason")
+				if phase == "egress" {
+					if verified && r.EgressEvidenceSource != "primary" {
+						t.Fatalf("unexpected primary region source %q", r.EgressEvidenceSource)
+					}
+					if !verified && (r.EgressError == "" || r.EgressEvidenceSource != "") {
+						t.Fatal("unconfirmed egress response omitted its reason or retained the old source")
+					}
 				}
 				if tc.warning == "" && warning != nil || tc.warning != "" && (warning == nil || warning.Code != tc.warning || warning.Group != "probe" || warning.Phase != phase || warning.Message == "") {
 					t.Fatalf("warning=%+v, want %q", warning, tc.warning)
@@ -218,7 +223,7 @@ func TestVerificationRejectsUnsafeInitialStateAndUsesFreshBaseline(t *testing.T)
 				})
 				results := []model.NodeResult{{Name: "candidate"}}
 				if phase == "egress" {
-					m.verifyEgress(context.Background(), results, "test")
+					m.verifyEgress(context.Background(), model.Scan{ID: "test"}, nil, results)
 				} else {
 					m.verifyStrict(context.Background(), profile, results, "test")
 				}
@@ -246,7 +251,7 @@ func TestVerificationSkipsMissingMembersButStopsAfterUnconfirmedSwitch(t *testin
 				}
 				results := []model.NodeResult{{Name: first, Score: 90}, {Name: "candidate", Score: 80}}
 				if phase == "egress" {
-					m.verifyEgress(context.Background(), results, "test")
+					m.verifyEgress(context.Background(), model.Scan{ID: "test"}, nil, results)
 				} else {
 					m.verifyStrict(context.Background(), profile, results, "test")
 				}
