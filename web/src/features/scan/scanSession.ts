@@ -4,6 +4,25 @@ import { readScanEvents, applyScanEvents } from './scanEvents'
 import { createScanTransport } from './scanTransport'
 import type { Scan } from '../../shared/types/models'
 
+const scanIDKey = 'mss-scan-id'
+
+function readSavedScanID() {
+  try {
+    return sessionStorage.getItem(scanIDKey)
+  } catch {
+    return null
+  }
+}
+
+function saveScanID(id: string | null) {
+  try {
+    if (id === null) sessionStorage.removeItem(scanIDKey)
+    else sessionStorage.setItem(scanIDKey, id)
+  } catch {
+    // Reload recovery is optional; the current tab already owns the scan.
+  }
+}
+
 // One owner for streaming, polling fallback, reload recovery and stale responses.
 export function useScanSession(onSettled: (scan: Scan) => void) {
   const scan = shallowRef<Scan | null>(null)
@@ -51,7 +70,7 @@ export function useScanSession(onSettled: (scan: Scan) => void) {
     close()
     scan.value = null
     syncError.value = ''
-    sessionStorage.removeItem('mss-scan-id')
+    saveScanID(null)
   }
   function visibility() {
     if (document.hidden || !navigator.onLine) transport.suspend()
@@ -63,11 +82,12 @@ export function useScanSession(onSettled: (scan: Scan) => void) {
     scan.value = value
     recent.value = [value, ...recent.value.filter((item) => item.id !== value.id)]
     running.value = value.status === 'running'
-    sessionStorage.setItem('mss-scan-id', value.id)
+    restored = true
     if (running.value) {
       transport.start(value.id)
       visibility()
     } else onSettled(value)
+    saveScanID(value.id)
   }
   async function open(id: string, canAccept: () => boolean = () => true): Promise<boolean> {
     const revision = ++openRevision
@@ -82,24 +102,26 @@ export function useScanSession(onSettled: (scan: Scan) => void) {
     if (disposed || revision !== openRevision) return
     recent.value = items
   }
-  async function restore() {
+  async function restore(refreshRecentList = true) {
+    if (restored && !refreshRecentList) return
     const revision = openRevision
     await refreshRecent()
     if (disposed || revision !== openRevision) return
     if (restored) return
-    const saved = sessionStorage.getItem('mss-scan-id')
+    const saved = readSavedScanID()
     if (saved) {
       try {
         await open(saved)
-        restored = true
         return
       } catch (error) {
+        // A scan accepted while this read was pending owns the saved ID now.
+        if (disposed || restored) return
         if (!(error instanceof APIError) || error.status !== 404) throw error
-        sessionStorage.removeItem('mss-scan-id')
+        saveScanID(null)
       }
     }
     if (recent.value[0]) await open(recent.value[0].id)
-    restored = true
+    else restored = true
   }
   document.addEventListener('visibilitychange', visibility)
   window.addEventListener('online', visibility)

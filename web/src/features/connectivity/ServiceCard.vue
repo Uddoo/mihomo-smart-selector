@@ -19,6 +19,7 @@ const props = defineProps<{
   available: boolean
   loading: boolean
   locked: boolean
+  restoringScan: boolean
 }>()
 const emit = defineEmits<{
   retest: [id: string]
@@ -174,6 +175,7 @@ function sampleLabel(index: number) {
             :available="available"
             :loading="loading"
             :locked="locked"
+            :restoring-scan="restoringScan"
             @candidates="
               ($event) => {
                 closeDetails(false)

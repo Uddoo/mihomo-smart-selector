@@ -6,7 +6,7 @@ import type { Scan } from '../../shared/types/models'
 import type { BoundGroup } from './bindings'
 import { nodeEvidence } from './nodeEvidence'
 
-const props = defineProps<{ binding: BoundGroup; locked: boolean }>()
+const props = defineProps<{ binding: BoundGroup; locked: boolean; restoringScan: boolean }>()
 defineEmits<{ prepare: [group: string, profile: string] }>()
 const record = shallowRef<Scan | null>(null),
   busy = shallowRef(false),
@@ -136,7 +136,7 @@ async function read() {
         <p>{{ t('节点证据只验证扫描模板中的入口，不代表当前浏览器路径或业务功能可用。') }}</p>
       </div>
       <button
-        :disabled="locked"
+        :disabled="locked || restoringScan"
         @click="$emit('prepare', binding.group, binding.profileID)"
         >{{ t('前往扫描工作台验证') }}</button
       >

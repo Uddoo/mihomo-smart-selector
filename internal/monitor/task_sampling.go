@@ -2,11 +2,10 @@ package monitor
 
 import (
 	"context"
-	"errors"
-	"github.com/Uddoo/mihomo-smart-selector/internal/model"
-	"github.com/Uddoo/mihomo-smart-selector/internal/scan"
-	"strings"
 	"time"
+
+	"github.com/Uddoo/mihomo-smart-selector/internal/model"
+	"github.com/Uddoo/mihomo-smart-selector/internal/monitor/probe"
 )
 
 func (m *TaskRuntime) refresh(ctx context.Context, plan model.MonitorPlan, now time.Time) {
@@ -46,7 +45,7 @@ func (m *TaskRuntime) refresh(ctx context.Context, plan model.MonitorPlan, now t
 		m.owner.budget.set(plan.TaskID, 0, false)
 		return
 	}
-	if scan.MonitorProfileHash(p) != plan.ProfileHash {
+	if probe.ProfileHash(p) != plan.ProfileHash {
 		m.issue = "服务探测配置已变化，请重新保存监控，开始新的评分记录"
 		m.owner.budget.set(plan.TaskID, 0, false)
 		return
@@ -150,36 +149,8 @@ func (m *TaskRuntime) step(ctx context.Context, now time.Time) {
 	} else if !present {
 		sample.Reason = "节点已移除或 Provider/协议身份发生变化"
 		sample.ReasonCode = "node_missing"
-	} else {
-		sample.Outcome = "success"
-		for _, probe := range profile.Probes {
-			if !m.takeBudget(m.now()) {
-				sample.Outcome = "unknown"
-				sample.Reason = "已达到后台请求预算，本次未完成"
-				sample.ReasonCode = "budget"
-				break
-			}
-			delay, err := m.source.MonitorDelay(child, *chosen, probe)
-			if child.Err() != nil {
-				return
-			}
-			if err != nil {
-				if errors.Is(err, scan.ErrMonitorBusy) {
-					sample.Outcome = "unknown"
-					sample.Reason = "手动扫描占用探测额度，本次漏测"
-					sample.ReasonCode = "busy"
-				} else if strings.Contains(err.Error(), "HTTP 401") || strings.Contains(err.Error(), "HTTP 403") || !m.source.MonitorReachable(child) {
-					sample.Outcome = "unknown"
-					sample.Reason = "Controller 无法完成请求，未归因于节点"
-					sample.ReasonCode = "controller"
-				} else {
-					sample.Outcome = "failure"
-					sample.Reason = "节点路径探测失败或超时；未定位具体故障位置"
-				}
-				break
-			}
-			sample.DelayMS = max(sample.DelayMS, delay)
-		}
+	} else if !m.probeNode(child, *chosen, profile, &sample) {
+		return
 	}
 	sample.At = m.now()
 	if sample.Outcome == "success" {

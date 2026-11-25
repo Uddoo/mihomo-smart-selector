@@ -7,21 +7,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	"github.com/Uddoo/mihomo-smart-selector/internal/config"
+	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
+	"github.com/Uddoo/mihomo-smart-selector/internal/monitor/probe"
 )
-
-var ErrMonitorBusy = errors.New("扫描正在使用探测额度")
 
 func (m *Manager) MonitorScope() string { return m.bindingScope() }
 
 func MonitorProfileHash(p config.ProbeProfile) string {
-	data, _ := json.Marshal(p.Probes)
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
+	return probe.ProfileHash(p)
 }
 
 func (m *Manager) MonitorCatalog(ctx context.Context, group, profileID string) (config.ProbeProfile, []model.MonitorNode, string, error) {
@@ -71,13 +70,46 @@ func (m *Manager) MonitorCatalog(ctx context.Context, group, profileID string) (
 	return p, out, g.Now, nil
 }
 
+func (m *Manager) MonitorDelay(ctx context.Context, node model.MonitorNode, target config.Probe) (int, error) {
+	delay, err := m.tryMonitorDelay(ctx, node, target)
+	if ctx.Err() != nil {
+		return 0, ctx.Err()
+	}
+	if err == nil || errors.Is(err, probe.ErrBusy) || errors.Is(err, context.Canceled) {
+		return delay, err
+	}
+	if isControllerAuthError(err) {
+		return 0, probe.ErrAuthentication
+	}
+	// The probe slot and its per-request timeout have ended. Attribute the
+	// failure to the node only if the controller responds under the caller's context.
+	_, reachErr := m.client.Reachable(ctx)
+	switch {
+	case ctx.Err() != nil:
+		return 0, ctx.Err()
+	case errors.Is(reachErr, context.Canceled):
+		return 0, reachErr
+	case isControllerAuthError(reachErr):
+		return 0, probe.ErrAuthentication
+	case reachErr != nil:
+		return 0, probe.ErrControllerUnavailable
+	default:
+		return 0, err
+	}
+}
+
+func isControllerAuthError(err error) bool {
+	var status *mihomo.HTTPStatusError
+	return errors.As(err, &status) && (status.StatusCode == http.StatusUnauthorized || status.StatusCode == http.StatusForbidden)
+}
+
 // The same gate is used by foreground scans. A monitor never queues behind
 // a saturated scan: that time slot is recorded as unknown, not node failure.
-func (m *Manager) MonitorDelay(ctx context.Context, node model.MonitorNode, probe config.Probe) (int, error) {
+func (m *Manager) tryMonitorDelay(ctx context.Context, node model.MonitorNode, target config.Probe) (int, error) {
 	m.settingsMu.Lock()
 	if m.stopping {
 		m.settingsMu.Unlock()
-		return 0, ErrMonitorBusy
+		return 0, probe.ErrBusy
 	}
 	slots := m.probeSlots
 	select {
@@ -86,16 +118,11 @@ func (m *Manager) MonitorDelay(ctx context.Context, node model.MonitorNode, prob
 		defer func() { <-slots }()
 	default:
 		m.settingsMu.Unlock()
-		return 0, ErrMonitorBusy
+		return 0, probe.ErrBusy
 	}
 	child, cancel := context.WithTimeout(ctx, 5500*time.Millisecond)
 	defer cancel()
-	return m.client.Delay(child, node.Name, node.Provider, probe, 5000)
-}
-
-func (m *Manager) MonitorReachable(ctx context.Context) bool {
-	_, err := m.client.Reachable(ctx)
-	return err == nil
+	return m.client.Delay(child, node.Name, node.Provider, target, 5000)
 }
 
 func (m *Manager) MonitorForegroundBusy() bool { return m.hasRunningScan() }

@@ -23,6 +23,10 @@
 选择。手动切换仍需通过服务端的扫描完成、证据有效期、成员资格和其他选择条件检查。
 更换视图时分页回到第一页；定位当前节点或候选会按照当前视图找到其所在页。
 
+若服务要求严格验证，历史 `passed` 必须对应当前严格规则；规则变化或历史缺少规则指纹时，请复测。
+若服务要求出口地区匹配，独立出口 Controller 上的同名节点还须与业务端的 Provider 和协议一致。
+升级前只有地区、没有验证来源的结果仍可查看，但不能用于新的地区受限切换；复测不会自动切换。
+
 ### 用扫描排名替换监控列表
 
 扫描完成后，在排名表上方填写“扫描排名前 N 名”，点击“替换监控列表”，即可用本次扫描
@@ -87,6 +91,12 @@ freshness orders valid, unknown, then expired.
 The rank column retains overall rank. Views do not change scores, the recommended candidate, or selection
 rules. Search and locate operate on the current view, and changing views resets pagination. Switching
 still requires the existing server-side checks and explicit confirmation.
+
+When the service requires strict verification, a saved pass must match the current strict rules.
+Retest if the rules changed or the scan has no rule fingerprint. When a matching exit region is
+required, a same-name node on an isolated egress Controller must also match the business node's
+provider and protocol. Older results without an egress evidence source remain readable but cannot
+authorize a new region-gated switch. Retesting does not switch the business group.
 
 ### Replace the monitor list from scan ranks
 

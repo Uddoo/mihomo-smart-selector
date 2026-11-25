@@ -210,6 +210,8 @@ func (s *Store) MonitorEvents(ctx context.Context, plan string) ([]model.Monitor
 func (s *Store) CleanupMonitor(ctx context.Context, now time.Time) error {
 	// A bounded cleanup can commit some batches before returning pending/error.
 	defer s.evidenceEpoch.Add(1)
+	pending := false
+	repairBudget := 24 // Queue at most one full aggregation batch across all scopes.
 	rows, err := s.db.QueryContext(ctx, `SELECT scope FROM monitor_plans UNION SELECT scope FROM monitor_series`)
 	if err != nil {
 		return err
@@ -228,13 +230,12 @@ func (s *Store) CleanupMonitor(ctx context.Context, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	pending := false
 	for _, scope := range scopes {
 		p, e := s.MonitorRetention(ctx, scope)
 		if e != nil {
 			return e
 		}
-		if e = s.cleanupMonitorScope(ctx, scope, p, now); e != nil {
+		if e = s.cleanupMonitorScope(ctx, scope, p, now, &repairBudget); e != nil {
 			if errors.Is(e, ErrMonitorCleanupPending) {
 				pending = true
 			} else {

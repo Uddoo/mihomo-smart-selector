@@ -7,6 +7,7 @@ import type { NestedSelector, ScanPreview } from '../../shared/types/models'
 const props = defineProps<{
   preview: ScanPreview | null
   disabled: boolean
+  previewCurrent: boolean
   navigation: { path: string[]; target: string } | null
 }>()
 const emit = defineEmits<{
@@ -68,7 +69,7 @@ const parent = computed(() => props.navigation?.path[0] || '')
           </div>
           <button
             type="button"
-            :disabled="disabled"
+            :disabled="disabled || !previewCurrent"
             @click="emit('selectGroup', option)"
             ><CornerDownRight
               :size="16"

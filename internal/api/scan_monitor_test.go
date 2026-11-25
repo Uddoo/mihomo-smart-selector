@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -26,7 +27,7 @@ type scanMonitorController struct {
 
 func (*scanMonitorController) ListProxies(context.Context) (map[string]mihomo.Proxy, error) {
 	return map[string]mihomo.Proxy{
-		"ChatGPT": {Name: "ChatGPT", Type: "Selector", All: []string{"a", "b", "c"}},
+		"ChatGPT": {Name: "ChatGPT", Type: "Selector", Now: "a", All: []string{"a", "b", "c"}},
 		"Video":   {Name: "Video", Type: "Selector", All: []string{"a", "b", "c"}},
 		"a":       {Name: "a", Type: "VLESS"},
 		"b":       {Name: "b", Type: "VLESS"},
@@ -41,6 +42,7 @@ func (c *scanMonitorController) ListProviders(context.Context) ([]mihomo.Provide
 type scanMonitorFixture struct {
 	handler http.Handler
 	store   *history.Store
+	dbPath  string
 	scanner *scan.Manager
 }
 
@@ -48,7 +50,8 @@ func newScanMonitorFixture(t *testing.T) *scanMonitorFixture {
 	t.Helper()
 	cfg := config.Defaults()
 	cfg.HTTP = config.HTTPConfig{Listen: "127.0.0.1:8788", AllowedCIDRs: []string{"127.0.0.1/32"}}
-	store, err := history.Open(filepath.Join(t.TempDir(), "monitor.db"))
+	dbPath := filepath.Join(t.TempDir(), "monitor.db")
+	store, err := history.Open(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +67,7 @@ func newScanMonitorFixture(t *testing.T) *scanMonitorFixture {
 		t.Fatal(err)
 	}
 	server.WithMonitor(manager)
-	return &scanMonitorFixture{handler: server.Handler(), store: store, scanner: scanner}
+	return &scanMonitorFixture{handler: server.Handler(), store: store, dbPath: dbPath, scanner: scanner}
 }
 
 func (f *scanMonitorFixture) call(t *testing.T, method, path string, body map[string]any) *httptest.ResponseRecorder {
@@ -118,6 +121,75 @@ func requireScanMonitorPlan(t *testing.T, w *httptest.ResponseRecorder, status i
 		t.Fatalf("saved nodes = %v, want %v", actual, names)
 	}
 	return plan
+}
+
+func TestMonitorCatalogScanSuggestions(t *testing.T) {
+	check := func(t *testing.T, f *scanMonitorFixture, want ...string) {
+		t.Helper()
+		w := f.call(t, "GET", "/api/v1/monitor/catalog?group=ChatGPT&profile_id=chatgpt", nil)
+		var got struct{ Suggested []string }
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &got) != nil || !reflect.DeepEqual(got.Suggested, want) {
+			t.Fatalf("catalog status %d, suggested %v, want %v", w.Code, got.Suggested, want)
+		}
+	}
+	t.Run("foreign scope remains in global history only", func(t *testing.T) {
+		f := newScanMonitorFixture(t)
+		s := f.sourceScan()
+		s.ControllerScope = "http://another-controller.example:9090"
+		f.insertScan(t, s)
+		w := f.call(t, "GET", "/api/v1/scans", nil)
+		var recent []model.Scan
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &recent) != nil || len(recent) != 1 || recent[0].ID != s.ID || len(recent[0].Results) != 0 {
+			t.Fatalf("global history status %d: %s", w.Code, w.Body.String())
+		}
+		check(t, f, "a")
+	})
+	t.Run("same name requires current provider and membership", func(t *testing.T) {
+		f := newScanMonitorFixture(t)
+		s := f.sourceScan()
+		s.Results[1].Provider = "previous-provider"
+		s.Results[2].Name = "former-leaf"
+		f.insertScan(t, s)
+		check(t, f, "a")
+	})
+	t.Run("twenty unrelated groups cannot displace matching history", func(t *testing.T) {
+		f := newScanMonitorFixture(t)
+		s := f.sourceScan()
+		f.insertScan(t, s)
+		for i := 0; i < 20; i++ {
+			s.ID = fmt.Sprintf("unrelated-%02d", i)
+			s.Request.TargetGroup = "Video"
+			s.StartedAt = s.StartedAt.Add(time.Minute)
+			s.CompletedAt = &s.StartedAt
+			f.insertScan(t, s)
+		}
+		check(t, f, "a", "b", "c")
+	})
+	t.Run("latest completion for this profile supplies successful leaves", func(t *testing.T) {
+		f := newScanMonitorFixture(t)
+		s := f.sourceScan()
+		at := time.Now().UTC().Truncate(time.Second)
+		s.CompletedAt = &at
+		s.Results = []model.NodeResult{{Name: "b", Provider: "current-provider", Rank: 1, SuccessRate: 1}}
+		f.insertScan(t, s)
+		s.ID = "last-completed"
+		s.StartedAt = s.StartedAt.Add(-time.Minute)
+		at = at.Add(time.Nanosecond)
+		s.Results[0].Name = "c"
+		s.Results = append(s.Results, model.NodeResult{Name: "b", Provider: "current-provider", Rank: 2})
+		f.insertScan(t, s)
+		s.ID = "other-profile"
+		s.Request.ProfileID = "other"
+		at = at.Add(time.Second)
+		s.Results[0].Name = "b"
+		f.insertScan(t, s)
+		s.ID = "interrupted"
+		s.Request.ProfileID = "chatgpt"
+		s.Status = model.ScanInterrupted
+		at = at.Add(time.Second)
+		f.insertScan(t, s)
+		check(t, f, "a", "c")
+	})
 }
 
 func TestMonitorTasksScanIDSaveAndLegacyRequests(t *testing.T) {

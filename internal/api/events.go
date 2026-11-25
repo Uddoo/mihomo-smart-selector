@@ -11,7 +11,7 @@ import (
 
 func (s *Server) events(writer http.ResponseWriter, request *http.Request, id string) {
 	if _, err := s.manager.Get(request.Context(), id); err != nil {
-		writeError(writer, http.StatusNotFound, "scan not found")
+		writeScanReadError(writer, err)
 		return
 	}
 	_, supported := writer.(http.Flusher)

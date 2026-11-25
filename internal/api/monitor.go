@@ -235,36 +235,9 @@ func (s *Server) serveMonitor(w http.ResponseWriter, r *http.Request, m *monitor
 			writeError(w, 400, err.Error())
 			return
 		}
-		suggested := []string{}
-		seen := map[string]bool{}
-		present := map[string]bool{}
-		for _, n := range nodes {
-			present[n.Name] = true
-		}
-		add := func(name string) {
-			if present[name] && !seen[name] && len(suggested) < monitor.Limits().DefaultCandidateLimit {
-				suggested = append(suggested, name)
-				seen[name] = true
-			}
-		}
-		add(current)
-		recent, err := s.manager.Recent(r.Context())
-		if err == nil {
-			for _, item := range recent {
-				if item.Status == model.ScanComplete && item.Request.TargetGroup == group && item.Request.ProfileID == profile {
-					full, err := s.manager.Get(r.Context(), item.ID)
-					if err == nil {
-						for _, n := range full.Results {
-							if n.SuccessRate > 0 {
-								add(n.Name)
-							}
-						}
-					}
-					break
-				}
-			}
-		}
-		writeJSON(w, 200, map[string]any{"nodes": nodes, "current": current, "suggested": suggested, "probe_count": len(p.Probes), "limits": monitor.Limits()})
+		limits := monitor.Limits()
+		suggested := s.manager.MonitorSuggestions(r.Context(), group, p.ID, current, nodes, limits.DefaultCandidateLimit)
+		writeJSON(w, 200, map[string]any{"nodes": nodes, "current": current, "suggested": suggested, "probe_count": len(p.Probes), "limits": limits})
 	default:
 		writeError(w, 404, "监控接口不存在")
 	}

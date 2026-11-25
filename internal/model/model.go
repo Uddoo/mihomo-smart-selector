@@ -138,6 +138,7 @@ type NodeResult struct {
 	InferredRegion           string         `json:"inferred_region,omitempty"`
 	RegionSource             string         `json:"region_source,omitempty"`
 	VerifiedRegion           string         `json:"verified_region,omitempty"`
+	EgressEvidenceSource     string         `json:"egress_evidence_source,omitempty"`
 	EgressError              string         `json:"egress_error,omitempty"`
 	Samples                  []ProbeSample  `json:"samples"`
 	StrictChecks             []StrictCheck  `json:"strict_checks,omitempty"`

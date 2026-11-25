@@ -4,9 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 )
+
+var ErrScanNotFound = errors.New("not found")
 
 func (s *Store) CreateScan(ctx context.Context, scan model.Scan) error {
 	request, err := json.Marshal(scan.Request)
@@ -81,7 +85,7 @@ func (s *Store) GetScan(ctx context.Context, id string) (model.Scan, error) {
 		`SELECT status, request_json, profile_json, started_at, completed_at, error, progress_json, warnings_json, controller_scope FROM scans WHERE id = ?`, id,
 	).Scan(&status, &requestJSON, &profileJSON, &startedAt, &completedAt, &errorText, &progressJSON, &warningsJSON, &scan.ControllerScope)
 	if err == sql.ErrNoRows {
-		return model.Scan{}, fmt.Errorf("scan %q not found", id)
+		return model.Scan{}, fmt.Errorf("scan %q %w", id, ErrScanNotFound)
 	}
 	if err != nil {
 		return model.Scan{}, fmt.Errorf("read scan: %w", err)
@@ -116,24 +120,46 @@ func (s *Store) GetScan(ctx context.Context, id string) (model.Scan, error) {
 		scan.CompletedAt = &parsed
 	}
 
-	rows, err := s.db.QueryContext(ctx, `SELECT result_json FROM scan_results WHERE scan_id = ? ORDER BY rank ASC`, id)
+	scan.Results, err = s.scanResults(ctx, `SELECT result_json FROM scan_results WHERE scan_id = ? ORDER BY rank`, id)
 	if err != nil {
-		return model.Scan{}, fmt.Errorf("read scan results: %w", err)
+		return model.Scan{}, err
+	}
+	return scan, nil
+}
+
+// LatestCompletedScanResults returns the ranked results from one matching scan.
+func (s *Store) LatestCompletedScanResults(ctx context.Context, scope, group, profile string) ([]model.NodeResult, error) {
+	// Stored UTC RFC3339Nano timestamps omit trailing fractional zeroes. Removing
+	// the Z keeps a whole second ordered before later fractions of that second.
+	return s.scanResults(ctx, `SELECT result_json FROM scan_results WHERE scan_id = (
+		SELECT id FROM scans WHERE controller_scope = ? AND controller_scope <> ''
+		AND status = ? AND completed_at IS NOT NULL
+		AND json_extract(CAST(request_json AS TEXT), '$.target_group') = ?
+		AND json_extract(CAST(request_json AS TEXT), '$.profile_id') = ?
+		ORDER BY rtrim(completed_at, 'Z') DESC, id DESC LIMIT 1
+	) ORDER BY rank`, scope, model.ScanComplete, group, profile)
+}
+
+func (s *Store) scanResults(ctx context.Context, query string, args ...any) ([]model.NodeResult, error) {
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("read scan results: %w", err)
 	}
 	defer rows.Close()
+	var results []model.NodeResult
 	for rows.Next() {
 		var payload string
 		if err := rows.Scan(&payload); err != nil {
-			return model.Scan{}, fmt.Errorf("read scan result: %w", err)
+			return nil, fmt.Errorf("read scan result: %w", err)
 		}
 		var result model.NodeResult
 		if err := json.Unmarshal([]byte(payload), &result); err != nil {
-			return model.Scan{}, fmt.Errorf("decode scan result: %w", err)
+			return nil, fmt.Errorf("decode scan result: %w", err)
 		}
-		scan.Results = append(scan.Results, result)
+		results = append(results, result)
 	}
 	if err := rows.Err(); err != nil {
-		return model.Scan{}, fmt.Errorf("iterate scan results: %w", err)
+		return nil, fmt.Errorf("iterate scan results: %w", err)
 	}
-	return scan, nil
+	return results, nil
 }

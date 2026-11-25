@@ -182,11 +182,15 @@ func (s *Store) AggregateMonitor(ctx context.Context, now time.Time) error {
 	return err
 }
 
+func rollupHourCutoff(now time.Time) int64 {
+	return now.Add(-2*time.Minute - time.Hour).Unix()
+}
+
 func (s *Store) AggregateMonitorBatch(ctx context.Context, now time.Time, limit int) (int, error) {
 	if limit < 1 || limit > 24 {
 		return 0, fmt.Errorf("aggregation batch must be between 1 and 24 hours")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT series_id,hour FROM monitor_dirty_hours WHERE hour<=? ORDER BY hour,series_id LIMIT ?`, now.Add(-2*time.Minute).Unix()-3600, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT series_id,hour FROM monitor_dirty_hours WHERE hour<=? ORDER BY hour,series_id LIMIT ?`, rollupHourCutoff(now), limit)
 	if err != nil {
 		return 0, err
 	}

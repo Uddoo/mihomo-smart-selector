@@ -61,7 +61,8 @@ func (m *Manager) SelectRequest(ctx context.Context, scanID, requestedNode, requ
 	if err != nil {
 		return model.SwitchEvent{}, fmt.Errorf("服务模板已失效，请重新扫描")
 	}
-	if reason := m.selectionReason(scan, *selected, profile, time.Now()); reason != "" {
+	policy := selectionPolicyFor(profile)
+	if reason := m.selectionReason(scan, *selected, policy, time.Now()); reason != "" {
 		return model.SwitchEvent{}, fmt.Errorf("%s", reason)
 	}
 	proxies, err := m.client.ListProxies(ctx)
@@ -76,7 +77,7 @@ func (m *Manager) SelectRequest(ctx context.Context, scanID, requestedNode, requ
 		return model.SwitchEvent{}, fmt.Errorf("node %q is no longer a member of target group", selected.Name)
 	}
 	// Fresh discovery can take time; enforce expiry again immediately before PUT.
-	if reason := m.selectionReason(scan, *selected, profile, time.Now()); reason != "" {
+	if reason := m.selectionReason(scan, *selected, policy, time.Now()); reason != "" {
 		return model.SwitchEvent{}, fmt.Errorf("%s", reason)
 	}
 	unresolved, err := m.store.UnresolvedSwitch(ctx, group.Name, m.bindingScope())

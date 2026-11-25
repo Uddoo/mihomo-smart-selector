@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Uddoo/mihomo-smart-selector/internal/ipintel"
-	"github.com/Uddoo/mihomo-smart-selector/internal/mihomo"
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 )
 
@@ -134,19 +133,7 @@ func (m *Manager) monitorTrace(parent context.Context, group string, node model.
 
 // Bypass catalog caches: a node name can be reused by a different provider.
 func (m *Manager) confirmEgressNode(ctx context.Context, group string, node model.MonitorNode) bool {
-	proxies, err := m.client.ListProxies(ctx)
-	if err != nil {
-		return false
-	}
-	g, exists := proxies[group]
-	if !exists || !strings.EqualFold(g.Type, "Selector") || !contains(g.All, node.Name) {
-		return false
-	}
-	providers, err := m.client.ListProviders(ctx)
-	if err != nil {
-		return false
-	}
-	if !matchesEgressIdentity(proxies, providers, node) {
+	if !m.confirmBusinessEgressNode(ctx, group, node) {
 		return false
 	}
 	if m.egressClient == nil {
@@ -160,24 +147,17 @@ func (m *Manager) confirmEgressNode(ctx context.Context, group string, node mode
 	return err == nil && matchesEgressIdentity(probeProxies, probeProviders, node)
 }
 
-func matchesEgressIdentity(proxies map[string]mihomo.Proxy, providers []mihomo.Provider, node model.MonitorNode) bool {
-	proxy, exists := proxies[node.Name]
-	provider := ""
-	for _, p := range providers {
-		for _, candidate := range p.Proxies {
-			if candidate.Name != node.Name {
-				continue
-			}
-			if provider != "" && provider != p.Name {
-				return false
-			}
-			provider = p.Name
-			if !exists {
-				proxy, exists = candidate, true
-			}
-		}
+func (m *Manager) confirmBusinessEgressNode(ctx context.Context, group string, node model.MonitorNode) bool {
+	proxies, err := m.client.ListProxies(ctx)
+	if err != nil {
+		return false
 	}
-	return exists && provider == node.Provider && proxy.Type == node.Protocol && !strings.EqualFold(proxy.Type, "Direct") && !strings.EqualFold(proxy.Type, "Reject") && !strings.EqualFold(proxy.Type, "Pass")
+	g, exists := proxies[group]
+	if !exists || g.Name != group || !strings.EqualFold(g.Type, "Selector") || !contains(g.All, node.Name) {
+		return false
+	}
+	providers, err := m.client.ListProviders(ctx)
+	return err == nil && matchesEgressIdentity(proxies, providers, node)
 }
 
 func parseChatGPTTrace(body string) (string, string, bool) {

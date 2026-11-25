@@ -38,6 +38,17 @@ type Client interface {
 	Reachable(context.Context) (string, error)
 }
 
+// HTTPStatusError retains the controller response status independently of the request path.
+// Path contains only the endpoint segments, never the query string or credentials.
+type HTTPStatusError struct {
+	StatusCode int
+	Path       string
+}
+
+func (e *HTTPStatusError) Error() string {
+	return fmt.Sprintf("controller returned HTTP %d for %s", e.StatusCode, e.Path)
+}
+
 type HTTPClient struct {
 	baseURL *url.URL
 	secret  string
@@ -231,7 +242,7 @@ func (c *HTTPClient) request(ctx context.Context, method string, segments []stri
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		response.Body.Close()
-		return nil, fmt.Errorf("controller returned HTTP %d for %s", response.StatusCode, strings.Join(segments, "/"))
+		return nil, &HTTPStatusError{StatusCode: response.StatusCode, Path: strings.Join(segments, "/")}
 	}
 	return response, nil
 }

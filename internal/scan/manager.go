@@ -34,6 +34,8 @@ type Event struct {
 type candidate struct {
 	Name     string
 	Provider string
+	// Set only when discovery proves a unique leaf for isolated egress verification.
+	Protocol string
 	Region   regions.Match
 }
 

@@ -7,6 +7,41 @@ import (
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 )
 
+func monitorCandidateProviders(candidates []model.MonitorNode) map[string]string {
+	byName := make(map[string]string, len(candidates))
+	for _, node := range candidates {
+		byName[node.Name] = node.Provider
+	}
+	return byName
+}
+
+// MonitorSuggestions keeps the current leaf first, even when ranking history is unavailable.
+func (m *Manager) MonitorSuggestions(ctx context.Context, group, profileID, current string, candidates []model.MonitorNode, limit int) []string {
+	available := monitorCandidateProviders(candidates)
+	suggested := []string{}
+	if _, ok := available[current]; ok && limit > 0 {
+		suggested = append(suggested, current)
+		delete(available, current)
+	}
+	if len(suggested) >= limit || len(available) == 0 {
+		return suggested
+	}
+	results, err := m.store.LatestCompletedScanResults(ctx, m.bindingScope(), group, profileID)
+	if err != nil {
+		return suggested
+	}
+	for _, result := range results {
+		if provider, ok := available[result.Name]; ok && provider == result.Provider && result.SuccessRate > 0 {
+			suggested = append(suggested, result.Name)
+			delete(available, result.Name)
+			if len(suggested) == limit {
+				break
+			}
+		}
+	}
+	return suggested
+}
+
 // ValidateMonitorScan checks a ranked scan prefix against current monitor candidates.
 func (m *Manager) ValidateMonitorScan(ctx context.Context, scanID, group, profileID string, nodes []string) error {
 	scan, err := m.store.GetScan(ctx, scanID)
@@ -33,10 +68,7 @@ func (m *Manager) ValidateMonitorScan(ctx context.Context, scanID, group, profil
 	if err != nil {
 		return err
 	}
-	byName := make(map[string]string, len(candidates))
-	for _, node := range candidates {
-		byName[node.Name] = node.Provider
-	}
+	byName := monitorCandidateProviders(candidates)
 	for _, result := range results[:len(nodes)] {
 		if provider, ok := byName[result.Name]; !ok || provider != result.Provider {
 			return errors.New("排名中的节点已失效，请重新扫描后替换。")

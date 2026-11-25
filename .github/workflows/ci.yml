@@ -49,6 +49,10 @@ jobs:
           CGO_ENABLED: 1
         run: ./tools/verify.ps1 -Race
 
+      - name: Verify unsupported OpenWrt targets fail before building
+        shell: pwsh
+        run: ./tools/test-openwrt-build.ps1 -CheckRejected
+
       - name: Run the process-level smoke test
         shell: pwsh
         run: ./tools/smoke-test.ps1
@@ -163,7 +167,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        goarch: [amd64, arm64]
+        goarch: [amd64, arm64, arm, '386']
     steps:
       - name: Check out the tested revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -176,22 +180,9 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
-      - name: Build the OpenWrt binary
+      - name: Cross-build and verify ELF architecture and Go metadata
         shell: pwsh
-        run: ./tools/build-openwrt.ps1 -GoArch '${{ matrix.goarch }}' -OutputPath 'dist/linux-${{ matrix.goarch }}'
-
-      - name: Verify module and VCS metadata
-        shell: pwsh
-        run: |
-          $binary = 'dist/linux-${{ matrix.goarch }}/mihomo-smart-selector'
-          $metadata = @(go version -m $binary)
-          if (@($metadata | Where-Object { $_ -match '^\s*mod\s+github\.com/Uddoo/mihomo-smart-selector\s' }).Count -ne 1) {
-            throw 'Built binary does not contain the canonical module path.'
-          }
-          if (@($metadata | Where-Object { $_ -match 'vcs\.modified=true|\+dirty' }).Count -ne 0) {
-            throw 'Built binary reports a dirty source tree.'
-          }
-          Get-FileHash -LiteralPath $binary -Algorithm SHA256
+        run: ./tools/test-openwrt-build.ps1 -GoArch '${{ matrix.goarch }}'
 
   artifacts:
     name: Verify artifact download and release checksums

@@ -1,3 +1,4 @@
+import { computed, shallowRef } from 'vue'
 import { usePageRoute } from './pageRoute'
 import { useAccessSession } from './useAccessSession'
 import { useControllerDiscovery } from './useControllerDiscovery'
@@ -13,7 +14,18 @@ export function useApplication(canLeave?: () => boolean) {
   const accessSession = useAccessSession()
   const feedback = useOperationFeedback()
   const historyState = useSwitchHistory()
-  let restoredSession = false
+  const restoringForm = shallowRef(false)
+  let initialRestore: Promise<void> | undefined
+
+  async function restoreInitialForm() {
+    restoringForm.value = true
+    try {
+      await scanView.session.restore()
+      await scanView.restoreForm()
+    } finally {
+      restoringForm.value = false
+    }
+  }
   const discovery = useControllerDiscovery({
     page,
     access: accessSession.access,
@@ -24,18 +36,27 @@ export function useApplication(canLeave?: () => boolean) {
       if (!scanView.group.value && groups[0]) scanView.group.value = groups[0].name
     },
     onReady: async (scope) => {
-      if (!restoredSession || scope === 'scan') {
-        await scanView.restore()
-        restoredSession = true
-      } else if (scope === 'connectivity') {
-        await scanView.session.refreshRecent()
+      // Navigation and polling share the first restore. Once the form is editable,
+      // a session recovery can reconnect to a scan without overwriting the draft.
+      if (!initialRestore || restoringForm.value) {
+        initialRestore ??= restoreInitialForm()
+        await initialRestore
+      } else {
+        await scanView.session.restore(scope === 'scan' || scope === 'connectivity')
       }
     },
     onSettled: () => scanView.preflight(),
     readHistory: historyState.readHistory,
     cancelHistoryRead: historyState.cancelHistoryRead,
   })
-  const scanView = useScanWorkbench({ discovery, historyState, feedback })
+  const scanView = useScanWorkbench({
+    discovery: {
+      ...discovery,
+      loading: computed(() => discovery.loading.value || restoringForm.value),
+    },
+    historyState,
+    feedback,
+  })
   const catalog = useNodeCatalog(discovery.nodes, scanView.regionLabel, discovery.groups)
   const navigation = useFeatureNavigation(page, scanView, catalog, discovery.metadataValid)
   const catalogView: NodeCatalogPageState = {
@@ -78,6 +99,7 @@ export function useApplication(canLeave?: () => boolean) {
     ...accessSession,
     feedback,
     discovery,
+    restoringForm,
     scanView,
     catalogView,
     historyView,

@@ -7,6 +7,7 @@ import (
 	"github.com/Uddoo/mihomo-smart-selector/internal/model"
 	"maps"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -84,7 +85,7 @@ func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult
 		m.publish(scan.ID, Event{Kind: "warning", Message: warning.Message, At: time.Now().UTC()})
 	}
 	if m.currentConfig().EgressVerification.Enabled {
-		recordWarning(m.verifyEgress(ctx, allResults, scan.ID))
+		recordWarning(m.verifyEgress(ctx, scan, candidates, allResults))
 		for index := range allResults {
 			calculateMetrics(&allResults[index], m.currentConfig().Scanner)
 		}
@@ -111,7 +112,8 @@ func (m *Manager) scan(ctx context.Context, scan model.Scan) ([]model.NodeResult
 }
 
 func (m *Manager) discoverCandidates(ctx context.Context, request model.ScanRequest) ([]candidate, error) {
-	group, proxies, providerByNode, err := m.discoverMembership(ctx, request)
+	read := m.readFreshCatalog(ctx)
+	group, proxies, providerByNode, err := m.membershipFrom(request, read)
 	if err != nil {
 		return nil, err
 	}
@@ -119,24 +121,79 @@ func (m *Manager) discoverCandidates(ctx context.Context, request model.ScanRequ
 	if len(candidates) == 0 {
 		return nil, fmt.Errorf("%w matched the requested filters", errNoCandidates)
 	}
+	if m.egressClient != nil && m.currentConfig().EgressVerification.Enabled && group.Name == request.TargetGroup {
+		freezeEgressIdentities(candidates, read)
+	}
 	return candidates, nil
 }
 
-func (m *Manager) discoverMembership(ctx context.Context, request model.ScanRequest) (mihomo.Proxy, map[string]mihomo.Proxy, map[string]string, error) {
-	proxies, err := m.client.ListProxies(ctx)
-	if err != nil {
-		return mihomo.Proxy{}, nil, nil, fmt.Errorf("discover proxies: %w", err)
+// catalogRead holds the two Controller catalog responses a membership lookup
+// needs. Their errors stay separate: an unreachable provider listing only
+// matters when the request actually filters by provider.
+type catalogRead struct {
+	proxies     map[string]mihomo.Proxy
+	providers   []mihomo.Provider
+	proxyErr    error
+	providerErr error
+}
+
+// readFreshCatalog reads both catalogs concurrently. They are independent
+// endpoints, so overlapping them removes a whole round-trip from every scan
+// and preflight instead of paying for them back to back.
+func (m *Manager) readFreshCatalog(ctx context.Context) catalogRead {
+	var read catalogRead
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		read.proxies, read.proxyErr = m.client.ListProxies(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		read.providers, read.providerErr = m.client.ListProviders(ctx)
+	}()
+	wg.Wait()
+	return read
+}
+
+// readCachedCatalog serves preflight from the read-only catalog cache, so a
+// burst of filter changes costs no Controller round-trips at all. Scans and
+// selection never come here; they always read fresh membership.
+func (m *Manager) readCachedCatalog(ctx context.Context) catalogRead {
+	var read catalogRead
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		read.proxies, read.proxyErr = m.catalogProxies(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		read.providers, read.providerErr = m.catalogProviders(ctx)
+	}()
+	wg.Wait()
+	return read
+}
+
+// preflightMembership is read-only: a preview never needs membership fresher
+// than the catalog snapshot, and reusing it keeps previews off the network.
+func (m *Manager) preflightMembership(ctx context.Context, request model.ScanRequest) (mihomo.Proxy, map[string]mihomo.Proxy, map[string]string, error) {
+	return m.membershipFrom(request, m.readCachedCatalog(ctx))
+}
+
+func (m *Manager) membershipFrom(request model.ScanRequest, read catalogRead) (mihomo.Proxy, map[string]mihomo.Proxy, map[string]string, error) {
+	if read.proxyErr != nil {
+		return mihomo.Proxy{}, nil, nil, fmt.Errorf("discover proxies: %w", read.proxyErr)
 	}
 	// Provider enrichment belongs to this scan, not the controller's shared snapshot.
-	proxies = maps.Clone(proxies)
+	proxies := maps.Clone(read.proxies)
 	group, exists := proxies[request.TargetGroup]
 	if !exists || !strings.EqualFold(group.Type, "Selector") {
 		return mihomo.Proxy{}, nil, nil, fmt.Errorf("target group %q is not a Mihomo Selector", request.TargetGroup)
 	}
 	providerByNode := map[string]string{}
-	providers, providerErr := m.client.ListProviders(ctx)
-	if providerErr == nil {
-		for _, provider := range providers {
+	if read.providerErr == nil {
+		for _, provider := range read.providers {
 			for _, proxy := range provider.Proxies {
 				providerByNode[proxy.Name] = provider.Name
 				// Some controller builds list provider-owned leaf nodes only under
@@ -150,7 +207,7 @@ func (m *Manager) discoverMembership(ctx context.Context, request model.ScanRequ
 			}
 		}
 	} else if len(request.Providers) > 0 {
-		return mihomo.Proxy{}, nil, nil, fmt.Errorf("discover providers for selected provider filter: %w", providerErr)
+		return mihomo.Proxy{}, nil, nil, fmt.Errorf("discover providers for selected provider filter: %w", read.providerErr)
 	}
 	return group, proxies, providerByNode, nil
 }

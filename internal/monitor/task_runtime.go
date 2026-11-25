@@ -12,8 +12,9 @@ import (
 type Source interface {
 	MonitorScope() string
 	MonitorCatalog(context.Context, string, string) (config.ProbeProfile, []model.MonitorNode, string, error)
+	// MonitorDelay returns a positive delay or a classified probe error (internal/monitor/probe).
+	// An ordinary path failure means the adapter confirmed controller reachability.
 	MonitorDelay(context.Context, model.MonitorNode, config.Probe) (int, error)
-	MonitorReachable(context.Context) bool
 }
 
 type TaskRuntime struct {

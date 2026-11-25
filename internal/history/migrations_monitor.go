@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS monitor_observations (series_id TEXT NOT NULL,kind TE
 CREATE INDEX IF NOT EXISTS monitor_observations_time ON monitor_observations(series_id,scheduled_at);
 CREATE TABLE IF NOT EXISTS monitor_series_states (series_id TEXT PRIMARY KEY,payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS monitor_hourly (series_id TEXT NOT NULL,hour INTEGER NOT NULL,version INTEGER NOT NULL DEFAULT 1,payload TEXT NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(series_id,hour));
+CREATE INDEX IF NOT EXISTS monitor_hourly_time ON monitor_hourly(hour,series_id);
 CREATE TABLE IF NOT EXISTS monitor_dirty_hours (series_id TEXT NOT NULL,hour INTEGER NOT NULL,PRIMARY KEY(series_id,hour));
 CREATE INDEX IF NOT EXISTS monitor_dirty_hours_time ON monitor_dirty_hours(hour,series_id);
 CREATE TABLE IF NOT EXISTS monitor_migration (id INTEGER PRIMARY KEY,cursor INTEGER NOT NULL);

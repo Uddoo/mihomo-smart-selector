@@ -164,7 +164,7 @@ func TestSelectionEnforcesFreshnessPolicyAndFreshMembership(t *testing.T) {
 	}
 	profile, _ := cfg.ProbeProfileByID("internet-baseline")
 	profile.RequireStrict = true
-	if m.selectionReason(r, r.Results[0], profile, now) == "" {
+	if m.selectionReason(r, r.Results[0], selectionPolicyFor(profile), now) == "" {
 		t.Fatal("strict policy ignored")
 	}
 	profile.RequireStrict = false
@@ -172,15 +172,16 @@ func TestSelectionEnforcesFreshnessPolicyAndFreshMembership(t *testing.T) {
 	profile.ExpectedRegions = []string{"JP"}
 	node := r.Results[0]
 	node.VerifiedRegion = "US"
-	if m.selectionReason(r, node, profile, now) == "" {
+	node.EgressEvidenceSource = egressSourcePrimary
+	if m.selectionReason(r, node, selectionPolicyFor(profile), now) == "" {
 		t.Fatal("region mismatch accepted")
 	}
 	node.VerifiedRegion = "JP"
-	if reason := m.selectionReason(r, node, profile, now); reason != "" {
+	if reason := m.selectionReason(r, node, selectionPolicyFor(profile), now); reason != "" {
 		t.Fatal(reason)
 	}
 	node.Stage = "screened"
-	if m.selectionReason(r, node, profile, now) == "" {
+	if m.selectionReason(r, node, selectionPolicyFor(profile), now) == "" {
 		t.Fatal("screened stable candidate accepted")
 	}
 }

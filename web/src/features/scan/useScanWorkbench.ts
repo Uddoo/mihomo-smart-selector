@@ -70,6 +70,9 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
   const now = ref(Date.now())
   let ageTimer: number | undefined
   let previewRevision = 0
+  let previewController: AbortController | undefined
+  let disposed = false
+  const previewCurrent = ref(false)
   const session = useScanSession((value) => {
     void preflight()
     if (value.status === 'interrupted') failure.value = '服务重启中断了此扫描，请重新扫描。'
@@ -88,7 +91,14 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
     { flush: 'sync' },
   )
   async function openRecent(event: Event) {
-    if (starting.value || switching.value || replacingMonitor.value || openingScan.value) return
+    if (
+      loading.value ||
+      starting.value ||
+      switching.value ||
+      replacingMonitor.value ||
+      openingScan.value
+    )
+      return
     openingScan.value = true
     try {
       await session.open((event.target as HTMLSelectElement).value)
@@ -175,15 +185,19 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
           ? '按组名推荐；可另选服务并保存绑定'
           : '未绑定服务，当前仅使用默认探测配置',
   )
-  const profileReady = computed(
+  // A binding uses the resolved group and service. Only scanning needs matching nodes.
+  const canSaveBinding = computed(
     () =>
-      discoveryValid.value &&
+      !configLocked.value &&
       !loading.value &&
+      discoveryValid.value &&
+      !!group.value &&
       !groupMissing.value &&
-      !!profile.value &&
-      !profile.value.requires_configuration &&
-      (running.value || preview.value?.ready === true),
+      previewCurrent.value &&
+      !!preview.value?.profile.id &&
+      !preview.value.profile.requires_configuration,
   )
+  const canStartScan = computed(() => canSaveBinding.value && preview.value?.ready === true)
 
   const selection = useNodeSelection({
     scan,
@@ -223,12 +237,29 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
     if (selected.length !== areas.value.length) areas.value = selected
   })
 
-  watch(group, () => {
-    serviceID.value = ''
-    nestedNavigation.value = null
-    void preflight()
+  watch(
+    group,
+    () => {
+      invalidatePreview(true)
+      serviceID.value = ''
+      nestedNavigation.value = null
+      schedulePreflight(0)
+    },
+    { flush: 'sync' },
+  )
+  watch([serviceID, areas, providerSet, mode], () => schedulePreflight(), {
+    flush: 'sync',
+    deep: true,
   })
-  watch([serviceID, areas, providerSet, mode], () => void preflight())
+  watch(
+    [running, loading, discoveryValid, groupMissing],
+    () => {
+      if (running.value || loading.value || !discoveryValid.value || groupMissing.value)
+        invalidatePreview()
+      else if (!disposed && group.value) schedulePreflight(0)
+    },
+    { flush: 'sync' },
+  )
 
   onMounted(() => {
     ageTimer = window.setInterval(() => {
@@ -236,31 +267,28 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
     }, 1000)
   })
   onBeforeUnmount(() => {
+    disposed = true
     window.clearInterval(ageTimer)
+    invalidatePreview()
     close()
-    ++previewRevision
   })
   function invalidatePreview(clear = false) {
     ++previewRevision
+    previewCurrent.value = false
+    window.clearTimeout(preflightTimer)
+    previewController?.abort()
+    previewController = undefined
     if (clear) preview.value = null
   }
-  let restoredForm = false
-  async function restore() {
-    await session.restore()
-    if (!restoredForm) {
-      await restoreForm()
-      restoredForm = true
-    }
-  }
   async function saveBinding(target = group.value, remove = false) {
-    if (configLocked.value || loading.value) return
-    const id = serviceID.value || profile.value?.id
-    if (!remove && !id) return
+    if (disposed || configLocked.value || loading.value) return
+    if (!remove && (target !== group.value || !canSaveBinding.value)) return
+    const id = remove ? '' : preview.value?.profile.id
     savingBinding.value = true
     try {
       await api('/bindings', {
         method: 'PUT',
-        body: JSON.stringify({ group: target, profile_id: remove ? '' : id }),
+        body: JSON.stringify({ group: target, profile_id: id }),
       })
       services.value = await api<ServiceCatalog>('/services')
       if (target === group.value) serviceID.value = ''
@@ -310,6 +338,7 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
     if (
       configLocked.value ||
       loading.value ||
+      !previewCurrent.value ||
       !preview.value?.nested_selectors?.some((item) => item.group === option.group)
     )
       return
@@ -327,7 +356,7 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
   async function returnToParentGroup() {
     if (configLocked.value || loading.value || !nestedNavigation.value) return
     const parent = nestedNavigation.value.path[0]
-    const profileID = serviceID.value || profile.value?.id || ''
+    const profileID = serviceID.value || (previewCurrent.value ? profile.value?.id : '') || ''
     if (!parent) return
     session.clearView()
     focusedName.value = ''
@@ -345,28 +374,50 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
     void preflight()
   }
 
+  // Filter edits arrive as bursts (region toggles, provider picks, mode
+  // changes). Coalescing them keeps a single preview in flight per settled
+  // state instead of one request per keystroke.
+  let preflightTimer: number | undefined
+  function schedulePreflight(delay = 250) {
+    // Invalidate synchronously, before the debounce window or any queued response.
+    invalidatePreview()
+    if (disposed) return
+    preflightTimer = window.setTimeout(() => void preflight(), delay)
+  }
+
   async function preflight() {
-    const revision = ++previewRevision
-    if (running.value) return
-    preview.value = null
-    if (!group.value || groupMissing.value || loading.value || !discoveryValid.value) return
+    invalidatePreview()
+    const revision = previewRevision
+    if (disposed || running.value) return
+    if (!group.value || groupMissing.value || loading.value || !discoveryValid.value) {
+      preview.value = null
+      return
+    }
+    // Retain the previous preview for display, but only the accepted response
+    // for this revision can authorize a scan or a binding write.
+    const controller = new AbortController()
+    previewController = controller
     try {
       const response = await api<ScanPreview>('/scans/preflight', {
         method: 'POST',
         body: JSON.stringify(body()),
+        signal: controller.signal,
       })
-      if (revision !== previewRevision) return
+      if (disposed || controller.signal.aborted || revision !== previewRevision) return
       preview.value = response
+      previewCurrent.value = true
     } catch (error) {
-      if (revision !== previewRevision) return
+      if (disposed || controller.signal.aborted || revision !== previewRevision) return
       preview.value = null
       failure.value = error instanceof Error ? error.message : '无法生成扫描预检'
+    } finally {
+      if (previewController === controller) previewController = undefined
     }
   }
 
   async function start() {
-    if (configLocked.value) return
-    if (!profileReady.value) {
+    if (disposed || configLocked.value) return
+    if (!canStartScan.value) {
       failure.value = profile.value?.setup_hint || '当前评分配置尚未完成。'
       return
     }
@@ -392,7 +443,7 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
   }
 
   async function retest() {
-    if (!scan.value || !candidate.value || configLocked.value) return
+    if (!scan.value || !candidate.value || configLocked.value || loading.value) return
     starting.value = true
     failure.value = ''
     scanStartError.value = ''
@@ -440,7 +491,6 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
   return {
     session,
     restoreForm,
-    restore,
     invalidatePreview,
     preflight,
     nestedNavigation,
@@ -477,6 +527,7 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
     providerSet,
     mode,
     preview,
+    previewCurrent,
     starting,
     showProfile,
     results,
@@ -492,7 +543,8 @@ export function useScanWorkbench({ discovery, historyState, feedback }: ScanWork
     binding,
     invalidBindings,
     serviceSource,
-    profileReady,
+    canStartScan,
+    canSaveBinding,
     openRecent,
     saveBinding,
     replacingMonitor,

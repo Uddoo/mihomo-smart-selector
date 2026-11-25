@@ -1,6 +1,13 @@
+<#
+.SYNOPSIS
+Cross-build the Linux binary for OpenWrt or iStoreOS.
+.PARAMETER GoArch
+Accepts arm64 (default), arm, 386, or amd64. Earlier versions also accepted
+mips and mipsle, which the pinned SQLite and libc dependencies cannot build.
+#>
 [CmdletBinding()]
 param(
-    [ValidateSet('arm64', 'arm', 'mips', 'mipsle', '386', 'amd64')]
+    [ValidateSet('arm64', 'arm', '386', 'amd64', ErrorMessage = "Unsupported GOARCH '{0}'. Choose from {1}. The pinned modernc.org/sqlite and modernc.org/libc dependencies lack Linux mips and mipsle support with CGO_ENABLED=0.")]
     [string]$GoArch = 'arm64',
 
     [string]$OutputPath = 'dist/linux'
@@ -34,9 +41,9 @@ $previousArch = $env:GOARCH
 try {
     $env:CGO_ENABLED = '0'
     $env:GOOS = 'linux'
-    $env:GOARCH = $GoArch
-    & $go build -trimpath -ldflags '-s -w' -o $binary './cmd/mihomo-smart-selector'
-    & $go version -m $binary
+    $env:GOARCH = $GoArch.ToLowerInvariant()
+    & $go -C $projectRoot build -trimpath -ldflags '-s -w' -o $binary './cmd/mihomo-smart-selector'
+    & $go -C $projectRoot version -m $binary
     Get-FileHash -LiteralPath $binary -Algorithm SHA256
 } finally {
     $env:CGO_ENABLED = $previousCgo
