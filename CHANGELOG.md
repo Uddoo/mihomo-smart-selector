@@ -15,6 +15,10 @@ the project uses [Semantic Versioning](https://semver.org/).
 - Speed up node catalog requests by filtering region aliases before regular expression matching and reusing the protocol name normalizer.
 - Reduce allocations when reading raw and archived monitoring history by reusing a per-query JSON buffer for small records.
 
+### Security
+
+- Require Go 1.27.4 or later to address GO-2026-6859 in `net/http`.
+
 ## [v0.6.0] - 2026-10-29
 
 ### Added
